@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum DocumentType {
+  BOLLETTA_LUCE
+  BOLLETTA_GAS
+  BOLLETTA_INTERNET
+  BUSTA_PAGA
+}
+
+enum AnalysisStatus {
+  PENDING
+  PROCESSING
+  DONE
+  ERROR
+}
+
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  password  String
+  documents Document[]
+  createdAt DateTime   @default(now())
+}
+
+model Document {
+  id           String         @id @default(cuid())
+  userId       String
+  user         User           @relation(fields: [userId], references: [id])
+  type         DocumentType
+  filePath     String
+  fileName     String
+  status       AnalysisStatus @default(PENDING)
+  rawExtracted Json?
+  analysis     Json?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+
+model MarketRate {
+  id         String   @id @default(cuid())
+  category   String
+  provider   String
+  planName   String
+  priceValue Float
+  priceUnit  String
+  url        String?
+  scrapedAt  DateTime @default(now())
+
+  @@unique([provider, planName])
+}

@@ -1,0 +1,21 @@
+interface BadgeProps {
+  status: "PENDING" | "PROCESSING" | "DONE" | "ERROR";
+  label?: string;
+}
+
+const statusConfig: Record<string, { bg: string; text: string; dot: string; label: string }> = {
+  PENDING: { bg: "bg-gray-100", text: "text-gray-600", dot: "bg-gray-400", label: "In attesa" },
+  PROCESSING: { bg: "bg-yellow-100", text: "text-yellow-700", dot: "bg-yellow-500", label: "In analisi" },
+  DONE: { bg: "bg-green-100", text: "text-green-700", dot: "bg-green-500", label: "Completato" },
+  ERROR: { bg: "bg-red-100", text: "text-red-700", dot: "bg-red-500", label: "Errore" },
+};
+
+export default function Badge({ status, label }: BadgeProps) {
+  const config = statusConfig[status] ?? statusConfig.PENDING;
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${config.dot}`} />
+      {label ?? config.label}
+    </span>
+  );
+}
