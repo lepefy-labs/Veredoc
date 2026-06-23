@@ -4,7 +4,7 @@ import { BustaPagaData } from "@/types/bustapaga";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const MODEL = "claude-sonnet-4-20250514";
+const MODEL = "claude-haiku-4-5";
 
 function buildBollettaPrompt(): string {
   return `Sei un esperto di bollette italiane. Analizza questo documento e restituisci SOLO un JSON con questa struttura:
