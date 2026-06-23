@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSession } from "next-auth/react";
 import FileUploader from "@/components/FileUploader";
 import AnalysisResult from "@/components/AnalysisResult";
 import Card from "@/components/ui/Card";
@@ -8,6 +9,7 @@ import Link from "next/link";
 import { TEXTS } from "@/lib/config/texts";
 
 export default function AnalyzePage() {
+  const { data: session, status } = useSession();
   const [documentId, setDocumentId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -36,6 +38,39 @@ export default function AnalyzePage() {
 
     const data = await res.json() as { id: string };
     setDocumentId(data.id);
+  }
+
+  if (status === "loading") {
+    return (
+      <main className="min-h-screen flex items-center justify-center px-4">
+        <p className="text-sm text-[#64748B]">Caricamento...</p>
+      </main>
+    );
+  }
+
+  if (!session) {
+    return (
+      <main className="min-h-screen flex items-center justify-center px-4">
+        <div className="text-center space-y-4">
+          <p className="text-[#0F172A] font-medium">Non sei autenticato.</p>
+          <div className="flex gap-3 justify-center">
+            <Link
+              href="/login"
+              className="inline-flex items-center justify-center px-5 py-2 bg-[#1B4FD8] text-white rounded-lg font-medium hover:bg-[#1640B0] transition-colors text-sm"
+            >
+              Accedi
+            </Link>
+            <span className="self-center text-[#64748B] text-sm">oppure</span>
+            <Link
+              href="/register"
+              className="inline-flex items-center justify-center px-5 py-2 bg-white text-[#0F172A] border border-[#E2E8F0] rounded-lg font-medium hover:bg-[#F7F9FC] transition-colors text-sm"
+            >
+              Registrati
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
   }
 
   return (

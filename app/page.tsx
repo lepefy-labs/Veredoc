@@ -1,7 +1,13 @@
+"use client";
+
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { TEXTS } from "@/lib/config/texts";
 
 export default function Home() {
+  const { data: session } = useSession();
+  const analyzeHref = session ? "/analyze" : "/login";
+
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-4">
       <div className="max-w-2xl w-full text-center space-y-8">
@@ -13,7 +19,7 @@ export default function Home() {
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link
-            href="/analyze"
+            href={analyzeHref}
             className="inline-flex items-center justify-center px-6 py-3 bg-[#1B4FD8] text-white rounded-lg font-medium hover:bg-[#1640B0] transition-colors"
           >
             Analizza un documento
