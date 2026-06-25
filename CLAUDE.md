@@ -1,7 +1,9 @@
 @AGENTS.md
 
-Claude Code — Istruzioni di Progetto
+Claude Code — Istruzioni di Progetto  
+
 Workflow di Consegna
+
 Non fare mai git push né tentativi di push via MCP GitHub.
 
 Il developer (Robertin) lavora esclusivamente via interfacce web e carica i file manualmente tramite GitHub web UI. Claude Code deve:
