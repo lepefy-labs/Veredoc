@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import { useSearchParams, useRouter } from "next/navigation";
 import FileUploader from "@/components/FileUploader";
 import AnalysisResult from "@/components/AnalysisResult";
 import Card from "@/components/ui/Card";
@@ -10,9 +11,18 @@ import { TEXTS } from "@/lib/config/texts";
 
 export default function AnalyzePage() {
   const { data: session, status } = useSession();
-  const [documentId, setDocumentId] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const urlId = searchParams.get("id");
+
+  const [documentId, setDocumentId] = useState<string | null>(urlId);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const resetToForm = useCallback(() => {
+    setDocumentId(null);
+    router.replace("/analyze");
+  }, [router]);
 
   async function handleUpload(file: File, tipo: string) {
     setUploading(true);
@@ -38,6 +48,7 @@ export default function AnalyzePage() {
 
     const data = await res.json() as { id: string };
     setDocumentId(data.id);
+    router.replace(`/analyze?id=${data.id}`);
   }
 
   if (status === "loading") {
@@ -86,12 +97,14 @@ export default function AnalyzePage() {
           </Link>
         </div>
 
-        <Card>
-          <FileUploader onUpload={handleUpload} loading={uploading} />
-          {uploadError && <p className="mt-3 text-sm text-[#EF4444]">{uploadError}</p>}
-        </Card>
-
-        {documentId && <AnalysisResult documentId={documentId} />}
+        {documentId ? (
+          <AnalysisResult documentId={documentId} onReset={resetToForm} />
+        ) : (
+          <Card>
+            <FileUploader onUpload={handleUpload} loading={uploading} />
+            {uploadError && <p className="mt-3 text-sm text-[#EF4444]">{uploadError}</p>}
+          </Card>
+        )}
       </div>
     </main>
   );
