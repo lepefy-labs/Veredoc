@@ -17,12 +17,13 @@ interface Document {
 
 interface AnalysisResultProps {
   documentId: string;
+  onReset?: () => void;
 }
 
 const POLL_INTERVAL_MS = 3000;
 const MAX_POLLS = 40;
 
-export default function AnalysisResult({ documentId }: AnalysisResultProps) {
+export default function AnalysisResult({ documentId, onReset }: AnalysisResultProps) {
   const [doc, setDoc] = useState<Document | null>(null);
   const [polls, setPolls] = useState(0);
 
@@ -69,8 +70,16 @@ export default function AnalysisResult({ documentId }: AnalysisResultProps) {
 
   if (doc.status === "ERROR") {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+      <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center space-y-4">
         <p className="text-sm font-medium text-red-700">Analisi fallita. Riprova con un altro file.</p>
+        {onReset && (
+          <button
+            onClick={onReset}
+            className="inline-flex items-center justify-center px-4 py-2 bg-[#1B4FD8] text-white rounded-lg text-sm font-medium hover:bg-[#1640B0] transition-colors"
+          >
+            Nuova analisi
+          </button>
+        )}
       </div>
     );
   }
