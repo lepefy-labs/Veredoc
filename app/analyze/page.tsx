@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { Suspense, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
 import FileUploader from "@/components/FileUploader";
@@ -9,7 +9,7 @@ import Card from "@/components/ui/Card";
 import Link from "next/link";
 import { TEXTS } from "@/lib/config/texts";
 
-export default function AnalyzePage() {
+function AnalyzeContent() {
   const { data: session, status } = useSession();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -107,5 +107,17 @@ export default function AnalyzePage() {
         )}
       </div>
     </main>
+  );
+}
+
+export default function AnalyzePage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen flex items-center justify-center px-4">
+        <p className="text-sm text-[#64748B]">Caricamento...</p>
+      </main>
+    }>
+      <AnalyzeContent />
+    </Suspense>
   );
 }
