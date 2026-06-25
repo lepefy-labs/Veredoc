@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import BollettaReport from "@/components/BollettaReport";
 import BustaPagaReport from "@/components/BustaPagaReport";
+import AnonymizationPreview from "@/components/AnonymizationPreview";
 import Badge from "@/components/ui/Badge";
 import { BollettaAnalysis } from "@/types/bolletta";
 import { BustaPagaData } from "@/types/bustapaga";
@@ -15,9 +16,11 @@ export interface DocMeta {
 export interface DocumentData {
   id: string;
   type: string;
-  status: "PENDING" | "PROCESSING" | "DONE" | "ERROR";
+  status: "PENDING" | "PROCESSING" | "AWAITING_CONFIRMATION" | "DONE" | "ERROR";
   analysis: unknown;
   fileName: string;
+  anonymizedText?: string | null;
+  anonymizedMap?: Record<string, string> | null;
 }
 
 interface AnalysisResultProps {
@@ -72,7 +75,7 @@ export default function AnalysisResult({ documentId, onReset, onDocLoaded }: Ana
   }, [documentId]);
 
   useEffect(() => {
-    if (!doc || doc.status === "DONE" || doc.status === "ERROR") return;
+    if (!doc || doc.status === "DONE" || doc.status === "ERROR" || doc.status === "AWAITING_CONFIRMATION") return;
     if (polls >= MAX_POLLS) return;
 
     const timer = setTimeout(() => {
@@ -86,6 +89,21 @@ export default function AnalysisResult({ documentId, onReset, onDocLoaded }: Ana
   }, [doc, polls, documentId]);
 
   if (!doc) return null;
+
+  if (doc.status === "AWAITING_CONFIRMATION") {
+    return (
+      <AnonymizationPreview
+        documentId={doc.id}
+        anonymizedText={doc.anonymizedText ?? ""}
+        anonymizedMap={doc.anonymizedMap ?? {}}
+        onConfirmed={() => {
+          setDoc((prev) => prev ? { ...prev, status: "PROCESSING" } : prev);
+          setPolls(0);
+        }}
+        onReset={onReset}
+      />
+    );
+  }
 
   if (doc.status === "PENDING" || doc.status === "PROCESSING") {
     return (

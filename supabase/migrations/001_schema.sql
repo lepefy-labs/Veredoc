@@ -131,3 +131,16 @@ END $$;
 
 ALTER TABLE "User"
   ADD COLUMN IF NOT EXISTS "plan" "UserPlan" NOT NULL DEFAULT 'FREE';
+
+-- -----------------------------------------------------------------------------
+-- MIGRATION: Anonymizer preview — status e campi intermedi
+-- Eseguire su Supabase SQL Editor
+-- -----------------------------------------------------------------------------
+
+-- Aggiunge AWAITING_CONFIRMATION all'enum AnalysisStatus
+ALTER TYPE "AnalysisStatus" ADD VALUE IF NOT EXISTS 'AWAITING_CONFIRMATION';
+
+-- Aggiunge campi per lo stato intermedio di anonimizzazione
+ALTER TABLE "Document"
+  ADD COLUMN IF NOT EXISTS "anonymizedText" TEXT,
+  ADD COLUMN IF NOT EXISTS "anonymizedMap"  JSONB;

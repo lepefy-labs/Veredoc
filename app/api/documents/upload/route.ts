@@ -7,7 +7,7 @@ import { DocumentType, AnalysisStatus, UserPlan } from "@prisma/client";
 import { MAX_FILE_SIZE_BYTES, ACCEPTED_FILE_TYPES } from "@/lib/config/constants";
 import { createClient } from "@supabase/supabase-js";
 import { v4 as uuidv4 } from "uuid";
-import { anonymize, deanonymize } from "@/lib/anonymizer";
+import { anonymize } from "@/lib/anonymizer";
 import Anthropic from "@anthropic-ai/sdk";
 
 function getSupabase() {
@@ -135,50 +135,20 @@ async function runAnalysis(
     const fileBase64 = buffer.toString("base64");
     const aiMimeType = mimeType as "application/pdf" | "image/jpeg" | "image/png";
 
-    // PRO users: extract text first, anonymize, then analyze, then deanonymize
+    // PRO users: extract text, anonymize, then wait for user confirmation
     if (userPlan === UserPlan.PRO) {
       const rawText = await extractTextViaAI(fileBase64, mimeType);
       const { anonymized, map } = anonymize(rawText);
 
-      if (isBustaPaga) {
-        const { raw } = await analyzeDocument({
-          fileBase64,
-          mimeType: aiMimeType,
-          documentType: "BUSTA_PAGA",
-          textOverride: anonymized,
-        });
-        const rawStr = JSON.stringify(raw);
-        const deanonymizedStr = deanonymize(rawStr, map);
-        const finalRaw = JSON.parse(deanonymizedStr);
-        await prisma.document.update({
-          where: { id: documentId },
-          data: {
-            status: AnalysisStatus.DONE,
-            rawExtracted: finalRaw as object,
-            analysis: finalRaw as object,
-          },
-        });
-      } else {
-        const docTypeKey = docType as "BOLLETTA_LUCE" | "BOLLETTA_GAS" | "BOLLETTA_INTERNET";
-        const { raw } = await analyzeDocument({
-          fileBase64,
-          mimeType: aiMimeType,
-          documentType: docTypeKey,
-          textOverride: anonymized,
-        });
-        const rawStr = JSON.stringify(raw);
-        const deanonymizedStr = deanonymize(rawStr, map);
-        const finalRaw = JSON.parse(deanonymizedStr);
-        const analysis = await arricchisciConFrontoMercato(finalRaw as Parameters<typeof arricchisciConFrontoMercato>[0]);
-        await prisma.document.update({
-          where: { id: documentId },
-          data: {
-            status: AnalysisStatus.DONE,
-            rawExtracted: finalRaw as object,
-            analysis: analysis as object,
-          },
-        });
-      }
+      await prisma.document.update({
+        where: { id: documentId },
+        data: {
+          status: AnalysisStatus.AWAITING_CONFIRMATION,
+          anonymizedText: anonymized,
+          anonymizedMap: map as object,
+        },
+      });
+      return;
     } else {
       // FREE users: direct analysis
       if (isBustaPaga) {
