@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { AnalysisStatus } from "@prisma/client";
+import { AnalysisStatus, Prisma } from "@prisma/client";
 import { createClient } from "@supabase/supabase-js";
 
 function getSupabase() {
@@ -70,10 +70,10 @@ export async function DELETE(
       deletedAt: new Date(),
       fileName: "documento_eliminato",
       filePath: null,
-      analysis: null,
-      rawExtracted: null,
+      analysis: Prisma.DbNull,
+      rawExtracted: Prisma.DbNull,
       anonymizedText: null,
-      anonymizedMap: null,
+      anonymizedMap: Prisma.DbNull,
     },
   });
 
