@@ -1,11 +1,12 @@
 interface BadgeProps {
-  status: "PENDING" | "PROCESSING" | "DONE" | "ERROR";
+  status: "PENDING" | "PROCESSING" | "AWAITING_CONFIRMATION" | "DONE" | "ERROR";
   label?: string;
 }
 
 const statusConfig: Record<string, { bg: string; text: string; dot: string; label: string }> = {
   PENDING: { bg: "bg-gray-100", text: "text-gray-600", dot: "bg-gray-400", label: "In attesa" },
   PROCESSING: { bg: "bg-yellow-100", text: "text-yellow-700", dot: "bg-yellow-500", label: "In analisi" },
+  AWAITING_CONFIRMATION: { bg: "bg-blue-100", text: "text-blue-700", dot: "bg-blue-500", label: "Da confermare" },
   DONE: { bg: "bg-green-100", text: "text-green-700", dot: "bg-green-500", label: "Completato" },
   ERROR: { bg: "bg-red-100", text: "text-red-700", dot: "bg-red-500", label: "Errore" },
 };
