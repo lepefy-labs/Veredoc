@@ -42,7 +42,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
     session({ session, token }) {
       if (token.id) session.user.id = token.id as string;
-      if (token.plan) session.user.plan = token.plan;
+      if (token.plan) session.user.plan = token.plan as import("@prisma/client").UserPlan;
       return session;
     },
   },
