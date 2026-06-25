@@ -36,6 +36,8 @@ NEXT_PUBLIC_SUPABASE_URL="https://[PROJECT].supabase.co"
 NEXT_PUBLIC_SUPABASE_ANON_KEY="..."
 SUPABASE_SERVICE_ROLE_KEY="..."
 ANTHROPIC_API_KEY="sk-ant-..."
+AI_PROVIDER="anthropic"         # anthropic | openai | gemini (default: anthropic)
+ANTHROPIC_MODEL="claude-haiku-4-5" # modello da usare (default: claude-haiku-4-5)
 NEXTAUTH_SECRET="stringa-casuale-32-char"
 NEXTAUTH_URL="http://localhost:3000"
 SCRAPERAPI_KEY="..."
@@ -75,7 +77,14 @@ app/
     market-rates/          # Tariffe mercato dal DB
     jobs/scrape-market-rates/ # Job notturno scraping
 lib/
-  anthropic.ts             # Client Claude + prompts
+  ai/
+    index.ts               # Unico punto di export pubblico
+    analyze.ts             # Selezione provider via AI_PROVIDER env
+    types.ts               # Interfacce AIProvider, AnalyzeDocumentParams, AnalyzeDocumentResult
+    providers/
+      anthropic.ts         # Implementazione Anthropic (default)
+      openai.ts            # Stub (non implementato)
+      gemini.ts            # Stub (non implementato)
   auth.ts                  # Configurazione NextAuth
   prisma.ts                # Singleton Prisma
   config/

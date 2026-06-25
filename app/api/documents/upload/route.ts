@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { analyzeBolletta, analyzeBustaPaga } from "@/lib/anthropic";
+import { analyzeDocument } from "@/lib/ai";
 import { arricchisciConFrontoMercato } from "@/lib/parsers/bolletta";
 import { DocumentType, AnalysisStatus } from "@prisma/client";
 import { MAX_FILE_SIZE_BYTES, ACCEPTED_FILE_TYPES } from "@/lib/config/constants";
@@ -96,9 +96,11 @@ async function runAnalysis(
 
   try {
     const isBustaPaga = docType === DocumentType.BUSTA_PAGA;
+    const fileBase64 = buffer.toString("base64");
+    const aiMimeType = mimeType as 'application/pdf' | 'image/jpeg' | 'image/png';
 
     if (isBustaPaga) {
-      const raw = await analyzeBustaPaga(buffer, mimeType);
+      const { raw } = await analyzeDocument({ fileBase64, mimeType: aiMimeType, documentType: "BUSTA_PAGA" });
       await prisma.document.update({
         where: { id: documentId },
         data: {
@@ -108,8 +110,9 @@ async function runAnalysis(
         },
       });
     } else {
-      const raw = await analyzeBolletta(buffer, mimeType);
-      const analysis = await arricchisciConFrontoMercato(raw);
+      const docTypeKey = docType as 'BOLLETTA_LUCE' | 'BOLLETTA_GAS' | 'BOLLETTA_INTERNET';
+      const { raw } = await analyzeDocument({ fileBase64, mimeType: aiMimeType, documentType: docTypeKey });
+      const analysis = await arricchisciConFrontoMercato(raw as Parameters<typeof arricchisciConFrontoMercato>[0]);
       await prisma.document.update({
         where: { id: documentId },
         data: {
