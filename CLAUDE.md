@@ -16,4 +16,5 @@ Il developer (Robertin) lavora esclusivamente via interfacce web e carica i file
 Non tentare git push, mcp__github__push_files, né mcp__github__create_or_update_file. La sessione remota non ha permessi di scrittura verso GitHub — qualsiasi tentativo di push restituirà 403 e spreca tempo.
 
 Contesto Prodotto
+
 Ad ogni modifica genera un CONTEXT.md con l'architettura completa e aggiornata, stack tecnico e stato attuale del progetto.
