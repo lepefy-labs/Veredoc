@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { analyzeDocument } from "@/lib/ai";
 import { arricchisciConFrontoMercato } from "@/lib/parsers/bolletta";
 import { deanonymize } from "@/lib/anonymizer";
-import { DocumentType, AnalysisStatus } from "@prisma/client";
+import { DocumentType, AnalysisStatus, Prisma } from "@prisma/client";
 
 export async function POST(
   req: NextRequest,
@@ -70,7 +70,7 @@ async function runAnalysisFromAnonymized(
           rawExtracted: finalRaw as object,
           analysis: finalRaw as object,
           anonymizedText: null,
-          anonymizedMap: null,
+          anonymizedMap: Prisma.JsonNull,
         },
       });
     } else {
@@ -91,7 +91,7 @@ async function runAnalysisFromAnonymized(
           rawExtracted: finalRaw as object,
           analysis: analysis as object,
           anonymizedText: null,
-          anonymizedMap: null,
+          anonymizedMap: Prisma.JsonNull,
         },
       });
     }
