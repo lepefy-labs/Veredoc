@@ -21,13 +21,20 @@
 ```
 app/
   api/
-    admin/set-plan/route.ts   <- POST endpoint (ADMIN_SECRET) per cambiare plan utente
-    auth/[...nextauth]/       <- NextAuth handlers
+    admin/set-plan/route.ts         <- POST (ADMIN_SECRET) per cambiare plan utente
+    auth/
+      [...nextauth]/route.ts        <- NextAuth handlers
+      register/route.ts             <- POST registrazione utente
     documents/
-      upload/route.ts         <- Upload PDF + analisi AI asincrona
-      [id]/route.ts           <- GET stato documento
-  dashboard/                  <- UI dashboard utente
-  login/ register/            <- Pagine auth
+      upload/route.ts               <- Upload PDF + avvio analisi AI
+      [id]/route.ts                 <- GET stato documento
+      [id]/confirm/route.ts         <- POST conferma analisi PRO (step AWAITING_CONFIRMATION)
+    jobs/
+      scrape-market-rates/route.ts  <- POST job scraping tariffe mercato (SCRAPERAPI_KEY)
+    market-rates/route.ts           <- GET tariffe mercato (query param: ?category=)
+  dashboard/                        <- UI dashboard utente
+  analyze/                          <- Pagina analisi documento
+  (auth)/login/ (auth)/register/    <- Pagine auth
 
 lib/
   ai/
@@ -69,13 +76,13 @@ scripts/                      <- Script scraping tariffe mercato
 
 ### Enums
 - `DocumentType`: BOLLETTA_LUCE | BOLLETTA_GAS | BOLLETTA_INTERNET | BUSTA_PAGA
-- `AnalysisStatus`: PENDING | PROCESSING | DONE | ERROR
+- `AnalysisStatus`: PENDING | PROCESSING | **AWAITING_CONFIRMATION** | DONE | ERROR | DELETED
 - `UserPlan`: FREE | PRO
 
 ### Modelli
 - **User**: id, email, password, plan (UserPlan, default FREE), documents[], createdAt
-- **Document**: id, userId, type, filePath, fileName, status, rawExtracted (JSON), analysis (JSON), createdAt, updatedAt
-- **MarketRate**: id, category, provider, planName, priceValue, priceUnit, url, scrapedAt
+- **Document**: id, userId, type, filePath, fileName, status, rawExtracted (JSON), analysis (JSON), **anonymizedText (String?)**, **anonymizedMap (JSON?)**, createdAt, updatedAt, **deletedAt (DateTime?)**
+- **MarketRate**: id, category, provider, planName, priceValue, priceUnit, url, scrapedAt — unique su `(provider, planName)`
 
 ## Flusso Upload Documento
 
@@ -93,7 +100,15 @@ runAnalysis() -- FREE:
   PDF -> Claude (analisi diretta) -> salva DONE
 
 runAnalysis() -- PRO:
-  PDF -> Claude (estrai testo grezzo) -> anonymize() -> Claude (analisi) -> deanonymize() -> salva DONE
+  PDF -> Claude (estrai testo grezzo)
+      -> anonymize()
+      -> salva anonymizedText + anonymizedMap su Document
+      -> status = AWAITING_CONFIRMATION
+      -> l'utente può modificare la mappa via AnonymizationPreview
+      -> POST /api/documents/[id]/confirm  (con mappa opzionale)
+      -> Claude (analisi su testo anonimizzato)
+      -> deanonymize()
+      -> salva DONE, cancella anonymizedText/anonymizedMap
 ```
 
 ## Modulo Anonymizer (`lib/anonymizer/`)
@@ -130,6 +145,7 @@ Anonimizza PII italiani dal testo prima di inviarlo all'AI (solo utenti PRO):
 | `ANTHROPIC_MODEL`             | Modello Claude (default: claude-haiku-4-5)     |
 | `AI_PROVIDER`                 | Provider AI (default: anthropic)               |
 | `ADMIN_SECRET`                | Bearer token per POST /api/admin/set-plan      |
+| `SCRAPERAPI_KEY`              | API key ScraperAPI per job scraping tariffe     |
 
 ## Admin: Promuovere Utente a PRO
 
@@ -142,17 +158,22 @@ curl -X POST https://veredoc.vercel.app/api/admin/set-plan \
 
 ## Stato Feature
 
-| Feature                        | Stato     |
-|--------------------------------|-----------|
-| Upload + analisi PDF           | Fatto     |
-| Confronto mercato bollette     | Fatto     |
-| Analisi buste paga             | Fatto     |
-| Auth (register/login/session)  | Fatto     |
-| UserPlan (FREE/PRO) su User    | Fatto     |
-| Anonymizer layer PRO           | Fatto     |
-| Admin set-plan endpoint        | Fatto     |
-| API pubblica anonymizer        | Futuro    |
-| API key per developer esterni  | Futuro    |
-| Billing / Stripe               | Futuro    |
-| UI upgrade PRO                 | Futuro    |
-| Rate limiting                  | Futuro    |
+| Feature                              | Stato     |
+|--------------------------------------|-----------|
+| Upload + analisi PDF                 | Fatto     |
+| Confronto mercato bollette           | Fatto     |
+| Analisi buste paga                   | Fatto     |
+| Auth (register/login/session)        | Fatto     |
+| UserPlan (FREE/PRO) su User          | Fatto     |
+| Anonymizer layer PRO                 | Fatto     |
+| Flusso AWAITING_CONFIRMATION PRO     | Fatto     |
+| AnonymizationPreview (revisione PII) | Fatto     |
+| Admin set-plan endpoint              | Fatto     |
+| Soft delete documenti (deletedAt)    | Fatto     |
+| Scraping tariffe mercato (ScraperAPI)| Fatto     |
+| GET /api/market-rates                | Fatto     |
+| API pubblica anonymizer              | Futuro    |
+| API key per developer esterni        | Futuro    |
+| Billing / Stripe                     | Futuro    |
+| UI upgrade PRO                       | Futuro    |
+| Rate limiting                        | Futuro    |
