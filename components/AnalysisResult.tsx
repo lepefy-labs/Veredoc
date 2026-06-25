@@ -137,7 +137,7 @@ export default function AnalysisResult({ documentId, onReset, onDocLoaded }: Ana
     <div>
       {isBustaPaga
         ? <BustaPagaReport data={doc.analysis as BustaPagaData} />
-        : <BollettaReport data={doc.analysis as BollettaAnalysis} />}
+        : <BollettaReport data={doc.analysis as BollettaAnalysis} documentId={doc.id} />}
     </div>
   );
 }

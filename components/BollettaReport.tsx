@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Card from "@/components/ui/Card";
 import { BollettaAnalysis } from "@/types/bolletta";
 import { RISPARMIO_MINIMO_BANNER_EURO } from "@/lib/config/constants";
@@ -5,9 +8,27 @@ import { TEXTS } from "@/lib/config/texts";
 
 interface BollettaReportProps {
   data: BollettaAnalysis;
+  documentId: string;
 }
 
-export default function BollettaReport({ data }: BollettaReportProps) {
+export default function BollettaReport({ data, documentId }: BollettaReportProps) {
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefreshMarket = async () => {
+    setRefreshing(true);
+    try {
+      const res = await fetch(`/api/documents/${documentId}/refresh-market`, {
+        method: "POST",
+      });
+      if (res.ok) {
+        window.location.reload();
+      }
+    } catch {
+      // non critico
+    } finally {
+      setRefreshing(false);
+    }
+  };
   const confronto = data.confronto_mercato;
   const risparmioBestOffer = confronto?.offerte_consigliate?.[0]?.risparmio_stimato ?? 0;
   const risparmiAnnuo = risparmioBestOffer * 12;
@@ -115,6 +136,16 @@ export default function BollettaReport({ data }: BollettaReportProps) {
           <p className="text-sm text-[#64748B]">{TEXTS.analysis.noMarketData}</p>
         </Card>
       )}
+
+      <div className="text-center pt-2">
+        <button
+          onClick={handleRefreshMarket}
+          disabled={refreshing}
+          className="text-sm text-[#64748B] hover:text-[#1B4FD8] underline disabled:opacity-50"
+        >
+          {refreshing ? "Aggiornamento..." : "Aggiorna confronto mercato"}
+        </button>
+      </div>
     </div>
   );
 }
