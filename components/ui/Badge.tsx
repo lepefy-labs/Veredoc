@@ -1,5 +1,5 @@
 interface BadgeProps {
-  status: "PENDING" | "PROCESSING" | "AWAITING_CONFIRMATION" | "DONE" | "ERROR";
+  status: "PENDING" | "PROCESSING" | "AWAITING_CONFIRMATION" | "DONE" | "ERROR" | "DELETED";
   label?: string;
 }
 
@@ -9,6 +9,7 @@ const statusConfig: Record<string, { bg: string; text: string; dot: string; labe
   AWAITING_CONFIRMATION: { bg: "bg-blue-100", text: "text-blue-700", dot: "bg-blue-500", label: "Da confermare" },
   DONE: { bg: "bg-green-100", text: "text-green-700", dot: "bg-green-500", label: "Completato" },
   ERROR: { bg: "bg-red-100", text: "text-red-700", dot: "bg-red-500", label: "Errore" },
+  DELETED: { bg: "bg-gray-100", text: "text-gray-400", dot: "bg-gray-300", label: "Eliminato" },
 };
 
 export default function Badge({ status, label }: BadgeProps) {
