@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useCallback } from "react";
+import { Suspense, useState, useCallback, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
 import FileUploader from "@/components/FileUploader";
@@ -16,6 +16,11 @@ function AnalyzeContent() {
   const urlId = searchParams.get("id");
 
   const [documentId, setDocumentId] = useState<string | null>(urlId);
+
+  useEffect(() => {
+    setDocumentId(urlId);
+    if (!urlId) setDocMeta(null);
+  }, [urlId]);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [docMeta, setDocMeta] = useState<DocMeta | null>(null);
