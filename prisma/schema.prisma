@@ -24,6 +24,7 @@ enum AnalysisStatus {
   AWAITING_CONFIRMATION
   DONE
   ERROR
+  DELETED
 }
 
 model User {
@@ -40,7 +41,7 @@ model Document {
   userId       String
   user         User           @relation(fields: [userId], references: [id])
   type         DocumentType
-  filePath     String
+  filePath     String?
   fileName     String
   status       AnalysisStatus @default(PENDING)
   rawExtracted    Json?
@@ -49,6 +50,7 @@ model Document {
   anonymizedMap   Json?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
+  deletedAt       DateTime?
 }
 
 model MarketRate {

@@ -144,3 +144,17 @@ ALTER TYPE "AnalysisStatus" ADD VALUE IF NOT EXISTS 'AWAITING_CONFIRMATION';
 ALTER TABLE "Document"
   ADD COLUMN IF NOT EXISTS "anonymizedText" TEXT,
   ADD COLUMN IF NOT EXISTS "anonymizedMap"  JSONB;
+
+-- -----------------------------------------------------------------------------
+-- MIGRATION: Soft delete documenti
+-- Eseguire su Supabase SQL Editor
+-- -----------------------------------------------------------------------------
+
+ALTER TYPE "AnalysisStatus" ADD VALUE IF NOT EXISTS 'DELETED';
+
+ALTER TABLE "Document"
+  ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMPTZ;
+
+-- filePath diventa nullable per i documenti eliminati
+ALTER TABLE "Document"
+  ALTER COLUMN "filePath" DROP NOT NULL;

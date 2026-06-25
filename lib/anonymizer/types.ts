@@ -2,6 +2,7 @@ export type EntityType =
   | "CODICE_FISCALE"
   | "IBAN"
   | "PARTITA_IVA"
+  | "RAGIONE_SOCIALE"
   | "NOME"
   | "INDIRIZZO"
   | "POD"

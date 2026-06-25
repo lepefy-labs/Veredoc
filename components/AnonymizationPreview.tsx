@@ -14,6 +14,7 @@ const ENTITY_LABEL: Record<string, string> = {
   CODICE_FISCALE: "Codice Fiscale",
   IBAN: "IBAN",
   PARTITA_IVA: "Partita IVA",
+  RAGIONE_SOCIALE: "Ragione Sociale",
   NOME: "Nome",
   INDIRIZZO: "Indirizzo",
   POD: "POD",
