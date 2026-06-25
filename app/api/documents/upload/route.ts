@@ -36,24 +36,21 @@ async function extractTextViaAI(fileBase64: string, mimeType: string): Promise<s
   const model = process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5";
   const mediaType = mimeType as "application/pdf" | "image/jpeg" | "image/png";
 
+  const content: Anthropic.MessageParam["content"] = [
+    {
+      type: "document",
+      source: { type: "base64", media_type: mediaType, data: fileBase64 },
+    } as Anthropic.DocumentBlockParam,
+    {
+      type: "text",
+      text: "Estrai solo il testo grezzo da questo documento, senza analisi né formattazione. Rispondi solo con il testo estratto.",
+    },
+  ];
+
   const response = await client.messages.create({
     model,
     max_tokens: 4096,
-    messages: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "document",
-            source: { type: "base64", media_type: mediaType, data: fileBase64 },
-          } as Parameters<typeof client.messages.create>[0]["messages"][0]["content"][0],
-          {
-            type: "text",
-            text: "Estrai solo il testo grezzo da questo documento, senza analisi né formattazione. Rispondi solo con il testo estratto.",
-          },
-        ],
-      },
-    ],
+    messages: [{ role: "user", content }],
   });
 
   return response.content
