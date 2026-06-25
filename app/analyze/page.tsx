@@ -4,7 +4,7 @@ import { Suspense, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
 import FileUploader from "@/components/FileUploader";
-import AnalysisResult from "@/components/AnalysisResult";
+import AnalysisResult, { type DocMeta } from "@/components/AnalysisResult";
 import Card from "@/components/ui/Card";
 import Link from "next/link";
 import { TEXTS } from "@/lib/config/texts";
@@ -18,9 +18,11 @@ function AnalyzeContent() {
   const [documentId, setDocumentId] = useState<string | null>(urlId);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [docMeta, setDocMeta] = useState<DocMeta | null>(null);
 
   const resetToForm = useCallback(() => {
     setDocumentId(null);
+    setDocMeta(null);
     router.replace("/analyze");
   }, [router]);
 
@@ -28,6 +30,7 @@ function AnalyzeContent() {
     setUploading(true);
     setUploadError(null);
     setDocumentId(null);
+    setDocMeta(null);
 
     const formData = new FormData();
     formData.append("file", file);
@@ -50,6 +53,9 @@ function AnalyzeContent() {
     setDocumentId(data.id);
     router.replace(`/analyze?id=${data.id}`);
   }
+
+  const pageTitle = documentId && docMeta ? docMeta.title : TEXTS.upload.title;
+  const pageSubtitle = documentId && docMeta ? docMeta.subtitle : TEXTS.upload.subtitle;
 
   if (status === "loading") {
     return (
@@ -89,8 +95,10 @@ function AnalyzeContent() {
       <div className="max-w-2xl mx-auto space-y-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-[#0F172A]">{TEXTS.upload.title}</h1>
-            <p className="text-sm text-[#64748B] mt-1">{TEXTS.upload.subtitle}</p>
+            <h1 className="text-2xl font-bold text-[#0F172A]">{pageTitle}</h1>
+            {pageSubtitle && (
+              <p className="text-sm text-[#64748B] mt-1">{pageSubtitle}</p>
+            )}
           </div>
           <Link href="/dashboard" className="text-sm text-[#1B4FD8] hover:underline">
             Dashboard →
@@ -98,7 +106,11 @@ function AnalyzeContent() {
         </div>
 
         {documentId ? (
-          <AnalysisResult documentId={documentId} onReset={resetToForm} />
+          <AnalysisResult
+            documentId={documentId}
+            onReset={resetToForm}
+            onDocLoaded={setDocMeta}
+          />
         ) : (
           <Card>
             <FileUploader onUpload={handleUpload} loading={uploading} />

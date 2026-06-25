@@ -7,7 +7,12 @@ import Badge from "@/components/ui/Badge";
 import { BollettaAnalysis } from "@/types/bolletta";
 import { BustaPagaData } from "@/types/bustapaga";
 
-interface Document {
+export interface DocMeta {
+  title: string;
+  subtitle: string;
+}
+
+export interface DocumentData {
   id: string;
   type: string;
   status: "PENDING" | "PROCESSING" | "DONE" | "ERROR";
@@ -18,42 +23,66 @@ interface Document {
 interface AnalysisResultProps {
   documentId: string;
   onReset?: () => void;
+  onDocLoaded?: (meta: DocMeta) => void;
 }
 
 const POLL_INTERVAL_MS = 3000;
 const MAX_POLLS = 40;
 
-export default function AnalysisResult({ documentId, onReset }: AnalysisResultProps) {
-  const [doc, setDoc] = useState<Document | null>(null);
+const BOLLETTA_TIPO_LABEL: Record<string, string> = {
+  luce: "Bolletta Luce",
+  gas: "Bolletta Gas",
+  internet: "Bolletta Internet",
+  telefonia: "Bolletta Telefonia",
+};
+
+function resolveDocMeta(doc: DocumentData): DocMeta {
+  if (doc.type === "BUSTA_PAGA") {
+    const data = doc.analysis as BustaPagaData;
+    return {
+      title: "Busta Paga",
+      subtitle: data?.datore_lavoro ?? "",
+    };
+  }
+  const data = doc.analysis as BollettaAnalysis;
+  return {
+    title: BOLLETTA_TIPO_LABEL[data?.tipo] ?? "Bolletta",
+    subtitle: data?.fornitore ?? "",
+  };
+}
+
+export default function AnalysisResult({ documentId, onReset, onDocLoaded }: AnalysisResultProps) {
+  const [doc, setDoc] = useState<DocumentData | null>(null);
   const [polls, setPolls] = useState(0);
+
+  function applyDoc(data: DocumentData) {
+    setDoc(data);
+    setPolls((p) => p + 1);
+    if (data.status === "DONE" && onDocLoaded) {
+      onDocLoaded(resolveDocMeta(data));
+    }
+  }
 
   useEffect(() => {
     if (!documentId) return;
-
-    async function fetchDoc() {
-      const res = await fetch(`/api/documents/${documentId}`);
-      if (!res.ok) return;
-      const data = await res.json() as Document;
-      setDoc(data);
-      setPolls((p) => p + 1);
-    }
-
-    fetchDoc();
+    fetch(`/api/documents/${documentId}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => data && applyDoc(data as DocumentData));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documentId]);
 
   useEffect(() => {
     if (!doc || doc.status === "DONE" || doc.status === "ERROR") return;
     if (polls >= MAX_POLLS) return;
 
-    const timer = setTimeout(async () => {
-      const res = await fetch(`/api/documents/${documentId}`);
-      if (!res.ok) return;
-      const data = await res.json() as Document;
-      setDoc(data);
-      setPolls((p) => p + 1);
+    const timer = setTimeout(() => {
+      fetch(`/api/documents/${documentId}`)
+        .then((r) => r.ok ? r.json() : null)
+        .then((data) => data && applyDoc(data as DocumentData));
     }, POLL_INTERVAL_MS);
 
     return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc, polls, documentId]);
 
   if (!doc) return null;
