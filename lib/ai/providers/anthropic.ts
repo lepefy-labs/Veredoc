@@ -35,7 +35,7 @@ export class AnthropicProvider implements AIProvider {
   private client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
   async analyzeDocument(params: AnalyzeDocumentParams): Promise<AnalyzeDocumentResult> {
-    const { fileBase64, mimeType, documentType } = params
+    const { fileBase64, mimeType, documentType, textOverride } = params
     const isPdf = mimeType === 'application/pdf'
 
     type ImageMediaType = 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'
@@ -58,16 +58,17 @@ export class AnthropicProvider implements AIProvider {
       },
     }
 
+    const contentBlocks = textOverride
+      ? [{ type: 'text' as const, text: `${buildPrompt(documentType)}\n\nTesto del documento:\n${textOverride}` }]
+      : [isPdf ? docContent : imageContent, { type: 'text' as const, text: buildPrompt(documentType) }]
+
     const response = await this.client.messages.create({
       model: MODEL,
       max_tokens: 2048,
       messages: [
         {
           role: 'user',
-          content: [
-            isPdf ? docContent : imageContent,
-            { type: 'text', text: buildPrompt(documentType) },
-          ],
+          content: contentBlocks,
         },
       ],
     })

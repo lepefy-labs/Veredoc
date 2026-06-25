@@ -118,3 +118,16 @@ CREATE TABLE IF NOT EXISTS "MarketRate" (
   CONSTRAINT "MarketRate_pkey" PRIMARY KEY ("id"),
   CONSTRAINT "MarketRate_provider_planName_key" UNIQUE ("provider", "planName")
 );
+
+-- -----------------------------------------------------------------------------
+-- MIGRATION: Aggiunta campo plan a User
+-- Eseguire su Supabase SQL Editor se la tabella User esiste già.
+-- -----------------------------------------------------------------------------
+DO $$ BEGIN
+  CREATE TYPE "UserPlan" AS ENUM ('FREE', 'PRO');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
+ALTER TABLE "User"
+  ADD COLUMN IF NOT EXISTS "plan" "UserPlan" NOT NULL DEFAULT 'FREE';

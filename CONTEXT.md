@@ -1,155 +1,158 @@
-# Veredoc — Contesto Architetturale
-
-## Panoramica
-
-Veredoc analizza bollette (luce, gas, internet) e buste paga italiane tramite AI. Carica il documento, lo invia al provider AI, estrae dati strutturati in JSON, confronta i costi col mercato e li presenta in italiano semplice.
-
----
+# Veredoc — Architettura e Stato Progetto
 
 ## Stack Tecnico
+- **Framework**: Next.js 16 App Router + TypeScript
+- **Styling**: Tailwind CSS 4
+- **ORM**: Prisma 7 (Prisma Client JS, configurazione in `prisma.config.ts`)
+- **Database**: Supabase (PostgreSQL) + Supabase Storage
+- **Auth**: NextAuth v5 beta (JWT strategy, Credentials provider)
+- **AI**: Anthropic Claude (claude-haiku-4-5 default, override via `ANTHROPIC_MODEL`)
+- **Deployment**: Vercel
+- **Package Manager**: pnpm
 
-| Layer | Tecnologia |
-|---|---|
-| Framework | Next.js (App Router) |
-| Linguaggio | TypeScript |
-| Database | PostgreSQL via Prisma ORM |
-| Storage file | Supabase Storage |
-| Auth | NextAuth.js |
-| AI (default) | Anthropic Claude (`@anthropic-ai/sdk`) |
-| Scraping tariffe | ScraperAPI |
-| Deploy | Vercel |
+## Note Critiche
+- **Prisma 7**: `url` e `directUrl` NON vanno in `schema.prisma` — sono in `prisma.config.ts`
+- **Migrations**: non si usa `prisma migrate dev`. Lo schema viene applicato manualmente su Supabase SQL Editor
+- **Source of truth SQL**: `supabase/migrations/001_schema.sql`
+- **prisma generate**: gira automaticamente via `postinstall` su Vercel
 
----
-
-## Architettura
+## Struttura Directory
 
 ```
 app/
-  (auth)/login|register/        # Pagine autenticazione
-  dashboard/                    # Lista documenti utente
-  analyze/                      # Upload + risultato analisi
   api/
-    auth/                       # NextAuth + registrazione
+    admin/set-plan/route.ts   <- POST endpoint (ADMIN_SECRET) per cambiare plan utente
+    auth/[...nextauth]/       <- NextAuth handlers
     documents/
-      upload/route.ts           # POST: upload + avvia analisi asincrona
-      [id]/route.ts             # GET: stato e risultato documento
-    market-rates/               # GET: tariffe mercato dal DB
-    jobs/scrape-market-rates/   # Job notturno scraping tariffe
+      upload/route.ts         <- Upload PDF + analisi AI asincrona
+      [id]/route.ts           <- GET stato documento
+  dashboard/                  <- UI dashboard utente
+  login/ register/            <- Pagine auth
 
 lib/
-  ai/                           # Layer di astrazione AI provider
-    index.ts                    # Unico export pubblico: analyzeDocument + types
-    analyze.ts                  # Legge AI_PROVIDER env, istanzia provider
-    types.ts                    # AIProvider, AnalyzeDocumentParams, AnalyzeDocumentResult
+  ai/
+    analyze.ts                <- Factory provider AI
+    types.ts                  <- AnalyzeDocumentParams (include textOverride per PRO)
     providers/
-      anthropic.ts              # AnthropicProvider: usa ANTHROPIC_MODEL env
-      openai.ts                 # OpenAIProvider: stub (non implementato)
-      gemini.ts                 # GeminiProvider: stub (non implementato)
-  auth.ts                       # Config NextAuth
-  prisma.ts                     # Singleton Prisma
-  config/
-    constants.ts                # Soglie numeriche, limiti, costanti
-    texts.ts                    # Testi UI modificabili
+      anthropic.ts            <- Implementazione Claude (supporta textOverride)
+      openai.ts / gemini.ts   <- Stub (non implementati)
+  anonymizer/                 <- Modulo anonimizzazione PII (PRO users)
+    types.ts                  <- EntityType, DetectedEntity, AnonymizationResult
+    patterns.ts               <- Regex per CF, IBAN, P.IVA, POD, PDR, email, ecc.
+    engine.ts                 <- anonymize() e deanonymize()
+    index.ts                  <- Export pubblico del modulo
   parsers/
-    bolletta.ts                 # arricchisciConFrontoMercato()
-    bustapaga.ts                # Calcoli busta paga
-
-components/
-  FileUploader.tsx
-  AnalysisResult.tsx
-  BollettaReport.tsx
-  BustaPagaReport.tsx
-  ui/                           # Button, Card, Badge
+    bolletta.ts               <- Arricchimento con confronto mercato
+    bustapaga.ts              <- Calcoli derivati (aliquota effettiva, TFR)
+  config/
+    constants.ts              <- Soglie, limiti, URL scraping
+    texts.ts                  <- Stringhe UI in italiano
+  auth.ts                     <- NextAuth config con plan nel JWT/session
+  auth.config.ts              <- Route protette middleware
+  prisma.ts                   <- PrismaClient singleton
 
 types/
-  bolletta.ts                   # BollettaData
-  bustapaga.ts                  # BustaPagaData
+  next-auth.d.ts              <- Estensione tipi NextAuth (User.plan, Session.plan, JWT.plan)
+  bolletta.ts                 <- Tipi analisi bollette
+  bustapaga.ts                <- Tipi analisi buste paga
+
+prisma/
+  schema.prisma               <- Schema Prisma (UserPlan enum, User.plan field)
+
+supabase/migrations/
+  001_schema.sql              <- Schema SQL + migration UserPlan (appendere al DB esistente)
+
+scripts/                      <- Script scraping tariffe mercato
 ```
 
----
+## Schema DB (Prisma)
 
-## Layer AI (`lib/ai/`)
+### Enums
+- `DocumentType`: BOLLETTA_LUCE | BOLLETTA_GAS | BOLLETTA_INTERNET | BUSTA_PAGA
+- `AnalysisStatus`: PENDING | PROCESSING | DONE | ERROR
+- `UserPlan`: FREE | PRO
 
-### Interfacce (`types.ts`)
+### Modelli
+- **User**: id, email, password, plan (UserPlan, default FREE), documents[], createdAt
+- **Document**: id, userId, type, filePath, fileName, status, rawExtracted (JSON), analysis (JSON), createdAt, updatedAt
+- **MarketRate**: id, category, provider, planName, priceValue, priceUnit, url, scrapedAt
 
-```ts
-interface AIProvider {
-  analyzeDocument(params: AnalyzeDocumentParams): Promise<AnalyzeDocumentResult>
-}
+## Flusso Upload Documento
 
-interface AnalyzeDocumentParams {
-  fileBase64: string
-  mimeType: 'application/pdf' | 'image/jpeg' | 'image/png'
-  documentType: 'BOLLETTA_LUCE' | 'BOLLETTA_GAS' | 'BOLLETTA_INTERNET' | 'BUSTA_PAGA'
-}
+```
+POST /api/documents/upload
+  -> auth check
+  -> validazione file (tipo + dimensione)
+  -> upload su Supabase Storage
+  -> fetch userPlan da DB
+  -> create Document (PENDING)
+  -> 202 { id, status: "PENDING" }
+  -> [async] runAnalysis()
 
-interface AnalyzeDocumentResult {
-  raw: unknown   // JSON estratto dall'AI
-  provider: string
-}
+runAnalysis() -- FREE:
+  PDF -> Claude (analisi diretta) -> salva DONE
+
+runAnalysis() -- PRO:
+  PDF -> Claude (estrai testo grezzo) -> anonymize() -> Claude (analisi) -> deanonymize() -> salva DONE
 ```
 
-### Selezione provider (`analyze.ts`)
+## Modulo Anonymizer (`lib/anonymizer/`)
 
-Legge `process.env.AI_PROVIDER` (default: `'anthropic'`). Usa `require()` lazy per non caricare SDK non usati.
+Anonimizza PII italiani dal testo prima di inviarlo all'AI (solo utenti PRO):
 
-### Provider Anthropic (`providers/anthropic.ts`)
+| EntityType      | Pattern                                        |
+|-----------------|------------------------------------------------|
+| CODICE_FISCALE  | Formato standard codice fiscale IT             |
+| IBAN            | IT + 2 cifre + 23 alfanumerici (con spazi)     |
+| PARTITA_IVA     | 11 cifre                                       |
+| POD             | IT###E########                                 |
+| PDR             | 14 cifre                                       |
+| TELEFONO        | Fissi e mobili IT, con/senza +39               |
+| EMAIL           | RFC standard                                   |
+| NUMERO_CONTO    | 10-12 cifre precedute da c/c, conto, n.        |
+| NOME            | Token dopo keyword contestuale (Intestatario:) |
+| INDIRIZZO       | Via/Viale/Corso/Piazza + testo + civico        |
 
-- Modello: `process.env.ANTHROPIC_MODEL ?? 'claude-haiku-4-5'`
-- Supporta PDF (via `document` block) e immagini (via `image` block)
-- Prompt differenziati per bollette vs busta paga
-- Estrae il primo oggetto JSON dalla risposta
-
----
-
-## Flusso di analisi documento
-
-1. `POST /api/documents/upload` riceve il file via FormData
-2. Valida tipo e dimensione
-3. Carica il file su Supabase Storage
-4. Crea record `Document` in DB con `status: PENDING`
-5. Lancia `runAnalysis()` in background (`void`)
-6. Ritorna `{ id, status: "PENDING" }` con HTTP 202
-7. `runAnalysis()` chiama `analyzeDocument()` da `lib/ai`
-8. Il provider AI restituisce `{ raw, provider }`
-9. Per bollette: `arricchisciConFrontoMercato(raw)` aggiunge confronto mercato
-10. Aggiorna DB con `status: DONE`, `rawExtracted`, `analysis`
-
----
+**API**:
+- `anonymize(text, options?)` -> `{ anonymized, map, entities }`
+- `deanonymize(text, map)` -> testo ripristinato
 
 ## Variabili d'Ambiente
 
-| Variabile | Default | Descrizione |
-|---|---|---|
-| `ANTHROPIC_API_KEY` | — | Chiave API Anthropic (obbligatoria se AI_PROVIDER=anthropic) |
-| `AI_PROVIDER` | `anthropic` | Provider AI: `anthropic` \| `openai` \| `gemini` |
-| `ANTHROPIC_MODEL` | `claude-haiku-4-5` | Modello Claude da usare |
-| `DATABASE_URL` | — | PostgreSQL connection string |
-| `NEXT_PUBLIC_SUPABASE_URL` | — | URL progetto Supabase |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | — | Chiave pubblica Supabase |
-| `SUPABASE_SERVICE_ROLE_KEY` | — | Chiave service role Supabase |
-| `NEXTAUTH_SECRET` | — | Segreto NextAuth (32+ char) |
-| `NEXTAUTH_URL` | — | URL base app |
-| `SCRAPERAPI_KEY` | — | Chiave ScraperAPI per tariffe mercato |
-| `JOBS_SECRET` | — | Token per proteggere endpoint job notturni |
+| Variabile                     | Descrizione                                    |
+|-------------------------------|------------------------------------------------|
+| `DATABASE_URL`                | Supabase connection string (pooler)            |
+| `DIRECT_URL`                  | Supabase direct URL (per prisma config)        |
+| `NEXT_PUBLIC_SUPABASE_URL`    | URL pubblico Supabase                          |
+| `SUPABASE_SERVICE_ROLE_KEY`   | Service role key Supabase                      |
+| `NEXTAUTH_SECRET`             | Secret per NextAuth JWT                        |
+| `ANTHROPIC_API_KEY`           | API key Anthropic                              |
+| `ANTHROPIC_MODEL`             | Modello Claude (default: claude-haiku-4-5)     |
+| `AI_PROVIDER`                 | Provider AI (default: anthropic)               |
+| `ADMIN_SECRET`                | Bearer token per POST /api/admin/set-plan      |
 
----
+## Admin: Promuovere Utente a PRO
 
-## Tipi di documento supportati
+```bash
+curl -X POST https://veredoc.vercel.app/api/admin/set-plan \
+  -H "Authorization: Bearer <ADMIN_SECRET>" \
+  -H "Content-Type: application/json" \
+  -d '{"email": "user@example.com", "plan": "PRO"}'
+```
 
-| Tipo | `DocumentType` Prisma | Prompt |
-|---|---|---|
-| Bolletta luce | `BOLLETTA_LUCE` | Bolletta italiana |
-| Bolletta gas | `BOLLETTA_GAS` | Bolletta italiana |
-| Bolletta internet | `BOLLETTA_INTERNET` | Bolletta italiana |
-| Busta paga | `BUSTA_PAGA` | Cedolino stipendio |
+## Stato Feature
 
----
-
-## Stato attuale
-
-- Implementazione Anthropic: **completa e funzionante**
-- Implementazione OpenAI: **stub** (lancia eccezione)
-- Implementazione Gemini: **stub** (lancia eccezione)
-- Analisi bollette con confronto mercato: **attiva**
-- Analisi buste paga: **attiva**
+| Feature                        | Stato     |
+|--------------------------------|-----------|
+| Upload + analisi PDF           | Fatto     |
+| Confronto mercato bollette     | Fatto     |
+| Analisi buste paga             | Fatto     |
+| Auth (register/login/session)  | Fatto     |
+| UserPlan (FREE/PRO) su User    | Fatto     |
+| Anonymizer layer PRO           | Fatto     |
+| Admin set-plan endpoint        | Fatto     |
+| API pubblica anonymizer        | Futuro    |
+| API key per developer esterni  | Futuro    |
+| Billing / Stripe               | Futuro    |
+| UI upgrade PRO                 | Futuro    |
+| Rate limiting                  | Futuro    |

@@ -6,6 +6,11 @@ datasource db {
   provider = "postgresql"
 }
 
+enum UserPlan {
+  FREE
+  PRO
+}
+
 enum DocumentType {
   BOLLETTA_LUCE
   BOLLETTA_GAS
@@ -24,6 +29,7 @@ model User {
   id        String     @id @default(cuid())
   email     String     @unique
   password  String
+  plan      UserPlan   @default(FREE)
   documents Document[]
   createdAt DateTime   @default(now())
 }

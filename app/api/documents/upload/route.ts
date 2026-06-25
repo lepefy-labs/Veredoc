@@ -3,10 +3,12 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { analyzeDocument } from "@/lib/ai";
 import { arricchisciConFrontoMercato } from "@/lib/parsers/bolletta";
-import { DocumentType, AnalysisStatus } from "@prisma/client";
+import { DocumentType, AnalysisStatus, UserPlan } from "@prisma/client";
 import { MAX_FILE_SIZE_BYTES, ACCEPTED_FILE_TYPES } from "@/lib/config/constants";
 import { createClient } from "@supabase/supabase-js";
 import { v4 as uuidv4 } from "uuid";
+import { anonymize, deanonymize } from "@/lib/anonymizer";
+import Anthropic from "@anthropic-ai/sdk";
 
 function getSupabase() {
   return createClient(
@@ -27,6 +29,37 @@ function detectDocumentType(filename: string, tipo?: string): DocumentType {
   if (lower.includes("internet") || lower.includes("fibra")) return DocumentType.BOLLETTA_INTERNET;
   if (lower.includes("busta") || lower.includes("paga") || lower.includes("cedolino")) return DocumentType.BUSTA_PAGA;
   return DocumentType.BOLLETTA_LUCE;
+}
+
+async function extractTextViaAI(fileBase64: string, mimeType: string): Promise<string> {
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+  const model = process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5";
+  const mediaType = mimeType as "application/pdf" | "image/jpeg" | "image/png";
+
+  const response = await client.messages.create({
+    model,
+    max_tokens: 4096,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "document",
+            source: { type: "base64", media_type: mediaType, data: fileBase64 },
+          } as Parameters<typeof client.messages.create>[0]["messages"][0]["content"][0],
+          {
+            type: "text",
+            text: "Estrai solo il testo grezzo da questo documento, senza analisi né formattazione. Rispondi solo con il testo estratto.",
+          },
+        ],
+      },
+    ],
+  });
+
+  return response.content
+    .filter((b) => b.type === "text")
+    .map((b) => (b as { type: "text"; text: string }).text)
+    .join("\n");
 }
 
 export async function POST(req: NextRequest) {
@@ -67,6 +100,12 @@ export async function POST(req: NextRequest) {
 
   const docType = detectDocumentType(file.name, tipoHint ?? undefined);
 
+  const userRecord = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { plan: true },
+  });
+  const userPlan = userRecord?.plan ?? UserPlan.FREE;
+
   const document = await prisma.document.create({
     data: {
       userId: session.user.id,
@@ -77,8 +116,7 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  // Analisi asincrona — non blocca la risposta
-  void runAnalysis(document.id, docType, buffer, file.type);
+  void runAnalysis(document.id, docType, buffer, file.type, userPlan);
 
   return NextResponse.json({ id: document.id, status: "PENDING" }, { status: 202 });
 }
@@ -87,7 +125,8 @@ async function runAnalysis(
   documentId: string,
   docType: DocumentType,
   buffer: Buffer,
-  mimeType: string
+  mimeType: string,
+  userPlan: UserPlan
 ) {
   await prisma.document.update({
     where: { id: documentId },
@@ -97,30 +136,77 @@ async function runAnalysis(
   try {
     const isBustaPaga = docType === DocumentType.BUSTA_PAGA;
     const fileBase64 = buffer.toString("base64");
-    const aiMimeType = mimeType as 'application/pdf' | 'image/jpeg' | 'image/png';
+    const aiMimeType = mimeType as "application/pdf" | "image/jpeg" | "image/png";
 
-    if (isBustaPaga) {
-      const { raw } = await analyzeDocument({ fileBase64, mimeType: aiMimeType, documentType: "BUSTA_PAGA" });
-      await prisma.document.update({
-        where: { id: documentId },
-        data: {
-          status: AnalysisStatus.DONE,
-          rawExtracted: raw as object,
-          analysis: raw as object,
-        },
-      });
+    // PRO users: extract text first, anonymize, then analyze, then deanonymize
+    if (userPlan === UserPlan.PRO) {
+      const rawText = await extractTextViaAI(fileBase64, mimeType);
+      const { anonymized, map } = anonymize(rawText);
+
+      if (isBustaPaga) {
+        const { raw } = await analyzeDocument({
+          fileBase64,
+          mimeType: aiMimeType,
+          documentType: "BUSTA_PAGA",
+          textOverride: anonymized,
+        });
+        const rawStr = JSON.stringify(raw);
+        const deanonymizedStr = deanonymize(rawStr, map);
+        const finalRaw = JSON.parse(deanonymizedStr);
+        await prisma.document.update({
+          where: { id: documentId },
+          data: {
+            status: AnalysisStatus.DONE,
+            rawExtracted: finalRaw as object,
+            analysis: finalRaw as object,
+          },
+        });
+      } else {
+        const docTypeKey = docType as "BOLLETTA_LUCE" | "BOLLETTA_GAS" | "BOLLETTA_INTERNET";
+        const { raw } = await analyzeDocument({
+          fileBase64,
+          mimeType: aiMimeType,
+          documentType: docTypeKey,
+          textOverride: anonymized,
+        });
+        const rawStr = JSON.stringify(raw);
+        const deanonymizedStr = deanonymize(rawStr, map);
+        const finalRaw = JSON.parse(deanonymizedStr);
+        const analysis = await arricchisciConFrontoMercato(finalRaw as Parameters<typeof arricchisciConFrontoMercato>[0]);
+        await prisma.document.update({
+          where: { id: documentId },
+          data: {
+            status: AnalysisStatus.DONE,
+            rawExtracted: finalRaw as object,
+            analysis: analysis as object,
+          },
+        });
+      }
     } else {
-      const docTypeKey = docType as 'BOLLETTA_LUCE' | 'BOLLETTA_GAS' | 'BOLLETTA_INTERNET';
-      const { raw } = await analyzeDocument({ fileBase64, mimeType: aiMimeType, documentType: docTypeKey });
-      const analysis = await arricchisciConFrontoMercato(raw as Parameters<typeof arricchisciConFrontoMercato>[0]);
-      await prisma.document.update({
-        where: { id: documentId },
-        data: {
-          status: AnalysisStatus.DONE,
-          rawExtracted: raw as object,
-          analysis: analysis as object,
-        },
-      });
+      // FREE users: direct analysis
+      if (isBustaPaga) {
+        const { raw } = await analyzeDocument({ fileBase64, mimeType: aiMimeType, documentType: "BUSTA_PAGA" });
+        await prisma.document.update({
+          where: { id: documentId },
+          data: {
+            status: AnalysisStatus.DONE,
+            rawExtracted: raw as object,
+            analysis: raw as object,
+          },
+        });
+      } else {
+        const docTypeKey = docType as "BOLLETTA_LUCE" | "BOLLETTA_GAS" | "BOLLETTA_INTERNET";
+        const { raw } = await analyzeDocument({ fileBase64, mimeType: aiMimeType, documentType: docTypeKey });
+        const analysis = await arricchisciConFrontoMercato(raw as Parameters<typeof arricchisciConFrontoMercato>[0]);
+        await prisma.document.update({
+          where: { id: documentId },
+          data: {
+            status: AnalysisStatus.DONE,
+            rawExtracted: raw as object,
+            analysis: analysis as object,
+          },
+        });
+      }
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Errore sconosciuto";
