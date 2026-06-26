@@ -251,7 +251,7 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
                       <th className="text-left text-xs text-[#64748B] font-medium pb-2 pr-3">Offerta</th>
                       <th className="text-right text-xs text-[#64748B] font-medium pb-2 pr-3">€/kWh</th>
                       <th className="text-right text-xs text-[#64748B] font-medium pb-2 pr-3">Quota fissa</th>
-                      <th className="text-right text-xs text-[#64748B] font-medium pb-2 pr-3">Costo/mese</th>
+                      <th className="text-right text-xs text-[#64748B] font-medium pb-2 pr-3">Energia/mese</th>
                       <th className="text-right text-xs text-[#64748B] font-medium pb-2 pr-3">Risparmio/mese</th>
                       <th className="pb-2"></th>
                     </tr>
@@ -296,22 +296,25 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
                           }
                         </td>
                         <td className="py-3 text-right">
-                          {offerta.url && (
+                          {offerta.url ? (
                             <a
                               href={offerta.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-xs text-[#1B4FD8] font-medium whitespace-nowrap hover:underline"
+                              className="text-sm text-[#1B4FD8] font-medium whitespace-nowrap hover:underline"
                             >
                               Vedi offerta →
                             </a>
-                          )}
+                          ) : null}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+              <p className="text-xs text-[#64748B] mt-2">
+                * Solo componente materia energia. Esclude rete, oneri, accise e IVA.
+              </p>
 
               {confronto.arera_prezzo_kwh && (
                 <p className="text-xs text-[#94A3B8] mt-3">
