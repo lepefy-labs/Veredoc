@@ -39,6 +39,13 @@ export async function POST(
   return NextResponse.json({ status: "PROCESSING" });
 }
 
+const TIPO_MAP: Partial<Record<string, DocumentType>> = {
+  luce:       DocumentType.BOLLETTA_LUCE,
+  gas:        DocumentType.BOLLETTA_GAS,
+  internet:   DocumentType.BOLLETTA_INTERNET,
+  busta_paga: DocumentType.BUSTA_PAGA,
+};
+
 async function runAnalysisFromAnonymized(
   documentId: string,
   docType: DocumentType,
@@ -63,6 +70,17 @@ async function runAnalysisFromAnonymized(
       });
       const rawRestored = deanonymize(JSON.stringify(raw), map);
       const finalRaw = JSON.parse(rawRestored);
+
+      const tipoRilevatoRaw = (finalRaw as Record<string, unknown>).tipo_rilevato as string | undefined;
+      const tipoRilevato = tipoRilevatoRaw ? TIPO_MAP[tipoRilevatoRaw] : undefined;
+      const typeChanged = tipoRilevato !== undefined && tipoRilevato !== docType;
+      if (typeChanged) {
+        await prisma.document.update({
+          where: { id: documentId },
+          data: { type: tipoRilevato, typeCorrected: true, typeSelectedByUser: docType },
+        });
+      }
+
       await prisma.document.update({
         where: { id: documentId },
         data: {
@@ -83,7 +101,22 @@ async function runAnalysisFromAnonymized(
       });
       const rawRestored = deanonymize(JSON.stringify(raw), map);
       const finalRaw = JSON.parse(rawRestored);
-      const analysis = await arricchisciConFrontoMercato(finalRaw as Parameters<typeof arricchisciConFrontoMercato>[0]);
+
+      const tipoRilevatoRaw = (finalRaw as Record<string, unknown>).tipo_rilevato as string | undefined;
+      const tipoRilevato = tipoRilevatoRaw ? TIPO_MAP[tipoRilevatoRaw] : undefined;
+      const typeChanged = tipoRilevato !== undefined && tipoRilevato !== docType;
+      if (typeChanged) {
+        await prisma.document.update({
+          where: { id: documentId },
+          data: { type: tipoRilevato, typeCorrected: true, typeSelectedByUser: docType },
+        });
+      }
+
+      const effectiveDocType = (typeChanged && tipoRilevato ? tipoRilevato : docType) as "BOLLETTA_LUCE" | "BOLLETTA_GAS" | "BOLLETTA_INTERNET" | "BUSTA_PAGA";
+      const analysis = effectiveDocType !== DocumentType.BUSTA_PAGA
+        ? await arricchisciConFrontoMercato(finalRaw as Parameters<typeof arricchisciConFrontoMercato>[0])
+        : finalRaw;
+
       await prisma.document.update({
         where: { id: documentId },
         data: {

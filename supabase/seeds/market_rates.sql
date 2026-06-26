@@ -60,3 +60,54 @@ DO UPDATE SET
   "priceUnit"   = EXCLUDED."priceUnit",
   "url"         = EXCLUDED."url",
   "scrapedAt"   = NOW();
+
+-- Offerte gas aggiornate con monthlyFee (CCV mensile)
+-- CCV = Corrispettivo di Commercializzazione e Vendita
+-- Dati di riferimento: giugno 2026
+
+INSERT INTO "MarketRate" ("id", "category", "provider", "planName", "priceValue", "priceUnit", "monthlyFee", "url", "scrapedAt")
+VALUES
+
+-- Edison — Web Gas — CCV ~8 €/mese
+(gen_random_uuid(), 'gas', 'Edison', 'Web Gas', 0.9850, '€/Smc', 8.00,
+ 'https://www.edison.it/it/per-la-casa/luce-e-gas', NOW()),
+
+-- Octopus Energy — Flex Gas — ZERO quota fissa
+(gen_random_uuid(), 'gas', 'Octopus Energy', 'Flex Gas', 0.9720, '€/Smc', 0.00,
+ 'https://octopusenergy.it/offerte-gas', NOW()),
+
+-- Enel Energia — Gas Fissa Web 36M — CCV 10 €/mese
+(gen_random_uuid(), 'gas', 'Enel Energia', 'Gas Fissa Web 36M', 1.0150, '€/Smc', 10.00,
+ 'https://www.enel.it/it-it', NOW()),
+
+-- A2A Energia — Smart Casa+ Gas — CCV ~8 €/mese
+(gen_random_uuid(), 'gas', 'A2A Energia', 'Smart Casa+ Gas', 0.9900, '€/Smc', 8.00,
+ 'https://www.a2aenergia.eu/offerte-luce-gas', NOW()),
+
+-- ENGIE — Gas Variabile PSV — CCV ~8 €/mese
+(gen_random_uuid(), 'gas', 'ENGIE', 'Gas Variabile PSV', 0.9650, '€/Smc', 8.00,
+ 'https://www.engie.it/casa/offerte-luce-gas/', NOW()),
+
+-- Eni Plenitude — Trend Casa Gas Plus — ZERO quota fissa
+(gen_random_uuid(), 'gas', 'Eni Plenitude', 'Trend Casa Gas Plus', 1.0080, '€/Smc', 0.00,
+ 'https://www.plenitude.com/it/offerte-casa', NOW()),
+
+-- Illumia — SicurInsieme Gas — ZERO quota fissa
+(gen_random_uuid(), 'gas', 'Illumia', 'SicurInsieme Gas', 0.9780, '€/Smc', 0.00,
+ 'https://www.illumia.it/luce-e-gas', NOW()),
+
+-- Sorgenia — Next Energy Sunlight Gas — CCV ~8 €/mese
+(gen_random_uuid(), 'gas', 'Sorgenia', 'Next Energy Sunlight Gas', 0.9600, '€/Smc', 8.00,
+ 'https://www.sorgenia.it/offerte-gas', NOW()),
+
+-- ARERA tutela vulnerabili gas — CCV non applicabile
+(gen_random_uuid(), 'gas', 'ARERA', 'Tutela Vulnerabili Giugno 2026', 1.0350, '€/Smc', NULL,
+ 'https://www.arera.it/prezzi-e-tariffe', NOW())
+
+ON CONFLICT ("provider", "planName")
+DO UPDATE SET
+  "priceValue"  = EXCLUDED."priceValue",
+  "monthlyFee"  = EXCLUDED."monthlyFee",
+  "priceUnit"   = EXCLUDED."priceUnit",
+  "url"         = EXCLUDED."url",
+  "scrapedAt"   = NOW();
