@@ -18,7 +18,6 @@ export async function POST(req: NextRequest) {
     where: {
       status: AnalysisStatus.DONE,
       type: { in: [DocumentType.BOLLETTA_LUCE, DocumentType.BOLLETTA_GAS, DocumentType.BOLLETTA_INTERNET] },
-      rawExtracted: { not: null },
       deletedAt: null,
     },
     select: { id: true, rawExtracted: true },
@@ -28,6 +27,7 @@ export async function POST(req: NextRequest) {
   const errors: string[] = [];
 
   for (const doc of documents) {
+    if (!doc.rawExtracted) continue;
     try {
       const analysis = await arricchisciConFrontoMercato(doc.rawExtracted as any);
       await prisma.document.update({
