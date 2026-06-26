@@ -158,3 +158,10 @@ ALTER TABLE "Document"
 -- filePath diventa nullable per i documenti eliminati
 ALTER TABLE "Document"
   ALTER COLUMN "filePath" DROP NOT NULL;
+
+-- -----------------------------------------------------------------------------
+-- MIGRATION: Aggiunta monthlyFee a MarketRate
+-- quota fissa mensile in € (CCV annuale / 12) — null se non disponibile
+-- -----------------------------------------------------------------------------
+ALTER TABLE "MarketRate"
+  ADD COLUMN IF NOT EXISTS "monthlyFee" FLOAT;

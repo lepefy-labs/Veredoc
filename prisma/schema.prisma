@@ -60,6 +60,7 @@ model MarketRate {
   planName   String
   priceValue Float
   priceUnit  String
+  monthlyFee Float?
   url        String?
   scrapedAt  DateTime @default(now())
 
