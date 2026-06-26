@@ -36,7 +36,7 @@ export async function POST(
   if (document.status !== AnalysisStatus.DONE) {
     return NextResponse.json({ error: "Il documento non è ancora analizzato." }, { status: 400 });
   }
-  if (!BOLLETTA_TYPES.includes(document.type)) {
+  if (!(BOLLETTA_TYPES as string[]).includes(document.type)) {
     return NextResponse.json({ error: "Il confronto mercato è disponibile solo per le bollette." }, { status: 400 });
   }
   if (!document.rawExtracted) {
