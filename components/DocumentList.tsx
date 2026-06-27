@@ -157,6 +157,7 @@ export default function DocumentList({ initialDocuments }: DocumentListProps) {
               <button
                 onClick={(e) => {
                   e.preventDefault();
+                  e.stopPropagation();
                   setConfirmDeleteId(doc.id);
                 }}
                 className="absolute top-2 right-2 text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded"

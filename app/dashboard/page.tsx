@@ -25,7 +25,13 @@ export default async function DashboardPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-[#0F172A]">{TEXTS.dashboard.title}</h1>
-            <p className="text-sm text-[#64748B] mt-1">{TEXTS.dashboard.subtitle}</p>
+            <p className="text-sm text-[#64748B] mt-1">
+              {documents.length === 0
+                ? "Carica il tuo primo documento per iniziare"
+                : documents.length === 1
+                  ? "1 documento analizzato"
+                  : `${documents.length} documenti analizzati`}
+            </p>
           </div>
           <Link href="/analyze">
             <Button size="md">{TEXTS.dashboard.newAnalysis}</Button>
