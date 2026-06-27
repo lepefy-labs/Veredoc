@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import BollettaReport from "@/components/BollettaReport";
 import BustaPagaReport from "@/components/BustaPagaReport";
 import AnonymizationPreview from "@/components/AnonymizationPreview";
-import Badge from "@/components/ui/Badge";
 import { BollettaAnalysis } from "@/types/bolletta";
 import { BustaPagaData } from "@/types/bustapaga";
 import { DOCUMENT_TYPE_LABELS } from "@/lib/config/constants";
@@ -34,6 +33,35 @@ interface AnalysisResultProps {
 
 const POLL_INTERVAL_MS = 3000;
 const MAX_POLLS = 40;
+
+const LOADING_MESSAGES = [
+  "Sto leggendo il documento...",
+  "Identifico le voci...",
+  "Confronto con i prezzi di mercato...",
+  "Quasi pronto...",
+];
+
+function LoadingSpinner() {
+  const [msgIdx, setMsgIdx] = useState(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    intervalRef.current = setInterval(() => {
+      setMsgIdx((i) => (i + 1) % LOADING_MESSAGES.length);
+    }, 3000);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, []);
+
+  return (
+    <div className="flex flex-col items-center gap-4 py-12">
+      <div className="w-10 h-10 border-4 border-[#1B4FD8] border-t-transparent rounded-full animate-spin" />
+      <p className="text-sm font-medium text-[#0F172A] transition-all">{LOADING_MESSAGES[msgIdx]}</p>
+      <p className="text-xs text-[#64748B]">L&apos;analisi richiede circa 30-60 secondi</p>
+    </div>
+  );
+}
 
 const BOLLETTA_TIPO_LABEL: Record<string, string> = {
   luce: "Bolletta Luce",
@@ -109,13 +137,7 @@ export default function AnalysisResult({ documentId, onReset, onDocLoaded }: Ana
   }
 
   if (doc.status === "PENDING" || doc.status === "PROCESSING") {
-    return (
-      <div className="flex flex-col items-center gap-4 py-12">
-        <div className="w-10 h-10 border-4 border-[#1B4FD8] border-t-transparent rounded-full animate-spin" />
-        <Badge status={doc.status} />
-        <p className="text-sm text-[#64748B]">Analisi in corso, attendere…</p>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   if (doc.status === "ERROR") {

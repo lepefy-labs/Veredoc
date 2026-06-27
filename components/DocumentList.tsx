@@ -83,10 +83,24 @@ export default function DocumentList({ initialDocuments }: DocumentListProps) {
 
   if (documents.length === 0) {
     return (
-      <Card className="text-center py-12">
-        <p className="text-[#64748B] text-sm">{TEXTS.dashboard.empty}</p>
-        <Link href="/analyze" className="mt-4 inline-block text-sm text-[#1B4FD8] hover:underline">
-          {TEXTS.dashboard.newAnalysis}
+      <Card className="text-center py-16">
+        <div className="flex justify-center mb-4">
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect x="8" y="4" width="24" height="32" rx="3" stroke="#CBD5E1" strokeWidth="2" fill="white"/>
+            <path d="M16 12h8M16 18h8M16 24h4" stroke="#CBD5E1" strokeWidth="2" strokeLinecap="round"/>
+            <circle cx="35" cy="33" r="7" stroke="#1B4FD8" strokeWidth="2" fill="white"/>
+            <path d="M40.5 38.5L44 42" stroke="#1B4FD8" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+        </div>
+        <p className="text-[#0F172A] font-semibold text-base">Nessun documento ancora</p>
+        <p className="text-[#64748B] text-sm mt-2 max-w-xs mx-auto">
+          Carica la tua prima bolletta o busta paga e scopri se stai pagando troppo.
+        </p>
+        <Link
+          href="/analyze"
+          className="mt-6 inline-flex items-center justify-center px-5 py-2.5 bg-[#1B4FD8] text-white rounded-lg text-sm font-medium hover:bg-[#1640B0] transition-colors"
+        >
+          Carica un documento
         </Link>
       </Card>
     );
