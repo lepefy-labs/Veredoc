@@ -3,7 +3,7 @@ export const TEXTS = {
   app: {
     name: "Veredoc",
     tagline: "I tuoi documenti, spiegati in chiaro.",
-    description: "Carica le tue bollette e buste paga. Veredoc analizza tutto automaticamente e ti dice se stai pagando troppo.",
+    description: "Carica una bolletta per scoprire se stai pagando troppo, o una busta paga per capire ogni voce. Nessun inserimento manuale — basta il PDF.",
   },
   upload: {
     title: "Analizza un documento",
