@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { TEXTS } from "@/lib/config/texts";
+import VeredocLogo from "@/components/ui/VeredocLogo";
 
 export default function Home() {
   const { data: session } = useSession();
@@ -12,7 +13,9 @@ export default function Home() {
     <main className="min-h-screen flex flex-col items-center justify-center px-4">
       <div className="max-w-2xl w-full text-center space-y-8">
         <div>
-          <h1 className="text-5xl font-bold tracking-tight text-[#1B4FD8]">Veredoc</h1>
+          <div className="flex justify-center">
+            <VeredocLogo variant="full" size="lg" />
+          </div>
           <p className="mt-3 text-xl text-[#0F172A] font-medium">{TEXTS.app.tagline}</p>
           <p className="mt-2 text-[#64748B]">{TEXTS.app.description}</p>
         </div>

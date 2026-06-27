@@ -6,6 +6,7 @@ import Link from "next/link";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import { TEXTS } from "@/lib/config/texts";
+import VeredocLogo from "@/components/ui/VeredocLogo";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -39,7 +40,9 @@ export default function RegisterPage() {
   return (
     <main className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
-        <h1 className="text-2xl font-bold text-center text-[#0F172A] mb-2">{TEXTS.auth.registerTitle}</h1>
+        <div className="flex justify-center mb-6">
+          <VeredocLogo variant="full" size="md" />
+        </div>
         <p className="text-sm text-center text-[#64748B] mb-6">
           {TEXTS.auth.hasAccount}{" "}
           <Link href="/login" className="text-[#1B4FD8] font-medium hover:underline">{TEXTS.auth.signIn}</Link>

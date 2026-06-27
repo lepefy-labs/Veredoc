@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 244 44" width="200" height="44">
+  <!-- Icon -->
+  <svg x="0" y="0" width="44" height="44" viewBox="0 0 96 96">
+    <rect width="96" height="96" rx="20" fill="#1B4FD8"/>
+    <rect x="18" y="10" width="52" height="66" rx="5" fill="white" opacity="0.15"/>
+    <path d="M52 10 L70 28 H52 V10 Z" fill="#0F3BB5" opacity="0.5"/>
+    <rect x="26" y="36" width="22" height="3" rx="1.5" fill="white" opacity="0.45"/>
+    <rect x="26" y="44" width="34" height="3" rx="1.5" fill="white" opacity="0.45"/>
+    <rect x="26" y="52" width="26" height="3" rx="1.5" fill="white" opacity="0.45"/>
+    <path d="M22 68 L35 80 L68 48" stroke="#10B981" stroke-width="5"
+          stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </svg>
+  <!-- Wordmark -->
+  <text x="54" y="32" font-family="Inter, sans-serif" font-weight="800" font-size="30" fill="none">
+    <tspan fill="#1B4FD8">vere</tspan><tspan fill="#10B981">doc</tspan>
+  </text>
+</svg>
