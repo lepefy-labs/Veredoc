@@ -24,7 +24,7 @@ export default function Navbar() {
             </Link>
             <button
               onClick={() => signOut({ callbackUrl: "/" })}
-              className="text-[#64748B] hover:text-[#0F172A] transition-colors"
+              className="text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"
             >
               Esci
             </button>
