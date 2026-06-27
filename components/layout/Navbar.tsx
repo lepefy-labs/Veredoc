@@ -7,7 +7,7 @@ export default function Navbar() {
   const { data: session } = useSession();
   return (
     <nav className="bg-white border-b border-[#E2E8F0] px-6 py-3 flex items-center justify-between sticky top-0 z-50">
-      <Link href="/" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
+      <Link href={session ? "/dashboard" : "/"} onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
         <VeredocLogo variant="full" size="sm" />
       </Link>
       <div className="flex items-center gap-4 text-sm font-medium">
