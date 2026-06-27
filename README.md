@@ -48,11 +48,11 @@ JOBS_SECRET="stringa-casuale-32-char"
 
 Crea un bucket `documents` su Supabase Storage (Public o con policy RLS appropriata).
 
-### 4. Esegui migration database
+### 4. Setup Database
 
-```bash
-pnpm dlx prisma migrate dev --name init
-```
+1. Esegui `supabase/migrations/001_schema.sql` su Supabase SQL Editor
+2. Esegui `supabase/rls.sql` su Supabase SQL Editor
+3. Esegui il seed `supabase/seeds/market_rates.sql` per le tariffe iniziali
 
 ### 5. Avvia in sviluppo
 
