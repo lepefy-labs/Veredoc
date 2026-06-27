@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { analyzeDocument } from "@/lib/ai";
 import { arricchisciConFrontoMercato } from "@/lib/parsers/bolletta";
 import { DocumentType, AnalysisStatus, UserPlan } from "@prisma/client";
-import { MAX_FILE_SIZE_BYTES, ACCEPTED_FILE_TYPES } from "@/lib/config/constants";
+import { MAX_FILE_SIZE_BYTES, ACCEPTED_FILE_TYPES, ANALYSIS_LIMITS } from "@/lib/config/constants";
 import { createClient } from "@supabase/supabase-js";
 import { v4 as uuidv4 } from "uuid";
 import { anonymize } from "@/lib/anonymizer";
@@ -103,6 +103,24 @@ export async function POST(req: NextRequest) {
   });
   const userPlan = userRecord?.plan ?? UserPlan.FREE;
 
+  const startOfMonth = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1));
+  const monthlyCount = await prisma.document.count({
+    where: {
+      userId: session.user.id,
+      status: { in: [AnalysisStatus.DONE, AnalysisStatus.ERROR, AnalysisStatus.DELETED] },
+      createdAt: { gte: startOfMonth },
+    },
+  });
+
+  const limit = ANALYSIS_LIMITS[userPlan];
+  if (monthlyCount >= limit) {
+    const message =
+      userPlan === UserPlan.FREE
+        ? `Hai raggiunto il limite di ${ANALYSIS_LIMITS.FREE} analisi mensili del piano gratuito. Passa a PRO per continuare ad analizzare i tuoi documenti.`
+        : `Hai raggiunto il limite di ${ANALYSIS_LIMITS.PRO} analisi mensili del piano PRO.`;
+    return NextResponse.json({ error: "limit_reached", message }, { status: 429 });
+  }
+
   const document = await prisma.document.create({
     data: {
       userId: session.user.id,
@@ -164,12 +182,12 @@ async function runAnalysis(
         const tipoRilevatoRaw = (raw as Record<string, unknown>).tipo_rilevato as string | undefined;
         const tipoRilevato = tipoRilevatoRaw ? TIPO_MAP[tipoRilevatoRaw] : undefined;
 
-        if (tipoRilevatoRaw === 'sconosciuto' || (tipoRilevatoRaw && !tipoRilevato)) {
+        if (!tipoRilevatoRaw || tipoRilevatoRaw === 'sconosciuto' || !tipoRilevato) {
           await prisma.document.update({
             where: { id: documentId },
             data: {
               status: AnalysisStatus.ERROR,
-              analysis: { errore: 'Documento non riconosciuto. Carica una bolletta (luce, gas, internet) o una busta paga in formato leggibile.' } as object,
+              analysis: { error: "documento_non_supportato", message: "Il documento caricato non sembra una bolletta o busta paga supportata. Riprova con un documento corretto." } as object,
             },
           });
           return;
@@ -199,12 +217,12 @@ async function runAnalysis(
         const tipoRilevatoRaw = (raw as Record<string, unknown>).tipo_rilevato as string | undefined;
         const tipoRilevato = tipoRilevatoRaw ? TIPO_MAP[tipoRilevatoRaw] : undefined;
 
-        if (tipoRilevatoRaw === 'sconosciuto' || (tipoRilevatoRaw && !tipoRilevato)) {
+        if (!tipoRilevatoRaw || tipoRilevatoRaw === 'sconosciuto' || !tipoRilevato) {
           await prisma.document.update({
             where: { id: documentId },
             data: {
               status: AnalysisStatus.ERROR,
-              analysis: { errore: 'Documento non riconosciuto. Carica una bolletta (luce, gas, internet) o una busta paga in formato leggibile.' } as object,
+              analysis: { error: "documento_non_supportato", message: "Il documento caricato non sembra una bolletta o busta paga supportata. Riprova con un documento corretto." } as object,
             },
           });
           return;

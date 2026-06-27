@@ -49,8 +49,8 @@ function AnalyzeContent() {
     setUploading(false);
 
     if (!res.ok) {
-      const data = await res.json() as { error: string };
-      setUploadError(data.error ?? "Errore durante l'upload.");
+      const data = await res.json() as { error: string; message?: string };
+      setUploadError(data.message ?? data.error ?? "Errore durante l'upload.");
       return;
     }
 

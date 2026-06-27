@@ -141,9 +141,14 @@ export default function AnalysisResult({ documentId, onReset, onDocLoaded }: Ana
   }
 
   if (doc.status === "ERROR") {
+    const analysis = doc.analysis as Record<string, string> | null;
+    const isUnsupported = analysis?.error === "documento_non_supportato";
+    const errorMsg = isUnsupported
+      ? analysis?.message
+      : "Analisi fallita. Riprova con un altro file.";
     return (
       <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center space-y-4">
-        <p className="text-sm font-medium text-red-700">Analisi fallita. Riprova con un altro file.</p>
+        <p className="text-sm font-medium text-red-700">{errorMsg}</p>
         {onReset && (
           <button
             onClick={onReset}

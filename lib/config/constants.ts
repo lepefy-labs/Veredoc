@@ -1,3 +1,9 @@
+// Limiti mensili analisi per piano utente
+export const ANALYSIS_LIMITS = {
+  FREE: 10,
+  PRO: 30,
+};
+
 // Soglia percentuale sopra la quale si considera che l'utente stia pagando troppo
 export const SOGLIA_PAGAMENTO_ECCESSIVO_PERCENTUALE = 5;
 
