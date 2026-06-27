@@ -153,12 +153,22 @@ async function runAnalysis(
     const fileBase64 = buffer.toString("base64");
     const aiMimeType = mimeType as "application/pdf" | "image/jpeg" | "image/png";
 
-    const TIPO_MAP: Partial<Record<string, DocumentType>> = {
-      luce:       DocumentType.BOLLETTA_LUCE,
-      gas:        DocumentType.BOLLETTA_GAS,
-      internet:   DocumentType.BOLLETTA_INTERNET,
-      busta_paga: DocumentType.BUSTA_PAGA,
-    };
+    const TIPI_SUPPORTATI = ['BOLLETTA_LUCE', 'BOLLETTA_GAS', 'BOLLETTA_INTERNET', 'BUSTA_PAGA'] as const;
+    type TipoSupportato = typeof TIPI_SUPPORTATI[number];
+
+    function isTipoSupportato(v: unknown): v is TipoSupportato {
+      return typeof v === 'string' && (TIPI_SUPPORTATI as readonly string[]).includes(v);
+    }
+
+    async function saveUnsupported() {
+      await prisma.document.update({
+        where: { id: documentId },
+        data: {
+          status: AnalysisStatus.ERROR,
+          analysis: { error: "documento_non_supportato", message: "Il documento caricato non sembra una bolletta o busta paga supportata. Riprova con un documento corretto." } as object,
+        },
+      });
+    }
 
     // PRO users: extract text, anonymize, then wait for user confirmation
     if (userPlan === UserPlan.PRO) {
@@ -179,23 +189,14 @@ async function runAnalysis(
       if (isBustaPaga) {
         const { raw } = await analyzeDocument({ fileBase64, mimeType: aiMimeType, documentType: "BUSTA_PAGA" });
 
-        const tipoRilevatoRaw = (raw as Record<string, unknown>).tipo_rilevato as string | undefined;
-        const tipoRilevato = tipoRilevatoRaw ? TIPO_MAP[tipoRilevatoRaw] : undefined;
-
-        if (!tipoRilevatoRaw || tipoRilevatoRaw === 'sconosciuto' || !tipoRilevato) {
-          await prisma.document.update({
-            where: { id: documentId },
-            data: {
-              status: AnalysisStatus.ERROR,
-              analysis: { error: "documento_non_supportato", message: "Il documento caricato non sembra una bolletta o busta paga supportata. Riprova con un documento corretto." } as object,
-            },
-          });
+        const tipoRilevato = (raw as Record<string, unknown>).tipo_rilevato;
+        if (!isTipoSupportato(tipoRilevato)) {
+          await saveUnsupported();
           return;
         }
 
-        const effectiveType = tipoRilevato ?? docType;
-        const typeChanged = tipoRilevato !== undefined && tipoRilevato !== docType;
-        if (typeChanged) {
+        const effectiveType = DocumentType[tipoRilevato];
+        if (effectiveType !== docType) {
           await prisma.document.update({
             where: { id: documentId },
             data: { type: effectiveType, typeCorrected: true, typeSelectedByUser: docType },
@@ -214,23 +215,14 @@ async function runAnalysis(
         const docTypeKey = docType as "BOLLETTA_LUCE" | "BOLLETTA_GAS" | "BOLLETTA_INTERNET";
         const { raw } = await analyzeDocument({ fileBase64, mimeType: aiMimeType, documentType: docTypeKey });
 
-        const tipoRilevatoRaw = (raw as Record<string, unknown>).tipo_rilevato as string | undefined;
-        const tipoRilevato = tipoRilevatoRaw ? TIPO_MAP[tipoRilevatoRaw] : undefined;
-
-        if (!tipoRilevatoRaw || tipoRilevatoRaw === 'sconosciuto' || !tipoRilevato) {
-          await prisma.document.update({
-            where: { id: documentId },
-            data: {
-              status: AnalysisStatus.ERROR,
-              analysis: { error: "documento_non_supportato", message: "Il documento caricato non sembra una bolletta o busta paga supportata. Riprova con un documento corretto." } as object,
-            },
-          });
+        const tipoRilevato = (raw as Record<string, unknown>).tipo_rilevato;
+        if (!isTipoSupportato(tipoRilevato)) {
+          await saveUnsupported();
           return;
         }
 
-        const effectiveType = tipoRilevato ?? docType;
-        const typeChanged = tipoRilevato !== undefined && tipoRilevato !== docType;
-        if (typeChanged) {
+        const effectiveType = DocumentType[tipoRilevato];
+        if (effectiveType !== docType) {
           await prisma.document.update({
             where: { id: documentId },
             data: { type: effectiveType, typeCorrected: true, typeSelectedByUser: docType },
