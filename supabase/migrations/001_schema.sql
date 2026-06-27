@@ -172,3 +172,6 @@ ALTER TABLE "MarketRate"
 ALTER TABLE "Document"
   ADD COLUMN IF NOT EXISTS "typeCorrected" BOOLEAN NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS "typeSelectedByUser" TEXT;
+
+-- IMPORTANTE: dopo aver applicato questo schema, eseguire supabase/rls.sql
+-- per attivare Row Level Security su tutte le tabelle.
