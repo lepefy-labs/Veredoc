@@ -39,11 +39,41 @@ function AnalyzeContent() {
     router.replace("/analyze");
   }, [router]);
 
-  function handleUpload(file: File, tipo: string) {
+  async function handleUpload(file: File, tipo: string) {
     setUploadError(null);
+    const isPro = session?.user?.plan === "PRO";
+
+    if (isPro) {
+      setPendingFile(file);
+      setPendingTipo(tipo);
+      setFlowState("redacting");
+      return;
+    }
+
+    // FREE: direct FormData upload, skip redactor
     setPendingFile(file);
     setPendingTipo(tipo);
-    setFlowState("redacting");
+    setFlowState("uploading");
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("tipo", tipo);
+    const res = await fetch("/api/documents/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const data = await res.json() as { error: string; message?: string };
+      setUploadError(data.message ?? data.error ?? "Errore durante l'upload.");
+      setFlowState("idle");
+      return;
+    }
+
+    const data = await res.json() as { id: string };
+    setDocumentId(data.id);
+    setFlowState("done");
+    router.replace(`/analyze?id=${data.id}`);
   }
 
   async function handleRedacted(redactedPdfBase64: string) {

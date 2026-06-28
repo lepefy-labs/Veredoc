@@ -8,6 +8,9 @@ import { ANALYSIS_LIMITS } from "@/lib/config/constants";
 import { createClient } from "@supabase/supabase-js";
 import { v4 as uuidv4 } from "uuid";
 
+const ACCEPTED_FILE_TYPES = ["application/pdf", "image/jpeg", "image/png"];
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+
 function getSupabase() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -35,31 +38,69 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Non autenticato." }, { status: 401 });
   }
 
-  const { fileBase64, mimeType, fileName, tipo } = await req.json() as {
-    fileBase64: string;
-    mimeType: string;
-    fileName: string;
-    tipo?: string;
-  };
-
-  if (!fileBase64 || !fileName) {
-    return NextResponse.json({ error: "Dati mancanti." }, { status: 400 });
-  }
-
-  const docType = detectDocumentType(fileName, tipo);
-
+  const contentType = req.headers.get("content-type") ?? "";
   const supabase = getSupabase();
-  const uuid = uuidv4();
-  const storagePath = `uploads/${session.user.id}/${uuid}.pdf`;
-  const pdfBuffer = Buffer.from(fileBase64, "base64");
 
-  const { error: uploadError } = await supabase.storage
-    .from("documents")
-    .upload(storagePath, pdfBuffer, { contentType: "application/pdf" });
+  let fileBase64: string;
+  let mimeType: string;
+  let fileName: string;
+  let tipoHint: string | null;
+  let storagePath: string;
 
-  if (uploadError) {
-    return NextResponse.json({ error: "Errore salvataggio file." }, { status: 500 });
+  if (contentType.includes("application/json")) {
+    // PRO flow — redacted PDF as base64
+    const body = await req.json() as { fileBase64: string; fileName?: string; tipo?: string };
+    fileBase64 = body.fileBase64;
+    mimeType = "application/pdf";
+    fileName = body.fileName ?? "documento.pdf";
+    tipoHint = body.tipo ?? null;
+
+    if (!fileBase64) {
+      return NextResponse.json({ error: "Dati mancanti." }, { status: 400 });
+    }
+
+    const uuid = uuidv4();
+    storagePath = `uploads/${session.user.id}/${uuid}.pdf`;
+    const buffer = Buffer.from(fileBase64, "base64");
+    const { error: uploadError } = await supabase.storage
+      .from("documents")
+      .upload(storagePath, buffer, { contentType: "application/pdf" });
+    if (uploadError) {
+      return NextResponse.json({ error: "Errore salvataggio file." }, { status: 500 });
+    }
+  } else {
+    // FREE flow — raw file via FormData
+    const formData = await req.formData();
+    const file = formData.get("file") as File | null;
+    tipoHint = formData.get("tipo") as string | null;
+
+    if (!file) {
+      return NextResponse.json({ error: "Nessun file ricevuto." }, { status: 400 });
+    }
+    if (!ACCEPTED_FILE_TYPES.includes(file.type)) {
+      return NextResponse.json({ error: "Tipo file non supportato. Usa PDF, JPG o PNG." }, { status: 400 });
+    }
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      return NextResponse.json({ error: "File troppo grande. Massimo 10MB." }, { status: 400 });
+    }
+
+    fileName = file.name;
+    mimeType = file.type;
+    const buffer = Buffer.from(await file.arrayBuffer());
+    fileBase64 = buffer.toString("base64");
+    const ext = file.name.split(".").pop() ?? "pdf";
+    const uuid = uuidv4();
+    storagePath = `uploads/${session.user.id}/${uuid}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("documents")
+      .upload(storagePath, buffer, { contentType: file.type });
+    if (uploadError) {
+      return NextResponse.json({ error: "Errore salvataggio file." }, { status: 500 });
+    }
   }
+
+  const docType = detectDocumentType(fileName, tipoHint ?? undefined);
 
   const userRecord = await prisma.user.findUnique({
     where: { id: session.user.id },
@@ -95,12 +136,12 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  void runAnalysis(document.id, docType, fileBase64);
+  void runAnalysis(document.id, docType, fileBase64, mimeType);
 
   return NextResponse.json({ id: document.id, status: "PENDING" }, { status: 202 });
 }
 
-async function runAnalysis(documentId: string, docType: DocumentType, fileBase64: string) {
+async function runAnalysis(documentId: string, docType: DocumentType, fileBase64: string, mimeType: string) {
   await prisma.document.update({
     where: { id: documentId },
     data: { status: AnalysisStatus.PROCESSING },
@@ -135,7 +176,7 @@ async function runAnalysis(documentId: string, docType: DocumentType, fileBase64
     }
 
     if (isBustaPaga) {
-      const { raw } = await analyzeDocument({ fileBase64, mimeType: "application/pdf", documentType: "BUSTA_PAGA" });
+      const { raw } = await analyzeDocument({ fileBase64, mimeType, documentType: "BUSTA_PAGA" });
 
       const tipoRilevato = (raw as Record<string, unknown>).tipo_rilevato;
       const effectiveType = mapTipoRilevato(tipoRilevato);
@@ -161,7 +202,7 @@ async function runAnalysis(documentId: string, docType: DocumentType, fileBase64
       });
     } else {
       const docTypeKey = docType as "BOLLETTA_LUCE" | "BOLLETTA_GAS" | "BOLLETTA_INTERNET";
-      const { raw } = await analyzeDocument({ fileBase64, mimeType: "application/pdf", documentType: docTypeKey });
+      const { raw } = await analyzeDocument({ fileBase64, mimeType, documentType: docTypeKey });
 
       const tipoRilevato = (raw as Record<string, unknown>).tipo_rilevato;
       const effectiveType = mapTipoRilevato(tipoRilevato);
