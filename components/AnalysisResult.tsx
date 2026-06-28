@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef } from "react";
 import BollettaReport from "@/components/BollettaReport";
 import BustaPagaReport from "@/components/BustaPagaReport";
-import AnonymizationPreview from "@/components/AnonymizationPreview";
 import { BollettaAnalysis } from "@/types/bolletta";
 import { BustaPagaData } from "@/types/bustapaga";
 import { DOCUMENT_TYPE_LABELS } from "@/lib/config/constants";
@@ -106,7 +105,7 @@ export default function AnalysisResult({ documentId, onReset, onDocLoaded }: Ana
   }, [documentId]);
 
   useEffect(() => {
-    if (!doc || doc.status === "DONE" || doc.status === "ERROR" || doc.status === "AWAITING_CONFIRMATION") return;
+    if (!doc || doc.status === "DONE" || doc.status === "ERROR") return;
     if (polls >= MAX_POLLS) return;
 
     const timer = setTimeout(() => {
@@ -121,22 +120,7 @@ export default function AnalysisResult({ documentId, onReset, onDocLoaded }: Ana
 
   if (!doc) return null;
 
-  if (doc.status === "AWAITING_CONFIRMATION") {
-    return (
-      <AnonymizationPreview
-        documentId={doc.id}
-        anonymizedText={doc.anonymizedText ?? ""}
-        anonymizedMap={doc.anonymizedMap ?? {}}
-        onConfirmed={() => {
-          setDoc((prev) => prev ? { ...prev, status: "PROCESSING" } : prev);
-          setPolls(0);
-        }}
-        onReset={onReset}
-      />
-    );
-  }
-
-  if (doc.status === "PENDING" || doc.status === "PROCESSING") {
+  if (doc.status === "PENDING" || doc.status === "PROCESSING" || doc.status === "AWAITING_CONFIRMATION") {
     return <LoadingSpinner />;
   }
 
