@@ -5,6 +5,15 @@ import { analyzeDocument } from "@/lib/ai";
 import { arricchisciConFrontoMercato } from "@/lib/parsers/bolletta";
 import { DocumentType, AnalysisStatus, UserPlan } from "@prisma/client";
 import { ANALYSIS_LIMITS } from "@/lib/config/constants";
+import { createClient } from "@supabase/supabase-js";
+import { v4 as uuidv4 } from "uuid";
+
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 function detectDocumentType(filename: string, tipo?: string): DocumentType {
   if (tipo) {
@@ -39,6 +48,19 @@ export async function POST(req: NextRequest) {
 
   const docType = detectDocumentType(fileName, tipo);
 
+  const supabase = getSupabase();
+  const uuid = uuidv4();
+  const storagePath = `uploads/${session.user.id}/${uuid}.pdf`;
+  const pdfBuffer = Buffer.from(fileBase64, "base64");
+
+  const { error: uploadError } = await supabase.storage
+    .from("documents")
+    .upload(storagePath, pdfBuffer, { contentType: "application/pdf" });
+
+  if (uploadError) {
+    return NextResponse.json({ error: "Errore salvataggio file." }, { status: 500 });
+  }
+
   const userRecord = await prisma.user.findUnique({
     where: { id: session.user.id },
     select: { plan: true },
@@ -67,7 +89,7 @@ export async function POST(req: NextRequest) {
     data: {
       userId: session.user.id,
       type: docType,
-      filePath: "",
+      filePath: storagePath,
       fileName,
       status: AnalysisStatus.PENDING,
     },
