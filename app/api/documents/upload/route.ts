@@ -136,12 +136,12 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  void runAnalysis(document.id, docType, fileBase64, mimeType);
+  void runAnalysis(document.id, docType, fileBase64, mimeType as "application/pdf" | "image/jpeg" | "image/png");
 
   return NextResponse.json({ id: document.id, status: "PENDING" }, { status: 202 });
 }
 
-async function runAnalysis(documentId: string, docType: DocumentType, fileBase64: string, mimeType: string) {
+async function runAnalysis(documentId: string, docType: DocumentType, fileBase64: string, mimeType: "application/pdf" | "image/jpeg" | "image/png") {
   await prisma.document.update({
     where: { id: documentId },
     data: { status: AnalysisStatus.PROCESSING },
