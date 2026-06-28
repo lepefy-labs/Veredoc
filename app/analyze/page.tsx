@@ -5,9 +5,12 @@ import { useSession } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
 import FileUploader from "@/components/FileUploader";
 import AnalysisResult, { type DocMeta } from "@/components/AnalysisResult";
+import DocumentRedactor from "@/components/DocumentRedactor";
 import Card from "@/components/ui/Card";
 import Link from "next/link";
 import { TEXTS } from "@/lib/config/texts";
+
+type FlowState = "idle" | "redacting" | "uploading" | "done";
 
 function AnalyzeContent() {
   const { data: session, status } = useSession();
@@ -21,41 +24,54 @@ function AnalyzeContent() {
     setDocumentId(urlId);
     if (!urlId) setDocMeta(null);
   }, [urlId]);
-  const [uploading, setUploading] = useState(false);
+
+  const [flowState, setFlowState] = useState<FlowState>("idle");
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingTipo, setPendingTipo] = useState<string>("luce");
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [docMeta, setDocMeta] = useState<DocMeta | null>(null);
 
   const resetToForm = useCallback(() => {
     setDocumentId(null);
     setDocMeta(null);
+    setFlowState("idle");
+    setPendingFile(null);
     router.replace("/analyze");
   }, [router]);
 
-  async function handleUpload(file: File, tipo: string) {
-    setUploading(true);
+  function handleUpload(file: File, tipo: string) {
     setUploadError(null);
-    setDocumentId(null);
-    setDocMeta(null);
+    setPendingFile(file);
+    setPendingTipo(tipo);
+    setFlowState("redacting");
+  }
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("tipo", tipo);
+  async function handleRedacted(redactedPdfBase64: string) {
+    if (!pendingFile) return;
+    setFlowState("uploading");
+    setUploadError(null);
 
     const res = await fetch("/api/documents/upload", {
       method: "POST",
-      body: formData,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fileBase64: redactedPdfBase64,
+        mimeType: "application/pdf",
+        fileName: pendingFile.name,
+        tipo: pendingTipo,
+      }),
     });
-
-    setUploading(false);
 
     if (!res.ok) {
       const data = await res.json() as { error: string; message?: string };
       setUploadError(data.message ?? data.error ?? "Errore durante l'upload.");
+      setFlowState("idle");
       return;
     }
 
     const data = await res.json() as { id: string };
     setDocumentId(data.id);
+    setFlowState("done");
     router.replace(`/analyze?id=${data.id}`);
   }
 
@@ -116,9 +132,26 @@ function AnalyzeContent() {
             onReset={resetToForm}
             onDocLoaded={setDocMeta}
           />
+        ) : flowState === "redacting" && pendingFile ? (
+          <Card>
+            <p className="text-sm font-medium text-[#0F172A] mb-4">
+              Oscura i dati personali prima di inviare il documento
+            </p>
+            <DocumentRedactor
+              file={pendingFile}
+              onReady={handleRedacted}
+              onCancel={resetToForm}
+            />
+          </Card>
+        ) : flowState === "uploading" ? (
+          <Card>
+            <div className="flex items-center justify-center py-12">
+              <p className="text-sm text-[#64748B]">Invio documento in corso...</p>
+            </div>
+          </Card>
         ) : (
           <Card>
-            <FileUploader onUpload={handleUpload} loading={uploading} />
+            <FileUploader onUpload={handleUpload} loading={false} />
             {uploadError && <p className="mt-3 text-sm text-[#EF4444]">{uploadError}</p>}
           </Card>
         )}
