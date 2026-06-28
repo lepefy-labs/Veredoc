@@ -9,7 +9,7 @@ Non fare mai git push né tentativi di push via MCP GitHub.
 Il developer (Robertin) lavora esclusivamente via interfacce web e carica i file manualmente tramite GitHub web UI. Claude Code deve:
 
   1. Scrivere e committare il codice localmente (git add + git commit)
-  2. Generare uno ZIP con i soli file nuovi/modificati
+  2. Generare uno ZIP con i soli file nuovi/modificati, coerente con la struttura del progetto.
   3. Consegnare lo ZIP tramite SendUserFile
   4. Spiegare nel messaggio quali file sono nello ZIP e come caricarli su GitHub
 
