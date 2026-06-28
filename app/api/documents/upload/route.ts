@@ -153,11 +153,17 @@ async function runAnalysis(
     const fileBase64 = buffer.toString("base64");
     const aiMimeType = mimeType as "application/pdf" | "image/jpeg" | "image/png";
 
-    const TIPI_SUPPORTATI = ['BOLLETTA_LUCE', 'BOLLETTA_GAS', 'BOLLETTA_INTERNET', 'BUSTA_PAGA'] as const;
-    type TipoSupportato = typeof TIPI_SUPPORTATI[number];
+    // AI returns short lowercase keys; map them to Prisma DocumentType enum values
+    const TIPO_AI_MAP: Record<string, DocumentType> = {
+      'luce': DocumentType.BOLLETTA_LUCE,
+      'gas': DocumentType.BOLLETTA_GAS,
+      'internet': DocumentType.BOLLETTA_INTERNET,
+      'busta_paga': DocumentType.BUSTA_PAGA,
+    };
 
-    function isTipoSupportato(v: unknown): v is TipoSupportato {
-      return typeof v === 'string' && (TIPI_SUPPORTATI as readonly string[]).includes(v);
+    function mapTipoRilevato(v: unknown): DocumentType | null {
+      if (typeof v !== 'string') return null;
+      return TIPO_AI_MAP[v] ?? null;
     }
 
     async function saveUnsupported() {
@@ -190,12 +196,12 @@ async function runAnalysis(
         const { raw } = await analyzeDocument({ fileBase64, mimeType: aiMimeType, documentType: "BUSTA_PAGA" });
 
         const tipoRilevato = (raw as Record<string, unknown>).tipo_rilevato;
-        if (!isTipoSupportato(tipoRilevato)) {
+        const effectiveType = mapTipoRilevato(tipoRilevato);
+        if (!effectiveType) {
           await saveUnsupported();
           return;
         }
 
-        const effectiveType = DocumentType[tipoRilevato];
         if (effectiveType !== docType) {
           await prisma.document.update({
             where: { id: documentId },
@@ -216,12 +222,12 @@ async function runAnalysis(
         const { raw } = await analyzeDocument({ fileBase64, mimeType: aiMimeType, documentType: docTypeKey });
 
         const tipoRilevato = (raw as Record<string, unknown>).tipo_rilevato;
-        if (!isTipoSupportato(tipoRilevato)) {
+        const effectiveType = mapTipoRilevato(tipoRilevato);
+        if (!effectiveType) {
           await saveUnsupported();
           return;
         }
 
-        const effectiveType = DocumentType[tipoRilevato];
         if (effectiveType !== docType) {
           await prisma.document.update({
             where: { id: documentId },
