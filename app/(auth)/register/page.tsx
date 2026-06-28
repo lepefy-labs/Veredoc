@@ -14,9 +14,16 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [consenso, setConsenso] = useState(false);
+  const [consensoError, setConsensoError] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!consenso) {
+      setConsensoError(true);
+      return;
+    }
+    setConsensoError(false);
     setError(null);
     setLoading(true);
 
@@ -70,6 +77,44 @@ export default function RegisterPage() {
                 minLength={8}
                 className="w-full rounded-lg border border-[#E2E8F0] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4FD8]"
               />
+            </div>
+            <div className="space-y-1">
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={consenso}
+                  onChange={(e) => {
+                    setConsenso(e.target.checked);
+                    if (e.target.checked) setConsensoError(false);
+                  }}
+                  className="mt-0.5 accent-[#1B4FD8]"
+                />
+                <span className="text-sm text-[#0F172A]">
+                  Ho letto e accetto la{" "}
+                  <Link
+                    href="/privacy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#1B4FD8] hover:underline"
+                  >
+                    Privacy Policy
+                  </Link>{" "}
+                  e i{" "}
+                  <Link
+                    href="/termini"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#1B4FD8] hover:underline"
+                  >
+                    Termini e Condizioni
+                  </Link>
+                </span>
+              </label>
+              {consensoError && (
+                <p className="text-sm text-[#EF4444]">
+                  Devi accettare Privacy Policy e Termini per registrarti.
+                </p>
+              )}
             </div>
             {error && <p className="text-sm text-[#EF4444]">{error}</p>}
             <Button type="submit" loading={loading} size="lg" className="w-full">
