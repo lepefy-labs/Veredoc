@@ -34,18 +34,38 @@ export default function Home() {
             Accedi
           </Link>
         </div>
+        <p className="text-sm text-[#64748B] text-center mt-1">Crea un account gratuito in 30 secondi — nessuna carta di credito richiesta.</p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-left mt-12">
-          {[
-            { title: "Carica", body: "PDF, JPG o PNG. Nessun inserimento manuale." },
-            { title: "Analisi AI", body: "Claude legge e spiega ogni voce in italiano semplice." },
-            { title: "Confronto", body: "Vedi se stai pagando troppo rispetto al mercato." },
-          ].map((item) => (
-            <div key={item.title} className="bg-white rounded-xl border border-[#E2E8F0] p-5">
-              <p className="font-semibold text-[#1B4FD8] mb-1">{item.title}</p>
-              <p className="text-sm text-[#64748B]">{item.body}</p>
-            </div>
-          ))}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-left mt-12">
+          {/* Bollette column */}
+          <div className="space-y-3">
+            <p className="text-sm font-semibold text-[#64748B] uppercase tracking-wide">⚡ Bollette</p>
+            {[
+              { title: "Carica", body: "PDF, JPG o PNG. Nessun inserimento manuale di dati." },
+              { title: "Lettura AI", body: "Claude identifica ogni voce (materia energia, oneri, tasse) e la spiega in italiano semplice." },
+              { title: "Confronto prezzi", body: "Vedi se la tua tariffa è in linea col mercato. Se esiste un'offerta migliore, te la mostriamo." },
+            ].map((item) => (
+              <div key={item.title} className="bg-white rounded-xl border border-[#E2E8F0] p-5">
+                <p className="font-semibold text-[#1B4FD8] mb-1">{item.title}</p>
+                <p className="text-sm text-[#64748B]">{item.body}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Buste paga column */}
+          <div className="space-y-3">
+            <p className="text-sm font-semibold text-[#64748B] uppercase tracking-wide">📄 Buste paga</p>
+            {[
+              { title: "Carica", body: "PDF o JPG. Il documento non serve compilato: basta fotografarlo." },
+              { title: "Lettura AI", body: "Ogni voce spiegata: RAL, trattenute IRPEF, contributi INPS, ferie maturate, TFR." },
+              { title: "Verifica calcoli", body: "Controlla se l'aliquota fiscale applicata è quella giusta per il tuo reddito." },
+            ].map((item) => (
+              <div key={item.title} className="bg-white rounded-xl border border-[#E2E8F0] p-5">
+                <p className="font-semibold text-[#1B4FD8] mb-1">{item.title}</p>
+                <p className="text-sm text-[#64748B]">{item.body}</p>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Mockup risultato analisi */}
@@ -103,6 +123,28 @@ export default function Home() {
                 Confronta →
               </Link>
             </div>
+          </div>
+        </div>
+
+        {/* Trust & Privacy */}
+        <div className="mt-16 bg-white border border-[#E2E8F0] rounded-2xl p-8 text-left">
+          <h2 className="text-xl font-semibold text-[#0F172A] text-center">I tuoi dati sono al sicuro</h2>
+          <p className="text-sm text-[#64748B] text-center mt-1 mb-8">Veredoc tratta i tuoi documenti con la stessa cura che vorresti dal tuo commercialista.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {[
+              { icon: "🔒", title: "Crittografia end-to-end", body: "I file viaggiano cifrati e sono salvati su infrastrutture europee (Supabase EU). Nessun accesso esterno non autorizzato." },
+              { icon: "🚫", title: "Zero training sull'AI", body: "I dati inviati all'AI non vengono usati per addestrare modelli. È garantito contrattualmente dal fornitore AI (Anthropic)." },
+              { icon: "🗑️", title: "Cancellazione su richiesta", body: "Puoi eliminare un documento in qualsiasi momento dalla dashboard. La cancellazione è immediata e permanente." },
+              { icon: "🛡️", title: "Anonymizer PRO", body: "Con il piano PRO puoi oscurare visivamente le informazioni sensibili (codice fiscale, IBAN, POD) prima ancora che il documento lasci il tuo browser." },
+            ].map((item) => (
+              <div key={item.title} className="flex gap-3">
+                <span className="text-2xl leading-none mt-0.5">{item.icon}</span>
+                <div>
+                  <p className="font-semibold text-[#0F172A]">{item.title}</p>
+                  <p className="text-sm text-[#64748B] mt-1">{item.body}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
