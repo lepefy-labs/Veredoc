@@ -33,10 +33,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   session: { strategy: "jwt" },
   callbacks: {
     ...authConfig.callbacks,
-    jwt({ token, user }) {
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.plan = user.plan;
+      }
+      // Rileggi sempre il plan dal DB — evita token stale dopo upgrade/downgrade
+      if (token.id) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: { plan: true },
+        });
+        token.plan = dbUser?.plan ?? "FREE";
       }
       return token;
     },
