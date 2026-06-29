@@ -42,7 +42,7 @@ export default function Home() {
             <p className="text-sm font-semibold text-[#64748B] uppercase tracking-wide">⚡ Bollette</p>
             {[
               { title: "Carica", body: "PDF, JPG o PNG. Nessun inserimento manuale di dati." },
-              { title: "Lettura AI", body: "Claude identifica ogni voce (materia energia, oneri, tasse) e la spiega in italiano semplice." },
+              { title: "Lettura AI", body: "L'AI identifica ogni voce (materia energia, oneri, tasse) e la spiega in italiano semplice." },
               { title: "Confronto prezzi", body: "Vedi se la tua tariffa è in linea col mercato. Se esiste un'offerta migliore, te la mostriamo." },
             ].map((item) => (
               <div key={item.title} className="bg-white rounded-xl border border-[#E2E8F0] p-5">
@@ -132,8 +132,8 @@ export default function Home() {
           <p className="text-sm text-[#64748B] text-center mt-1 mb-8">Veredoc tratta i tuoi documenti con la stessa cura che vorresti dal tuo commercialista.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             {[
-              { icon: "🔒", title: "Crittografia end-to-end", body: "I file viaggiano cifrati e sono salvati su infrastrutture europee (Supabase EU). Nessun accesso esterno non autorizzato." },
-              { icon: "🚫", title: "Zero training sull'AI", body: "I dati inviati all'AI non vengono usati per addestrare modelli. È garantito contrattualmente dal fornitore AI (Anthropic)." },
+              { icon: "🔒", title: "Crittografia end-to-end", body: "I file viaggiano cifrati e sono salvati su infrastrutture europee. Nessun accesso esterno non autorizzato." },
+              { icon: "🚫", title: "Zero training sull'AI", body: "I dati inviati all'AI non vengono usati per addestrare modelli. È garantito contrattualmente dal fornitore AI." },
               { icon: "🗑️", title: "Cancellazione su richiesta", body: "Puoi eliminare un documento in qualsiasi momento dalla dashboard. La cancellazione è immediata e permanente." },
               { icon: "🛡️", title: "Anonymizer PRO", body: "Con il piano PRO puoi oscurare visivamente le informazioni sensibili (codice fiscale, IBAN, POD) prima ancora che il documento lasci il tuo browser." },
             ].map((item) => (
