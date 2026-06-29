@@ -23,9 +23,21 @@ export const ACCEPTED_FILE_TYPES = ["application/pdf", "image/jpeg", "image/png"
 export const CATEGORIE_MERCATO = ["luce", "gas", "internet", "telefonia"] as const;
 export type CategoriaM = typeof CATEGORIE_MERCATO[number];
 
-// ARERA Open Data — Portale Offerte Mercato Libero
-export const ARERA_OPENDATA_BASE =
+// ARERA Open Data — Portale Offerte Mercato Libero (XML)
+export const ARERA_ML_BASE =
   'https://www.ilportaleofferte.it/portaleOfferte/resources/opendata/csv/offerteML';
+
+// Indici mercato all'ingrosso — aggiornare manualmente ogni mese
+// Fonte: ARERA / bollette utenti / Facile.it
+// Luglio 2025 (ultimo dato disponibile da fonte ARERA):
+//   PUN = 0.113 €/kWh, PSV = 0.394 €/Smc
+// Valori approssimativi giugno 2026 da fonti di mercato:
+//   PUN ≈ 0.112 €/kWh, PSV ≈ 0.422 €/Smc
+export const INDICI_MERCATO = {
+  PUN: 0.112,        // €/kWh — Prezzo Unico Nazionale luce
+  PSV: 0.422,        // €/Smc — Punto di Scambio Virtuale gas
+  aggiornatoIl: '2026-06',
+};
 
 // Mapping tipo documento -> categoria mercato
 export const TIPO_DOCUMENTO_CATEGORIA: Record<string, CategoriaM> = {
