@@ -12,24 +12,14 @@ interface ScrapedRate {
   url: string;
 }
 
-const ARERA_BASE = 'https://www.ilportaleofferte.it/portaleOfferte/resources/opendata/csv/offerte';
+const ARERA_BASE =
+  'https://www.ilportaleofferte.it/portaleOfferte/resources/opendata/csv/offerte';
 
-// Module-level cache: avoid re-searching within same process lifetime
+// Module-level cache to avoid re-searching within the same process lifetime
 const csvCache: Record<string, { content: string; foundAt: number }> = {};
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
-function formatDate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}${m}${day}`;
-}
-
-function scraperUrl(targetUrl: string): string {
-  return `http://api.scraperapi.com?api_key=${process.env.SCRAPERAPI_KEY}&url=${encodeURIComponent(targetUrl)}`;
-}
-
-// Returns CSV content directly to avoid a second ScraperAPI call for download
+// Returns CSV text content directly (avoids a second network call for download)
 async function findLatestAreraFile(cat: 'E' | 'G'): Promise<string> {
   const cached = csvCache[cat];
   if (cached && Date.now() - cached.foundAt < CACHE_TTL_MS) {
@@ -38,20 +28,26 @@ async function findLatestAreraFile(cat: 'E' | 'G'): Promise<string> {
 
   const today = new Date();
 
-  for (let daysBack = 0; daysBack <= 90; daysBack++) {
+  for (let daysBack = 0; daysBack <= 30; daysBack++) {
     const d = new Date(today);
     d.setDate(today.getDate() - daysBack);
 
     const year = d.getFullYear();
-    const trim = Math.ceil((d.getMonth() + 1) / 3);
-    const dateStr = formatDate(d);
-    const fileUrl = `${ARERA_BASE}/${year}_${trim}/PO_Offerte_${cat}_PLACET_${dateStr}.csv`;
+    const month = d.getMonth() + 1; // no padding: 2026_5 not 2026_05
+    const dateStr =
+      `${year}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+    const fileUrl = `${ARERA_BASE}/${year}_${month}/PO_Offerte_${cat}_PLACET_${dateStr}.csv`;
 
     try {
-      const res = await fetch(scraperUrl(fileUrl), { signal: AbortSignal.timeout(15000) });
+      // Try direct fetch first (faster); fall back to ScraperAPI on 403/block
+      let res = await fetch(fileUrl, { signal: AbortSignal.timeout(10000) });
+      if (!res.ok && process.env.SCRAPERAPI_KEY) {
+        const proxied = `http://api.scraperapi.com?api_key=${process.env.SCRAPERAPI_KEY}&url=${encodeURIComponent(fileUrl)}`;
+        res = await fetch(proxied, { signal: AbortSignal.timeout(20000) });
+      }
       if (res.ok) {
         const text = await res.text();
-        if (text.startsWith('denominazione,')) {
+        if (text.includes('denominazione,')) {
           csvCache[cat] = { content: text, foundAt: Date.now() };
           return text;
         }
@@ -61,7 +57,7 @@ async function findLatestAreraFile(cat: 'E' | 'G'): Promise<string> {
     }
   }
 
-  throw new Error(`Nessun file ARERA trovato per categoria ${cat} negli ultimi 90 giorni`);
+  throw new Error(`Nessun file ARERA trovato per categoria ${cat} negli ultimi 30 giorni`);
 }
 
 function parseCsvLine(line: string): string[] {
@@ -70,93 +66,56 @@ function parseCsvLine(line: string): string[] {
   let inQuotes = false;
   for (const char of line) {
     if (char === '"') inQuotes = !inQuotes;
-    else if (char === ',' && !inQuotes) { result.push(current.trim()); current = ''; }
+    else if (char === ',' && !inQuotes) { result.push(current); current = ''; }
     else current += char;
   }
-  result.push(current.trim());
+  result.push(current);
   return result;
 }
 
-function parseAreraCsv(
-  csvText: string,
-  cat: 'E' | 'G',
-): { rates: ScrapedRate[]; errors: string[] } {
+function parseAreraCsv(csvText: string, category: 'luce' | 'gas'): ScrapedRate[] {
+  const lines = csvText.split('\n').filter(l => l.trim());
+  if (lines.length < 2) return [];
+
+  const header = lines[0].split(',');
   const rates: ScrapedRate[] = [];
-  const errors: string[] = [];
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const lines = csvText.split(/\r?\n/);
-  if (lines.length < 2) return { rates, errors };
-
-  const headers = parseCsvLine(lines[0]);
-  const idx = (name: string) => headers.indexOf(name);
-
-  const iDenominazione = idx('denominazione');
-  const iNomeOfferta = idx('nome_offerta');
-  const iUrlOfferta = idx('url_offerta');
-  const iUrlSito = idx('url_sito_venditore');
-  const iTipoCliente = idx('tipo_cliente');
-  const iPFixF = idx('p_fix_f');
-  const iPVolMono = idx('p_vol_mono');
-  const iDataFine = idx('data_fine');
-
-  let debugCount = 0;
-
   for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
+    const cols = parseCsvLine(lines[i]);
+    const row: Record<string, string> = {};
+    header.forEach((h, idx) => { row[h.trim()] = (cols[idx] ?? '').trim(); });
 
-    const cols = parseCsvLine(line);
+    if (row.tipo_cliente !== 'domestico') continue;
 
-    if ((cols[iTipoCliente] ?? '').toLowerCase() !== 'domestico') continue;
-
-    const dataFineStr = cols[iDataFine] ?? '';
-    if (dataFineStr) {
-      let dataFine: Date | null = null;
-      if (/^\d{2}\/\d{2}\/\d{4}$/.test(dataFineStr)) {
-        const [dd, mm, yyyy] = dataFineStr.split('/');
-        dataFine = new Date(`${yyyy}-${mm}-${dd}`);
-      } else if (/^\d{4}-\d{2}-\d{2}/.test(dataFineStr)) {
-        dataFine = new Date(dataFineStr.substring(0, 10));
-      }
-      if (dataFine && dataFine < today) continue;
+    if (!row.data_fine) continue;
+    const parts = row.data_fine.split('/');
+    if (parts.length === 3) {
+      const [dd, mm, yyyy] = parts;
+      if (new Date(`${yyyy}-${mm}-${dd}`) < today) continue;
     }
 
-    const pVolMonoStr = cols[iPVolMono] ?? '';
-    if (!pVolMonoStr) continue;
+    // luce uses p_vol_mono; gas uses p_vol (different column schema)
+    const priceRaw = category === 'luce' ? row.p_vol_mono : row.p_vol;
+    if (!priceRaw) continue;
+    const priceValue = parseFloat(priceRaw);
+    if (isNaN(priceValue) || priceValue === 0) continue;
 
-    const rawPrice = parseFloat(pVolMonoStr.replace(',', '.'));
-    if (isNaN(rawPrice) || rawPrice === 0) continue;
-
-    // Log first 3 raw values to verify scale
-    if (debugCount < 3) {
-      errors.push(`[DEBUG] p_vol_mono raw="${pVolMonoStr}" parsed=${rawPrice} (${cat})`);
-      debugCount++;
-    }
-
-    const priceValue = rawPrice;
-
-    const pFixFStr = cols[iPFixF] ?? '';
-    const pFixF = parseFloat(pFixFStr.replace(',', '.'));
-    const monthlyFee = isNaN(pFixF) ? 0 : pFixF / 12;
-
-    const urlOfferta = cols[iUrlOfferta] ?? '';
-    const urlSito = cols[iUrlSito] ?? '';
-    const offerUrl = urlOfferta.startsWith('http') ? urlOfferta : urlSito;
+    const fixedFee = parseFloat(row.p_fix_f || row.p_fix_v || '0') || 0;
 
     rates.push({
-      category: cat === 'E' ? 'luce' : 'gas',
-      provider: cols[iDenominazione] ?? '',
-      planName: cols[iNomeOfferta] ?? '',
+      category,
+      provider: row.denominazione ?? '',
+      planName: row.nome_offerta ?? '',
       priceValue,
-      priceUnit: cat === 'E' ? '€/kWh' : '€/Smc',
-      monthlyFee,
-      url: offerUrl,
+      priceUnit: category === 'gas' ? '€/Smc' : '€/kWh',
+      monthlyFee: fixedFee / 12,
+      url: row.url_offerta?.startsWith('http') ? row.url_offerta : (row.url_sito_venditore ?? ''),
     });
   }
 
-  return { rates, errors };
+  return rates;
 }
 
 export async function POST(req: NextRequest) {
@@ -169,11 +128,13 @@ export async function POST(req: NextRequest) {
   let updated = 0;
   const allErrors: string[] = [];
 
-  const jobs: Array<{ cat: 'E' | 'G' }> = [{ cat: 'E' }, { cat: 'G' }];
-
   // TODO: fonte internet da definire
+  const jobs: Array<{ cat: 'E' | 'G'; label: 'luce' | 'gas' }> = [
+    { cat: 'E', label: 'luce' },
+    { cat: 'G', label: 'gas' },
+  ];
 
-  for (const { cat } of jobs) {
+  for (const { cat, label } of jobs) {
     let csvText: string;
     try {
       csvText = await findLatestAreraFile(cat);
@@ -182,8 +143,7 @@ export async function POST(req: NextRequest) {
       continue;
     }
 
-    const { rates, errors } = parseAreraCsv(csvText, cat);
-    allErrors.push(...errors);
+    const rates = parseAreraCsv(csvText, label);
 
     for (const rate of rates) {
       if (!rate.provider || !rate.planName) continue;
