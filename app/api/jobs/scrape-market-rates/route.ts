@@ -1,7 +1,7 @@
 // ARERA Open Data Mercato Libero (XML) — aggiornato 2026-06-29
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { ARERA_ML_BASE, INDICI_MERCATO, PROVIDER_WHITELIST } from "@/lib/config/constants";
+import { ARERA_ML_BASE, INDICI_MERCATO, PROVIDER_WHITELIST_EXACT, PROVIDER_WHITELIST_CONTAINS } from "@/lib/config/constants";
 
 interface ScrapedRate {
   category: string;
@@ -11,6 +11,10 @@ interface ScrapedRate {
   priceUnit: string;
   monthlyFee: number;
   url: string;
+  offertaInizio: Date | null;
+  offertaFine: Date | null;
+  tipoOfferta: string | null;
+  durataEsclusive: number | null;
 }
 
 // Module-level cache to avoid re-searching within the same process lifetime
@@ -59,6 +63,16 @@ async function findLatestAreraFile(cat: 'E' | 'G'): Promise<string> {
   throw new Error(`Nessun file ARERA ML trovato per categoria ${cat} negli ultimi 30 giorni`);
 }
 
+// DATA_INIZIO e DATA_FINE — formato "DD/MM/YYYY_HH:MM:SS"
+function parseAreraDate(raw: string | undefined): Date | null {
+  if (!raw) return null;
+  const [datePart, timePart] = raw.split('_');
+  const [d, m, y] = datePart.split('/');
+  const [h, mi, s] = (timePart || '00:00:00').split(':');
+  const dt = new Date(`${y}-${m}-${d}T${h}:${mi}:${s}`);
+  return isNaN(dt.getTime()) ? null : dt;
+}
+
 function parseAreraXml(xmlText: string, category: 'luce' | 'gas'): ScrapedRate[] {
   const { PUN, PSV } = INDICI_MERCATO;
   const indice = category === 'luce' ? PUN : PSV;
@@ -78,9 +92,9 @@ function parseAreraXml(xmlText: string, category: 'luce' | 'gas'): ScrapedRate[]
     if (tipoCliente !== '01') continue;
 
     // Filter: skip expired offers (DATA_FINE format: "DD/MM/YYYY_HH:MM:SS")
-    const dataFineStr = block.match(/<DATA_FINE>(.*?)<\/DATA_FINE>/)?.[1];
-    if (dataFineStr) {
-      const datePart = dataFineStr.split('_')[0];
+    const dataFineRaw = block.match(/<DATA_FINE>(.*?)<\/DATA_FINE>/)?.[1];
+    if (dataFineRaw) {
+      const datePart = dataFineRaw.split('_')[0];
       const [dd, mm, yyyy] = datePart.split('/');
       if (new Date(`${yyyy}-${mm}-${dd}`) < today) continue;
     }
@@ -98,10 +112,21 @@ function parseAreraXml(xmlText: string, category: 'luce' | 'gas'): ScrapedRate[]
     const rawUrl = urlSito.replace(/https?:\/\//i, '').replace(/^www\./i, '');
     const provider = rawUrl.split('.')[0] || piva || 'sconosciuto';
 
-    const isWhitelisted = PROVIDER_WHITELIST.some(name =>
-      provider.toLowerCase().includes(name)
-    );
+    const providerLower = provider.toLowerCase();
+    const isWhitelisted =
+      PROVIDER_WHITELIST_EXACT.some(name => providerLower === name) ||
+      PROVIDER_WHITELIST_CONTAINS.some(name => providerLower.includes(name));
     if (!isWhitelisted) continue;
+
+    const dataInizioStr = block.match(/<DATA_INIZIO>(.*?)<\/DATA_INIZIO>/)?.[1];
+    const dataFineStr   = block.match(/<DATA_FINE>(.*?)<\/DATA_FINE>/)?.[1];
+    const offertaInizio = parseAreraDate(dataInizioStr);
+    const offertaFine   = parseAreraDate(dataFineStr);
+
+    const durataStr = block.match(/<DURATA>(\d+)<\/DURATA>/)?.[1];
+    const durataEsclusive = durataStr ? parseInt(durataStr) : null;
+
+    const tipoOffertaLabel = tipoOfferta === '01' ? 'fisso' : 'variabile';
 
     const compBlocks = [...block.matchAll(/<ComponenteImpresa>([\s\S]*?)<\/ComponenteImpresa>/g)];
 
@@ -141,6 +166,10 @@ function parseAreraXml(xmlText: string, category: 'luce' | 'gas'): ScrapedRate[]
       priceUnit: category === 'gas' ? '€/Smc' : '€/kWh',
       monthlyFee,
       url,
+      offertaInizio,
+      offertaFine,
+      tipoOfferta: tipoOffertaLabel,
+      durataEsclusive,
     });
   }
 
@@ -185,6 +214,10 @@ export async function POST(req: NextRequest) {
               priceUnit: rate.priceUnit,
               monthlyFee: rate.monthlyFee,
               url: rate.url,
+              offertaInizio: rate.offertaInizio,
+              offertaFine: rate.offertaFine,
+              tipoOfferta: rate.tipoOfferta,
+              durataEsclusive: rate.durataEsclusive,
               scrapedAt: new Date(),
             },
             create: {
@@ -195,6 +228,10 @@ export async function POST(req: NextRequest) {
               priceUnit: rate.priceUnit,
               monthlyFee: rate.monthlyFee,
               url: rate.url,
+              offertaInizio: rate.offertaInizio,
+              offertaFine: rate.offertaFine,
+              tipoOfferta: rate.tipoOfferta,
+              durataEsclusive: rate.durataEsclusive,
             },
           });
 

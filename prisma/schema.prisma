@@ -65,6 +65,10 @@ model MarketRate {
   monthlyFee Float?
   url        String?
   scrapedAt  DateTime @default(now())
+  offertaInizio   DateTime?
+  offertaFine     DateTime?
+  tipoOfferta     String?
+  durataEsclusive Int?
 
   @@unique([provider, planName])
 }

@@ -173,5 +173,14 @@ ALTER TABLE "Document"
   ADD COLUMN IF NOT EXISTS "typeCorrected" BOOLEAN NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS "typeSelectedByUser" TEXT;
 
+-- -----------------------------------------------------------------------------
+-- MIGRATION: Nuovi campi offerta su MarketRate
+-- -----------------------------------------------------------------------------
+ALTER TABLE "MarketRate"
+  ADD COLUMN IF NOT EXISTS "offertaInizio"   TIMESTAMP,
+  ADD COLUMN IF NOT EXISTS "offertaFine"     TIMESTAMP,
+  ADD COLUMN IF NOT EXISTS "tipoOfferta"     VARCHAR,
+  ADD COLUMN IF NOT EXISTS "durataEsclusive" INTEGER;
+
 -- IMPORTANTE: dopo aver applicato questo schema, eseguire supabase/rls.sql
 -- per attivare Row Level Security su tutte le tabelle.
