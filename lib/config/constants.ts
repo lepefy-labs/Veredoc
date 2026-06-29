@@ -39,6 +39,14 @@ export const INDICI_MERCATO = {
   aggiornatoIl: '2026-06',
 };
 
+// Provider noti accettati dal parser ARERA — filtra rumore/dati malformati
+export const PROVIDER_WHITELIST = [
+  'enel', 'eni', 'plenitude', 'edison', 'a2a', 'iren',
+  'hera', 'acea', 'engie', 'sorgenia', 'iberdrola', 'eon',
+  'octopus', 'nen', 'dolomiti', 'axpo', 'illumia', 'alperia',
+  'green network',
+];
+
 // Mapping tipo documento -> categoria mercato
 export const TIPO_DOCUMENTO_CATEGORIA: Record<string, CategoriaM> = {
   BOLLETTA_LUCE: "luce",

@@ -1,7 +1,7 @@
 // ARERA Open Data Mercato Libero (XML) — aggiornato 2026-06-29
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { ARERA_ML_BASE, INDICI_MERCATO } from "@/lib/config/constants";
+import { ARERA_ML_BASE, INDICI_MERCATO, PROVIDER_WHITELIST } from "@/lib/config/constants";
 
 interface ScrapedRate {
   category: string;
@@ -93,12 +93,15 @@ function parseAreraXml(xmlText: string, category: 'luce' | 'gas'): ScrapedRate[]
     const urlSito = block.match(/<URL_SITO_VENDITORE>(.*?)<\/URL_SITO_VENDITORE>/)?.[1]?.trim() ?? '';
     const url = urlOfferta.startsWith('http') ? urlOfferta : urlSito;
 
-    // Derive provider name from site URL domain
-    const provider = urlSito
-      .replace(/https?:\/\/(www\.)?/, '')
-      .replace(/[\/.].*$/, '') ||
-      block.match(/<PIVA_UTENTE>(.*?)<\/PIVA_UTENTE>/)?.[1] ||
-      'sconosciuto';
+    // Derive provider name from site URL second-level domain
+    const piva = block.match(/<PIVA_UTENTE>(.*?)<\/PIVA_UTENTE>/)?.[1];
+    const rawUrl = urlSito.replace(/https?:\/\//i, '').replace(/^www\./i, '');
+    const provider = rawUrl.split('.')[0] || piva || 'sconosciuto';
+
+    const isWhitelisted = PROVIDER_WHITELIST.some(name =>
+      provider.toLowerCase().includes(name)
+    );
+    if (!isWhitelisted) continue;
 
     const compBlocks = [...block.matchAll(/<ComponenteImpresa>([\s\S]*?)<\/ComponenteImpresa>/g)];
 
