@@ -23,6 +23,13 @@ export default function Navbar() {
             <Link href="/analyze" className="text-[#0F172A] hover:text-[#1B4FD8] transition-colors">
               Nuova analisi
             </Link>
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+              session.user?.plan === "PRO"
+                ? "bg-[#10B981] text-white"
+                : "bg-[#E2E8F0] text-[#64748B]"
+            }`}>
+              {session.user?.plan ?? "FREE"}
+            </span>
             <button
               onClick={() => signOut({ callbackUrl: "/" })}
               className="text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"

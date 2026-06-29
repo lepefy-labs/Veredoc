@@ -38,6 +38,25 @@ export default async function DashboardPage() {
           </Link>
         </div>
 
+        {/* Piano utente */}
+        <div className="rounded-xl border border-[#E2E8F0] bg-white p-5 flex items-center justify-between gap-4">
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-[#0F172A]">Il tuo piano</p>
+            <p className="text-sm text-[#64748B]">
+              {session.user.plan === "PRO"
+                ? "Sei su piano PRO. Hai accesso a tutte le funzionalità."
+                : "Vuoi più analisi e il DocumentRedactor? Passa a PRO."}
+            </p>
+          </div>
+          <span className={`shrink-0 text-xs font-semibold px-3 py-1 rounded-full ${
+            session.user.plan === "PRO"
+              ? "bg-[#10B981] text-white"
+              : "bg-[#E2E8F0] text-[#64748B]"
+          }`}>
+            {session.user.plan ?? "FREE"}
+          </span>
+        </div>
+
         {documents.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center space-y-4">
             <svg
