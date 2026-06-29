@@ -40,7 +40,7 @@ export async function arricchisciConFrontoMercato(
     return { ...rawExtracted, confronto_mercato: null };
   }
 
-  const offerte: OffertaMercato[] = tariffe
+  const offerteSenzaBreakEven = tariffe
     .filter((t: MarketRateRow) => t.provider !== "ARERA")
     .map((tariffa: MarketRateRow) => {
       const costo_mensile_offerta =
@@ -53,12 +53,6 @@ export async function arricchisciConFrontoMercato(
           ? costo_materia_mensile_pagato - costo_mensile_offerta
           : null;
 
-      const diffPrezzoKwh = prezzo_kwh_pagato - tariffa.priceValue;
-      const break_even_kwh =
-        tariffa.monthlyFee !== null && tariffa.monthlyFee > 0 && diffPrezzoKwh > 0.001
-          ? Math.round(tariffa.monthlyFee / diffPrezzoKwh)
-          : null;
-
       const stima_completa = tariffa.monthlyFee !== null;
 
       return {
@@ -69,17 +63,37 @@ export async function arricchisciConFrontoMercato(
         costo_mensile_stimato: costo_mensile_offerta !== null ? Math.round(costo_mensile_offerta * 100) / 100 : null,
         risparmio_mensile: risparmio_mensile !== null ? Math.round(risparmio_mensile * 100) / 100 : null,
         risparmio_annuo: risparmio_mensile !== null ? Math.round(risparmio_mensile * 12 * 100) / 100 : null,
-        break_even_kwh,
+        break_even_kwh: null as number | null,
         stima_completa,
         url: tariffa.url ?? null,
       };
     })
-    .sort((a: OffertaMercato, b: OffertaMercato) => {
+    .sort((a, b) => {
       if (a.costo_mensile_stimato !== null && b.costo_mensile_stimato !== null) {
         return a.costo_mensile_stimato - b.costo_mensile_stimato;
       }
       return a.prezzo_kwh - b.prezzo_kwh;
     });
+
+  // break_even_kwh è una proprietà delle due offerte, NON del consumo dell'utente.
+  // Per ogni offerta A con quota fissa > 0 e prezzo unitario più basso della migliore offerta B:
+  //   break_even = (feeA - feeB) / (priceB - priceA)
+  const bestOffer = offerteSenzaBreakEven[0] ?? null;
+  const offerte: OffertaMercato[] = offerteSenzaBreakEven.map((offerta) => {
+    if (!bestOffer || offerta.provider === bestOffer.provider) {
+      return offerta;
+    }
+    const feeA = offerta.quota_fissa_mensile ?? 0;
+    const feeB = bestOffer.quota_fissa_mensile ?? 0;
+    const priceA = offerta.prezzo_kwh;
+    const priceB = bestOffer.prezzo_kwh;
+    // Break-even esiste solo se A ha quota fissa maggiore e prezzo unitario minore di B
+    const break_even_kwh =
+      feeA > feeB && priceA < priceB
+        ? Math.round((feeA - feeB) / (priceB - priceA))
+        : null;
+    return { ...offerta, break_even_kwh };
+  });
 
   const arera = tariffe.find((t: MarketRateRow) => t.provider === "ARERA");
 
