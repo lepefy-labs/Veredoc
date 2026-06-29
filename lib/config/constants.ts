@@ -23,23 +23,9 @@ export const ACCEPTED_FILE_TYPES = ["application/pdf", "image/jpeg", "image/png"
 export const CATEGORIE_MERCATO = ["luce", "gas", "internet", "telefonia"] as const;
 export type CategoriaM = typeof CATEGORIE_MERCATO[number];
 
-// Target URL per scraping tariffe di mercato
-export const SCRAPING_TARGETS: Record<string, string[]> = {
-  luce: [
-    "https://www.sorgenia.it/offerte",
-    "https://www.illumia.it/luce-e-gas",
-  ],
-  gas: [
-    "https://www.sorgenia.it/offerte",
-    "https://www.illumia.it/luce-e-gas",
-  ],
-  internet: [
-    "https://www.sostariffe.it/adsl-fibra/",
-  ],
-  telefonia: [
-    "https://www.sostariffe.it/adsl-fibra/",
-  ],
-};
+// ARERA Open Data — Portale Offerte Mercato Libero
+export const ARERA_OPENDATA_BASE =
+  'https://www.ilportaleofferte.it/portaleOfferte/resources/opendata/csv/offerteML';
 
 // Mapping tipo documento -> categoria mercato
 export const TIPO_DOCUMENTO_CATEGORIA: Record<string, CategoriaM> = {

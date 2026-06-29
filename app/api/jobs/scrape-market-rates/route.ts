@@ -1,7 +1,7 @@
+// ARERA Open Data — aggiornato 2026-06-29
 import { NextRequest, NextResponse } from "next/server";
-import * as cheerio from "cheerio";
 import { prisma } from "@/lib/prisma";
-import { SCRAPING_TARGETS } from "@/lib/config/constants";
+import { ARERA_OPENDATA_BASE } from "@/lib/config/constants";
 
 interface ScrapedRate {
   category: string;
@@ -9,104 +9,150 @@ interface ScrapedRate {
   planName: string;
   priceValue: number;
   priceUnit: string;
+  monthlyFee: number;
   url: string;
 }
 
-async function scrapeUrl(url: string): Promise<string> {
-  const scraperUrl = `http://api.scraperapi.com?api_key=${process.env.SCRAPERAPI_KEY}&url=${encodeURIComponent(url)}`;
-  const res = await fetch(scraperUrl, { signal: AbortSignal.timeout(30000) });
-  if (!res.ok) throw new Error(`HTTP ${res.status} per ${url}`);
-  return res.text();
+// Module-level cache: avoid re-searching on every call within same process
+const fileCache: Record<string, { url: string; foundAt: number }> = {};
+const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+function getCurrentQuarter(): { anno: number; trim: number } {
+  const now = new Date();
+  const anno = now.getFullYear();
+  const month = now.getMonth() + 1; // 1-12
+  const trim = Math.ceil(month / 3);
+  return { anno, trim };
 }
 
-function parseSorgenia(html: string, category: string): ScrapedRate[] {
-  const $ = cheerio.load(html);
-  const rates: ScrapedRate[] = [];
+function formatDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}${m}${day}`;
+}
 
-  $("[class*='offer'], [class*='piano'], [class*='offerta']").each((_, el) => {
-    const nome = $(el).find("[class*='name'], [class*='title'], h2, h3").first().text().trim();
-    const prezzoText = $(el).find("[class*='price'], [class*='prezzo']").first().text().trim();
-    const priceMatch = prezzoText.match(/(\d+[.,]\d+)/);
-    if (nome && priceMatch) {
-      rates.push({
-        category,
-        provider: "Sorgenia",
-        planName: nome,
-        priceValue: parseFloat(priceMatch[1].replace(",", ".")),
-        priceUnit: category === "gas" ? "€/Smc" : "€/kWh",
-        url: "https://www.sorgenia.it/offerte",
+async function findLatestAreraFile(category: 'E' | 'G'): Promise<string> {
+  const cacheKey = category;
+  const cached = fileCache[cacheKey];
+  if (cached && Date.now() - cached.foundAt < CACHE_TTL_MS) {
+    return cached.url;
+  }
+
+  const { anno, trim } = getCurrentQuarter();
+  const folder = `${anno}_${trim}`;
+  const today = new Date();
+
+  for (let daysBack = 0; daysBack <= 90; daysBack++) {
+    const candidate = new Date(today);
+    candidate.setDate(today.getDate() - daysBack);
+    const dateStr = formatDate(candidate);
+    const url = `${ARERA_OPENDATA_BASE}/${folder}/PO_Offerte_${category}_MLIBERO_${dateStr}.xml`;
+
+    try {
+      const res = await fetch(url, {
+        method: 'HEAD',
+        signal: AbortSignal.timeout(5000),
       });
+      if (res.ok) {
+        fileCache[cacheKey] = { url, foundAt: Date.now() };
+        return url;
+      }
+    } catch {
+      // not found, try next date
     }
-  });
+  }
 
-  return rates;
+  throw new Error(`Nessun file ARERA trovato per categoria ${category} negli ultimi 90 giorni`);
 }
 
-function parseIllumia(html: string, category: string): ScrapedRate[] {
-  const $ = cheerio.load(html);
-  const rates: ScrapedRate[] = [];
-
-  $("[class*='offer'], [class*='card'], article").each((_, el) => {
-    const nome = $(el).find("h2, h3, [class*='title']").first().text().trim();
-    const prezzoText = $(el).find("[class*='price'], [class*='prezzo'], strong").first().text().trim();
-    const priceMatch = prezzoText.match(/(\d+[.,]\d+)/);
-    if (nome && priceMatch) {
-      rates.push({
-        category,
-        provider: "Illumia",
-        planName: nome,
-        priceValue: parseFloat(priceMatch[1].replace(",", ".")),
-        priceUnit: category === "gas" ? "€/Smc" : "€/kWh",
-        url: "https://www.illumia.it/luce-e-gas",
-      });
-    }
-  });
-
-  return rates;
+function parseCsvLine(line: string): string[] {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  for (const char of line) {
+    if (char === '"') inQuotes = !inQuotes;
+    else if (char === ',' && !inQuotes) { result.push(current.trim()); current = ''; }
+    else current += char;
+  }
+  result.push(current.trim());
+  return result;
 }
 
-function parseSostariffe(html: string): ScrapedRate[] {
-  const $ = cheerio.load(html);
-  const rates: ScrapedRate[] = [];
-
-  $("[class*='offer'], [class*='result'], [class*='piano']").each((_, el) => {
-    const provider = $(el).find("[class*='operator'], [class*='provider'], img").attr("alt") ??
-      $(el).find("[class*='name']").first().text().trim();
-    const nome = $(el).find("[class*='plan'], h3, h4").first().text().trim();
-    const prezzoText = $(el).find("[class*='price'], strong").first().text().trim();
-    const priceMatch = prezzoText.match(/(\d+[.,]\d+)/);
-    if (provider && nome && priceMatch) {
-      rates.push({
-        category: "internet",
-        provider,
-        planName: nome,
-        priceValue: parseFloat(priceMatch[1].replace(",", ".")),
-        priceUnit: "€/mese",
-        url: "https://www.sostariffe.it/adsl-fibra/",
-      });
-    }
-  });
-
-  return rates;
-}
-
-async function scrapeCategory(category: string, urls: string[]): Promise<{ rates: ScrapedRate[]; errors: string[] }> {
+async function parseAreraFile(url: string, category: 'luce' | 'gas'): Promise<{ rates: ScrapedRate[]; errors: string[] }> {
   const rates: ScrapedRate[] = [];
   const errors: string[] = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-  for (const url of urls) {
-    try {
-      const html = await scrapeUrl(url);
-      let parsed: ScrapedRate[] = [];
+  const res = await fetch(url, { signal: AbortSignal.timeout(30000) });
+  if (!res.ok) throw new Error(`HTTP ${res.status} per ${url}`);
+  const text = await res.text();
 
-      if (url.includes("sorgenia")) parsed = parseSorgenia(html, category);
-      else if (url.includes("illumia")) parsed = parseIllumia(html, category);
-      else if (url.includes("sostariffe")) parsed = parseSostariffe(html);
+  const lines = text.split(/\r?\n/);
+  if (lines.length < 2) return { rates, errors };
 
-      rates.push(...parsed);
-    } catch (err) {
-      errors.push(`${url}: ${err instanceof Error ? err.message : "Errore"}`);
+  const headers = parseCsvLine(lines[0]);
+  const idx = (name: string) => headers.indexOf(name);
+
+  const iDenominazione = idx('denominazione');
+  const iNomeOfferta = idx('nome_offerta');
+  const iUrlOfferta = idx('url_offerta');
+  const iUrlSito = idx('url_sito_venditore');
+  const iTipoCliente = idx('tipo_cliente');
+  const iTipoOfferta = idx('tipo_offerta');
+  const iPFixF = idx('p_fix_f');
+  const iPVolMono = idx('p_vol_mono');
+  const iDataFine = idx('data_fine');
+
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    const cols = parseCsvLine(line);
+
+    const tipoCliente = cols[iTipoCliente]?.toLowerCase() ?? '';
+    if (tipoCliente !== 'domestico') continue;
+
+    const dataFineStr = cols[iDataFine] ?? '';
+    if (dataFineStr) {
+      // format: DD/MM/YYYY or YYYY-MM-DD
+      let dataFine: Date | null = null;
+      if (/^\d{2}\/\d{2}\/\d{4}$/.test(dataFineStr)) {
+        const [dd, mm, yyyy] = dataFineStr.split('/');
+        dataFine = new Date(`${yyyy}-${mm}-${dd}`);
+      } else if (/^\d{4}-\d{2}-\d{2}/.test(dataFineStr)) {
+        dataFine = new Date(dataFineStr.substring(0, 10));
+      }
+      if (dataFine && dataFine < today) continue;
     }
+
+    const pVolMonoStr = cols[iPVolMono] ?? '';
+    if (!pVolMonoStr || pVolMonoStr === '0') continue;
+
+    const rawPrice = parseFloat(pVolMonoStr.replace(',', '.'));
+    if (isNaN(rawPrice) || rawPrice === 0) continue;
+
+    // Values in CSV are multiplied by 1000 (millesimi)
+    const priceValue = rawPrice / 1000;
+
+    const pFixFStr = cols[iPFixF] ?? '';
+    const pFixF = parseFloat(pFixFStr.replace(',', '.'));
+    const monthlyFee = isNaN(pFixF) ? 0 : pFixF / 12;
+
+    const urlOfferta = cols[iUrlOfferta] ?? '';
+    const urlSito = cols[iUrlSito] ?? '';
+    const offerUrl = urlOfferta || urlSito;
+
+    rates.push({
+      category,
+      provider: cols[iDenominazione] ?? '',
+      planName: cols[iNomeOfferta] ?? '',
+      priceValue,
+      priceUnit: category === 'gas' ? '€/Smc' : '€/kWh',
+      monthlyFee,
+      url: offerUrl,
+    });
   }
 
   return { rates, errors };
@@ -122,25 +168,62 @@ export async function POST(req: NextRequest) {
   let updated = 0;
   const allErrors: string[] = [];
 
-  for (const [category, urls] of Object.entries(SCRAPING_TARGETS)) {
-    const { rates, errors } = await scrapeCategory(category, urls);
-    allErrors.push(...errors);
+  const jobs: Array<{ category: 'E' | 'G'; label: 'luce' | 'gas' }> = [
+    { category: 'E', label: 'luce' },
+    { category: 'G', label: 'gas' },
+  ];
+
+  // TODO: fonte internet da definire
+
+  for (const { category, label } of jobs) {
+    let url: string;
+    try {
+      url = await findLatestAreraFile(category);
+    } catch (err) {
+      allErrors.push(err instanceof Error ? err.message : `Errore ricerca file ${category}`);
+      continue;
+    }
+
+    let rates: ScrapedRate[];
+    try {
+      const result = await parseAreraFile(url, label);
+      rates = result.rates;
+      allErrors.push(...result.errors);
+    } catch (err) {
+      allErrors.push(`Parse fallito per ${label}: ${err instanceof Error ? err.message : 'Errore'}`);
+      continue;
+    }
 
     for (const rate of rates) {
+      if (!rate.provider || !rate.planName) continue;
       try {
-        const result = await prisma.marketRate.upsert({
+        const existing = await prisma.marketRate.findUnique({
+          where: { provider_planName: { provider: rate.provider, planName: rate.planName } },
+          select: { id: true },
+        });
+
+        await prisma.marketRate.upsert({
           where: { provider_planName: { provider: rate.provider, planName: rate.planName } },
           update: {
             priceValue: rate.priceValue,
             priceUnit: rate.priceUnit,
+            monthlyFee: rate.monthlyFee,
             url: rate.url,
             scrapedAt: new Date(),
           },
-          create: rate,
+          create: {
+            category: rate.category,
+            provider: rate.provider,
+            planName: rate.planName,
+            priceValue: rate.priceValue,
+            priceUnit: rate.priceUnit,
+            monthlyFee: rate.monthlyFee,
+            url: rate.url,
+          },
         });
-        // Distingue insert da update basandosi sul scrapedAt
-        if (result.scrapedAt.getTime() > Date.now() - 5000) inserted++;
-        else updated++;
+
+        if (existing) updated++;
+        else inserted++;
       } catch {
         allErrors.push(`Upsert fallito per ${rate.provider} / ${rate.planName}`);
       }
