@@ -376,158 +376,109 @@ function OfferteSection({ offerte, unitaLabel, stimaAffidabile, percentualeSopra
         <p className="text-sm text-[#94A3B8] mb-4">Nessuna offerta disponibile per questo filtro.</p>
       )}
 
-      {/* Desktop: tabella (≥768px) */}
+      {/* Griglia card unica — mobile colonna singola, desktop 2 colonne */}
       {offerteFiltrate.length > 0 && (
-        <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[#E2E8F0]">
-                <th className="text-left text-xs text-[#64748B] font-medium pb-2 pr-3">Offerta</th>
-                <th className="text-left text-xs text-[#64748B] font-medium pb-2 pr-3">Tipo</th>
-                <th className="text-left text-xs text-[#64748B] font-medium pb-2 pr-3">Durata</th>
-                <th className="text-right text-xs text-[#64748B] font-medium pb-2 pr-3">{unitaLabel}</th>
-                <th className="text-right text-xs text-[#64748B] font-medium pb-2 pr-3">Quota fissa</th>
-                <th className="text-right text-xs text-[#64748B] font-medium pb-2 pr-3">Energia/mese</th>
-                <th className="text-right text-xs text-[#64748B] font-medium pb-2 pr-3">Risparmio/mese</th>
-                <th className="text-right text-xs text-[#64748B] font-medium pb-2 pr-3">Scade</th>
-                <th className="pb-2"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {offerteFiltrate.map((offerta, i) => (
-                <tr key={i} className="border-b border-[#E2E8F0] last:border-0 hover:bg-[#F7F9FC]">
-                  <td className="py-3 pr-3">
-                    <div className="flex items-center gap-2">
-                      {i === 0 && (
-                        <span className="text-xs bg-[#10B981] text-white px-1.5 py-0.5 rounded font-medium whitespace-nowrap">★ Migliore</span>
-                      )}
-                      <div>
-                        <p className="font-medium text-[#0F172A]">{offerta.provider}</p>
-                        <p className="text-xs text-[#64748B]">{offerta.plan_name}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-3 pr-3 text-sm text-[#64748B] capitalize">
-                    {offerta.tipo_offerta ?? "—"}
-                  </td>
-                  <td className="py-3 pr-3 text-sm text-[#64748B] whitespace-nowrap">
-                    {offerta.durata_mesi ? `${offerta.durata_mesi} mesi` : "—"}
-                  </td>
-                  <td className="py-3 pr-3 text-right font-mono text-[#0F172A]">
-                    {fmtKwh(offerta.prezzo_kwh)}
-                  </td>
-                  <td className="py-3 pr-3 text-right font-mono">
-                    {offerta.quota_fissa_mensile === null
-                      ? <span className="text-[#94A3B8]">N/D</span>
-                      : offerta.quota_fissa_mensile === 0
-                        ? <span className="text-[#10B981] font-semibold">0 €/mese</span>
-                        : <span className="text-[#64748B]">{fmt(offerta.quota_fissa_mensile, 0)}/mese</span>
-                    }
-                  </td>
-                  <td className="py-3 pr-3 text-right font-mono text-[#0F172A]">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+          {offerteVisibili.map((offerta, i) => {
+            const isMoreExpensive = (offerta.risparmio_mensile ?? 0) < 0;
+            const hasRisparmio = offerta.risparmio_mensile !== null && offerta.risparmio_mensile > 0;
+
+            const inner = (
+              <div className="flex justify-between items-start gap-3">
+                <div className="flex-1 min-w-0">
+                  {i === 0 && (
+                    <span className="inline-block text-[11px] font-medium px-2 py-0.5 rounded bg-[#ECFDF5] text-[#10B981] mb-1.5">
+                      ★ Migliore
+                    </span>
+                  )}
+                  <p className="font-medium text-[#0F172A] text-[15px] m-0 leading-snug">{offerta.provider}</p>
+                  <p className="text-[13px] text-[#64748B] m-0 mb-2 leading-snug">{offerta.plan_name}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {offerta.tipo_offerta && (
+                      <span className="text-[12px] text-[#64748B] bg-[#F1F5F9] px-2 py-0.5 rounded-full capitalize">
+                        {offerta.tipo_offerta}{offerta.durata_mesi ? ` · ${offerta.durata_mesi} mesi` : ""}
+                      </span>
+                    )}
+                    <span className="text-[12px] text-[#64748B] bg-[#F1F5F9] px-2 py-0.5 rounded-full font-mono">
+                      {fmtKwh(offerta.prezzo_kwh)} {unitaLabel}
+                    </span>
+                    {offerta.quota_fissa_mensile !== null && (
+                      <span className="text-[12px] text-[#64748B] bg-[#F1F5F9] px-2 py-0.5 rounded-full font-mono">
+                        {offerta.quota_fissa_mensile === 0 ? "0 €/mese fissi" : `${fmt(offerta.quota_fissa_mensile, 0)}/mese fissi`}
+                      </span>
+                    )}
+                    {offerta.offerta_fine && (
+                      <span className="text-[12px] text-[#64748B] bg-[#F1F5F9] px-2 py-0.5 rounded-full">
+                        Scade {formatScadenza(offerta.offerta_fine)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-[12px] text-[#64748B] m-0 mb-0.5">Energia/mese</p>
+                  <p className="text-[15px] text-[#0F172A] m-0 mb-2 font-mono">
                     {offerta.costo_mensile_stimato !== null
                       ? <>{fmt(offerta.costo_mensile_stimato)}{!offerta.stima_completa && <span className="text-[#94A3B8]">*</span>}</>
-                      : <span className="text-[#94A3B8]">—</span>
+                      : "—"
                     }
-                  </td>
-                  <td className="py-3 pr-3 text-right font-mono">
-                    {offerta.risparmio_mensile !== null
-                      ? (() => {
-                          const isMoreExpensive = offerta.risparmio_mensile < 0;
-                          return (
-                            <span className={isMoreExpensive ? "text-[#EF4444]" : offerta.risparmio_mensile > 0 ? "text-[#10B981] font-semibold" : "text-[#64748B]"}>
-                              {isMoreExpensive
-                                ? `+${fmt(Math.abs(offerta.risparmio_mensile))}/mese`
-                                : `-${fmt(offerta.risparmio_mensile)}/mese`
-                              }
-                            </span>
-                          );
-                        })()
-                      : <span className="text-[#94A3B8]">—</span>
-                    }
-                  </td>
-                  <td className="py-3 pr-3 text-right text-sm text-[#64748B] whitespace-nowrap">
-                    {formatScadenza(offerta.offerta_fine)}
-                  </td>
-                  <td className="py-3 text-right">
-                    {offerta.url ? (
-                      <a
-                        href={offerta.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-[#1B4FD8] font-medium whitespace-nowrap hover:underline"
-                      >
-                        Vedi offerta →
-                      </a>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </p>
+                  {offerta.risparmio_mensile !== null && (
+                    <p className={`text-[15px] font-medium m-0 whitespace-nowrap ${
+                      isMoreExpensive ? "text-[#EF4444]" : hasRisparmio ? "text-[#10B981]" : "text-[#64748B]"
+                    }`}>
+                      {isMoreExpensive
+                        ? `+${fmt(Math.abs(offerta.risparmio_mensile))}/mese`
+                        : hasRisparmio
+                          ? `-${fmt(offerta.risparmio_mensile)}/mese`
+                          : "uguale"
+                      }
+                    </p>
+                  )}
+                </div>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="flex-shrink-0 mt-1 text-[#94A3B8]"
+                  aria-hidden="true"
+                >
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </div>
+            );
+
+            return offerta.url ? (
+              <a
+                key={i}
+                href={offerta.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block no-underline text-inherit border border-[#E2E8F0] rounded-xl p-4 hover:border-[#CBD5E1] transition-colors"
+                style={{ color: "inherit", textDecoration: "none" }}
+              >
+                {inner}
+              </a>
+            ) : (
+              <div
+                key={i}
+                className="border border-[#E2E8F0] rounded-xl p-4"
+              >
+                {inner}
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {/* Mobile: card impilate con infinite scroll (<768px) */}
-      {offerteFiltrate.length > 0 && (
-        <div className="md:hidden space-y-3">
-          {offerteVisibili.map((offerta, i) => (
-            <div key={i} className="rounded-xl border border-[#E2E8F0] overflow-hidden">
-              <div className="flex items-start justify-between px-4 pt-4 pb-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  {i === 0 && (
-                    <span className="text-xs bg-[#10B981] text-white px-1.5 py-0.5 rounded font-medium whitespace-nowrap">★ Migliore</span>
-                  )}
-                  <div>
-                    <p className="font-medium text-[#0F172A] text-sm">{offerta.provider}</p>
-                    <p className="text-xs text-[#64748B]">{offerta.plan_name}</p>
-                  </div>
-                </div>
-                {offerta.risparmio_mensile !== null && offerta.risparmio_mensile > 0 && (
-                  <span className="text-sm font-semibold text-[#10B981] whitespace-nowrap ml-2">
-                    -{fmt(offerta.risparmio_mensile)}/mese
-                  </span>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-1.5 px-4 pb-3">
-                {offerta.tipo_offerta && (
-                  <span className="text-xs bg-[#F1F5F9] text-[#64748B] px-2 py-0.5 rounded-full capitalize">
-                    {offerta.tipo_offerta}{offerta.durata_mesi ? ` · ${offerta.durata_mesi} mesi` : ""}
-                  </span>
-                )}
-                <span className="text-xs bg-[#F1F5F9] text-[#64748B] px-2 py-0.5 rounded-full font-mono">
-                  {fmtKwh(offerta.prezzo_kwh)} {unitaLabel}
-                </span>
-                {offerta.quota_fissa_mensile !== null && (
-                  <span className="text-xs bg-[#F1F5F9] text-[#64748B] px-2 py-0.5 rounded-full font-mono">
-                    {offerta.quota_fissa_mensile === 0 ? "0 €/mese fisso" : `${fmt(offerta.quota_fissa_mensile, 0)}/mese fisso`}
-                  </span>
-                )}
-                {offerta.offerta_fine && (
-                  <span className="text-xs bg-[#F1F5F9] text-[#64748B] px-2 py-0.5 rounded-full">
-                    scade {formatScadenza(offerta.offerta_fine)}
-                  </span>
-                )}
-              </div>
-              {offerta.url ? (
-                <div className="px-4 pb-4">
-                  <a
-                    href={offerta.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block w-full text-center text-sm text-[#1B4FD8] font-medium border border-[#1B4FD8] rounded-lg py-2 hover:bg-[#EFF6FF]"
-                  >
-                    Vedi offerta →
-                  </a>
-                </div>
-              ) : null}
-            </div>
-          ))}
-          {/* Sentinella infinite scroll */}
-          {visibleCount < offerteFiltrate.length && (
-            <div ref={sentinelRef} className="h-4" />
-          )}
-        </div>
+      {/* Sentinella infinite scroll */}
+      {offerteFiltrate.length > 0 && visibleCount < offerteFiltrate.length && (
+        <div ref={sentinelRef} className="h-4 mt-1" />
       )}
 
       <p className="text-xs text-[#64748B] mt-2">
