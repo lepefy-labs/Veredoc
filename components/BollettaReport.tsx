@@ -5,6 +5,7 @@ import Card from "@/components/ui/Card";
 import { BollettaAnalysis, OffertaMercato } from "@/types/bolletta";
 import { RISPARMIO_MINIMO_BANNER_EURO } from "@/lib/config/constants";
 import { TEXTS } from "@/lib/config/texts";
+import { getProviderDisplay } from "@/lib/utils/provider";
 
 interface BollettaReportProps {
   data: BollettaAnalysis;
@@ -382,6 +383,7 @@ function OfferteSection({ offerte, unitaLabel, stimaAffidabile, percentualeSopra
           {offerteVisibili.map((offerta, i) => {
             const isMoreExpensive = (offerta.risparmio_mensile ?? 0) < 0;
             const hasRisparmio = offerta.risparmio_mensile !== null && offerta.risparmio_mensile > 0;
+            const display = getProviderDisplay(offerta.provider);
 
             const inner = (
               <div className="flex justify-between items-start gap-3">
@@ -391,8 +393,18 @@ function OfferteSection({ offerte, unitaLabel, stimaAffidabile, percentualeSopra
                       ★ Migliore
                     </span>
                   )}
-                  <p className="font-medium text-[#0F172A] text-[15px] m-0 leading-snug">{offerta.provider}</p>
-                  <p className="text-[13px] text-[#64748B] m-0 mb-2 leading-snug">{offerta.plan_name}</p>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div
+                      style={{ width: 36, height: 36, borderRadius: 8, background: display.colore, flexShrink: 0 }}
+                      className="flex items-center justify-center"
+                    >
+                      <span style={{ color: '#fff', fontSize: 13, fontWeight: 500 }}>{display.iniziali}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium text-[#0F172A] text-[15px] m-0 leading-snug">{display.nome}</p>
+                      <p className="text-[13px] text-[#64748B] m-0 leading-snug">{offerta.plan_name}</p>
+                    </div>
+                  </div>
                   <div className="flex flex-wrap gap-1.5">
                     {offerta.tipo_offerta && (
                       <span className="text-[12px] text-[#64748B] bg-[#F1F5F9] px-2 py-0.5 rounded-full capitalize">

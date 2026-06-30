@@ -64,6 +64,35 @@ export const DOCUMENT_TYPE_LABELS: Record<string, string> = {
   BUSTA_PAGA:        'Busta Paga',
 };
 
+export const PROVIDER_DISPLAY_NAMES: Record<string, { nome: string; iniziali: string; colore: string }> = {
+  'enel':            { nome: 'Enel Energia',     iniziali: 'EN', colore: '#00a651' },
+  'enelenergia':     { nome: 'Enel Energia',     iniziali: 'EN', colore: '#00a651' },
+  'eni':             { nome: 'Eni Plenitude',    iniziali: 'EP', colore: '#2980b9' },
+  'plenitude':       { nome: 'Eni Plenitude',    iniziali: 'EP', colore: '#2980b9' },
+  'eniplenitude':    { nome: 'Eni Plenitude',    iniziali: 'EP', colore: '#2980b9' },
+  'edison':          { nome: 'Edison Energia',   iniziali: 'ED', colore: '#e74c3c' },
+  'a2a':             { nome: 'A2A Energia',      iniziali: 'A2', colore: '#e67e22' },
+  'a2aenergia':      { nome: 'A2A Energia',      iniziali: 'A2', colore: '#e67e22' },
+  'iren':            { nome: 'Iren Luce Gas',    iniziali: 'IR', colore: '#c0392b' },
+  'irenlucegas':     { nome: 'Iren Luce Gas',    iniziali: 'IR', colore: '#c0392b' },
+  'seviren':         { nome: 'Iren Luce Gas',    iniziali: 'IR', colore: '#c0392b' },
+  'hera':            { nome: 'Hera Comm',        iniziali: 'HC', colore: '#16a085' },
+  'acea':            { nome: 'Acea Energia',     iniziali: 'AC', colore: '#2c3e50' },
+  'engie':           { nome: 'Engie',            iniziali: 'EG', colore: '#00aaff' },
+  'sorgenia':        { nome: 'Sorgenia',         iniziali: 'SO', colore: '#27ae60' },
+  'iberdrola':       { nome: 'Iberdrola',        iniziali: 'IB', colore: '#003366' },
+  'eon':             { nome: 'E.ON Energia',     iniziali: 'EO', colore: '#e2001a' },
+  'octopus':         { nome: 'Octopus Energy',   iniziali: 'OC', colore: '#1a1a2e' },
+  'octopusenergy':   { nome: 'Octopus Energy',   iniziali: 'OC', colore: '#1a1a2e' },
+  'nen':             { nome: 'NeN',              iniziali: 'NE', colore: '#6c3483' },
+  'dolomiti':        { nome: 'Dolomiti Energia', iniziali: 'DO', colore: '#2471a3' },
+  'dolomitienergia': { nome: 'Dolomiti Energia', iniziali: 'DO', colore: '#2471a3' },
+  'axpo':            { nome: 'Axpo Energia',     iniziali: 'AX', colore: '#1f618d' },
+  'illumia':         { nome: 'Illumia',          iniziali: 'IL', colore: '#f39c12' },
+  'alperia':         { nome: 'Alperia Energia',  iniziali: 'AL', colore: '#27ae60' },
+  'green':           { nome: 'Green Network',    iniziali: 'GN', colore: '#1e8449' },
+};
+
 // Label leggibili per tipo documento
 export const DOCUMENTO_LABEL: Record<string, string> = {
   BOLLETTA_LUCE: "Bolletta Luce",
