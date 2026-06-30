@@ -60,6 +60,9 @@ export interface OffertaMercato {
   break_even_kwh: number | null;
   stima_completa: boolean;
   url: string | null;
+  tipo_offerta: string | null;
+  durata_mesi: number | null;
+  offerta_fine: string | null;
 }
 
 export interface OffertaConsigliata {

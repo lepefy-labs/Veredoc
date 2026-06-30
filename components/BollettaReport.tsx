@@ -11,6 +11,13 @@ interface BollettaReportProps {
   documentId: string;
 }
 
+function formatScadenza(dateStr: string | null | undefined): string {
+  if (!dateStr) return "—";
+  const mesi = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
+  const d = new Date(dateStr);
+  return `${d.getDate()} ${mesi[d.getMonth()]}`;
+}
+
 function fmt(value: number | null | undefined, decimals = 2): string {
   if (value == null) return "—";
   return value.toLocaleString("it-IT", {
@@ -195,7 +202,7 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
               <Stat label="Materia energia/mese" value={fmt(confronto.costo_materia_mensile_attuale)} mono />
             )}
             {confronto.media_mercato_mensile !== null && (
-              <Stat label="Media mercato/mese" value={fmt(confronto.media_mercato_mensile)} mono />
+              <Stat label="Media top 10 offerte/mese" value={fmt(confronto.media_mercato_mensile)} mono />
             )}
             {confronto.minimo_mercato_mensile !== null && (
               <Stat label="Minimo mercato/mese" value={fmt(confronto.minimo_mercato_mensile)} mono />
@@ -212,7 +219,7 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
               return (
                 <div className="rounded-lg px-4 py-3 mb-4 bg-red-50">
                   <p className="text-sm font-medium text-red-700">
-                    Stai pagando circa il {Math.abs(pct)}% in più della media di mercato sulla materia energia
+                    Stai pagando circa il {Math.abs(pct)}% in più della media delle migliori offerte sulla materia energia
                   </p>
                 </div>
               );
@@ -271,15 +278,20 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
                   * Stima basata solo sulla componente variabile — quota fissa non disponibile per alcune offerte
                 </p>
               )}
-              <div className="overflow-x-auto">
+
+              {/* Desktop: tabella (≥768px) */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-[#E2E8F0]">
                       <th className="text-left text-xs text-[#64748B] font-medium pb-2 pr-3">Offerta</th>
+                      <th className="text-left text-xs text-[#64748B] font-medium pb-2 pr-3">Tipo</th>
+                      <th className="text-left text-xs text-[#64748B] font-medium pb-2 pr-3">Durata</th>
                       <th className="text-right text-xs text-[#64748B] font-medium pb-2 pr-3">{unitaLabel}</th>
                       <th className="text-right text-xs text-[#64748B] font-medium pb-2 pr-3">Quota fissa</th>
                       <th className="text-right text-xs text-[#64748B] font-medium pb-2 pr-3">Energia/mese</th>
                       <th className="text-right text-xs text-[#64748B] font-medium pb-2 pr-3">Risparmio/mese</th>
+                      <th className="text-right text-xs text-[#64748B] font-medium pb-2 pr-3">Scade</th>
                       <th className="pb-2"></th>
                     </tr>
                   </thead>
@@ -296,6 +308,12 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
                               <p className="text-xs text-[#64748B]">{offerta.plan_name}</p>
                             </div>
                           </div>
+                        </td>
+                        <td className="py-3 pr-3 text-sm text-[#64748B] capitalize">
+                          {offerta.tipo_offerta ?? "—"}
+                        </td>
+                        <td className="py-3 pr-3 text-sm text-[#64748B] whitespace-nowrap">
+                          {offerta.durata_mesi ? `${offerta.durata_mesi} mesi` : "—"}
                         </td>
                         <td className="py-3 pr-3 text-right font-mono text-[#0F172A]">
                           {fmtKwh(offerta.prezzo_kwh)}
@@ -330,6 +348,9 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
                             : <span className="text-[#94A3B8]">—</span>
                           }
                         </td>
+                        <td className="py-3 pr-3 text-right text-sm text-[#64748B] whitespace-nowrap">
+                          {formatScadenza(offerta.offerta_fine)}
+                        </td>
                         <td className="py-3 text-right">
                           {offerta.url ? (
                             <a
@@ -347,6 +368,68 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
                   </tbody>
                 </table>
               </div>
+
+              {/* Mobile: card impilate (<768px) */}
+              <div className="md:hidden space-y-3">
+                {confronto.offerte.map((offerta: OffertaMercato, i: number) => (
+                  <div key={i} className="rounded-xl border border-[#E2E8F0] overflow-hidden">
+                    {/* Header card */}
+                    <div className="flex items-start justify-between px-4 pt-4 pb-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {i === 0 && (
+                          <span className="text-xs bg-[#10B981] text-white px-1.5 py-0.5 rounded font-medium whitespace-nowrap">★ Migliore</span>
+                        )}
+                        <div>
+                          <p className="font-medium text-[#0F172A] text-sm">{offerta.provider}</p>
+                          <p className="text-xs text-[#64748B]">{offerta.plan_name}</p>
+                        </div>
+                      </div>
+                      {offerta.risparmio_mensile !== null && offerta.risparmio_mensile > 0 && (
+                        <span className="text-sm font-semibold text-[#10B981] whitespace-nowrap ml-2">
+                          -{fmt(offerta.risparmio_mensile)}/mese
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Pill row */}
+                    <div className="flex flex-wrap gap-1.5 px-4 pb-3">
+                      {offerta.tipo_offerta && (
+                        <span className="text-xs bg-[#F1F5F9] text-[#64748B] px-2 py-0.5 rounded-full capitalize">
+                          {offerta.tipo_offerta}{offerta.durata_mesi ? ` · ${offerta.durata_mesi} mesi` : ""}
+                        </span>
+                      )}
+                      <span className="text-xs bg-[#F1F5F9] text-[#64748B] px-2 py-0.5 rounded-full font-mono">
+                        {fmtKwh(offerta.prezzo_kwh)} {unitaLabel}
+                      </span>
+                      {offerta.quota_fissa_mensile !== null && (
+                        <span className="text-xs bg-[#F1F5F9] text-[#64748B] px-2 py-0.5 rounded-full font-mono">
+                          {offerta.quota_fissa_mensile === 0 ? "0 €/mese fisso" : `${fmt(offerta.quota_fissa_mensile, 0)}/mese fisso`}
+                        </span>
+                      )}
+                      {offerta.offerta_fine && (
+                        <span className="text-xs bg-[#F1F5F9] text-[#64748B] px-2 py-0.5 rounded-full">
+                          scade {formatScadenza(offerta.offerta_fine)}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* CTA */}
+                    {offerta.url ? (
+                      <div className="px-4 pb-4">
+                        <a
+                          href={offerta.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block w-full text-center text-sm text-[#1B4FD8] font-medium border border-[#1B4FD8] rounded-lg py-2 hover:bg-[#EFF6FF]"
+                        >
+                          Vedi offerta →
+                        </a>
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+
               <p className="text-xs text-[#64748B] mt-2">
                 * Solo componente materia energia. Esclude rete, oneri, accise e IVA.
               </p>

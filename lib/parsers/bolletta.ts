@@ -11,6 +11,9 @@ interface MarketRateRow {
   monthlyFee: number | null;
   url: string | null;
   scrapedAt: Date;
+  tipoOfferta: string | null;
+  durataEsclusive: number | null;
+  offertaFine: Date | null;
 }
 
 export async function arricchisciConFrontoMercato(
@@ -66,6 +69,9 @@ export async function arricchisciConFrontoMercato(
         break_even_kwh: null as number | null,
         stima_completa,
         url: tariffa.url ?? null,
+        tipo_offerta: tariffa.tipoOfferta ?? null,
+        durata_mesi: tariffa.durataEsclusive ?? null,
+        offerta_fine: tariffa.offertaFine ? tariffa.offertaFine.toISOString() : null,
       };
     })
     .sort((a, b) => {
@@ -98,9 +104,11 @@ export async function arricchisciConFrontoMercato(
   const arera = tariffe.find((t: MarketRateRow) => t.provider === "ARERA");
 
   const offerte_con_dati = offerte.filter((o) => o.costo_mensile_stimato !== null);
+  // Media calcolata sulle 10 offerte più economiche (per costo mensile stimato)
+  const top10 = offerte_con_dati.slice(0, 10);
   const media_mercato_mensile =
-    offerte_con_dati.length > 0
-      ? offerte_con_dati.reduce((sum, o) => sum + o.costo_mensile_stimato!, 0) / offerte_con_dati.length
+    top10.length > 0
+      ? top10.reduce((sum, o) => sum + o.costo_mensile_stimato!, 0) / top10.length
       : null;
 
   const minimo_mercato_mensile =
