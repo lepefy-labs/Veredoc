@@ -1,6 +1,38 @@
 import { prisma } from "@/lib/prisma";
 import { BollettaRaw, BollettaAnalysis, ConfrontoMercato, OffertaMercato } from "@/types/bolletta";
 
+async function getOfferteBilanciate(category: string, limit = 20) {
+  const half = Math.ceil(limit / 2);
+
+  const [fisse, variabili] = await Promise.all([
+    prisma.marketRate.findMany({
+      where: { category, tipoOfferta: "fisso" },
+      orderBy: { priceValue: "asc" },
+      take: half,
+    }),
+    prisma.marketRate.findMany({
+      where: { category, tipoOfferta: "variabile" },
+      orderBy: { priceValue: "asc" },
+      take: half,
+    }),
+  ]);
+
+  const combined = [...fisse, ...variabili];
+  const mancanti = limit - combined.length;
+
+  if (mancanti > 0) {
+    const usedIds = combined.map((o) => o.id);
+    const extra = await prisma.marketRate.findMany({
+      where: { category, id: { notIn: usedIds } },
+      orderBy: { priceValue: "asc" },
+      take: mancanti,
+    });
+    combined.push(...extra);
+  }
+
+  return combined.sort((a, b) => a.priceValue - b.priceValue).slice(0, limit);
+}
+
 interface MarketRateRow {
   id: string;
   category: string;
@@ -34,10 +66,7 @@ export async function arricchisciConFrontoMercato(
     return { ...rawExtracted, confronto_mercato: null };
   }
 
-  const tariffe = (await prisma.marketRate.findMany({
-    where: { category: categoria },
-    orderBy: { priceValue: "asc" },
-  })) as MarketRateRow[];
+  const tariffe = (await getOfferteBilanciate(categoria, 20)) as MarketRateRow[];
 
   if (tariffe.length === 0) {
     return { ...rawExtracted, confronto_mercato: null };
@@ -134,7 +163,7 @@ export async function arricchisciConFrontoMercato(
     miglior_risparmio_mensile: offerte[0]?.risparmio_mensile ?? null,
     miglior_risparmio_annuo: offerte[0]?.risparmio_annuo ?? null,
     arera_prezzo_kwh: arera?.priceValue ?? null,
-    offerte: offerte.slice(0, 5),
+    offerte: offerte.slice(0, 20),
     stima_affidabile: offerte.slice(0, 3).every((o) => o.stima_completa),
   };
 
