@@ -184,3 +184,27 @@ ALTER TABLE "MarketRate"
 
 -- IMPORTANTE: dopo aver applicato questo schema, eseguire supabase/rls.sql
 -- per attivare Row Level Security su tutte le tabelle.
+
+-- =============================================================================
+
+-- -----------------------------------------------------------------------------
+-- MIGRATION: Password reset via email
+-- Eseguire su Supabase SQL Editor
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS "PasswordResetToken" (
+  "id"        TEXT        NOT NULL,
+  "userId"    TEXT        NOT NULL,
+  "tokenHash" TEXT        NOT NULL,
+  "expiresAt" TIMESTAMPTZ NOT NULL,
+  "usedAt"    TIMESTAMPTZ,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+  CONSTRAINT "PasswordResetToken_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "PasswordResetToken_tokenHash_key" UNIQUE ("tokenHash"),
+  CONSTRAINT "PasswordResetToken_userId_fkey"
+    FOREIGN KEY ("userId") REFERENCES "User"("id")
+    ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- RLS: nessuna policy pubblica — accesso solo server-side via Prisma (service role)
+ALTER TABLE "PasswordResetToken" ENABLE ROW LEVEL SECURITY;

@@ -1,6 +1,6 @@
 # CONTEXT.md — Veredoc
 
-> Aggiornato: 2026-07-03
+> Aggiornato: 2026-07-03 (password reset via email)
 
 ---
 
@@ -20,6 +20,7 @@ SaaS italiano per l'analisi automatica di bollette (luce, gas, internet) e buste
 | ORM | Prisma | ^7.8.0 |
 | Database | Supabase PostgreSQL | — |
 | Auth | NextAuth v5 (beta) | 5.0.0-beta.31 |
+| Email transazionale | Resend | ^4.8.0 |
 | AI | Anthropic Claude | @anthropic-ai/sdk ^0.105.0 |
 | PDF render | pdfjs-dist | ^4.4.168 |
 | PDF compose | pdf-lib | ^1.17.1 |
@@ -36,6 +37,8 @@ SaaS italiano per l'analisi automatica di bollette (luce, gas, internet) e buste
 │   ├── api/
 │   │   ├── auth/[...nextauth]/            NextAuth handler
 │   │   ├── auth/register/                 Registrazione utente
+│   │   ├── auth/forgot-password/          Richiesta reset password (invio email)
+│   │   ├── auth/reset-password/           Conferma reset password (nuova password)
 │   │   ├── documents/upload/              Upload file + trigger analisi
 │   │   ├── documents/[id]/                GET (fetch doc) + DELETE (soft delete)
 │   │   ├── documents/[id]/refresh-market/ Ricalcola confronto mercato
@@ -44,6 +47,8 @@ SaaS italiano per l'analisi automatica di bollette (luce, gas, internet) e buste
 │   │   └── jobs/scrape-market-rates/      Scraping offerte da Sorgenia/Illumia/Sostariffe
 │   ├── (auth)/login/                      Pagina login
 │   ├── (auth)/register/                   Pagina registrazione
+│   ├── (auth)/forgot-password/            Richiesta link reset password
+│   ├── (auth)/reset-password/             Form nuova password (legge ?token=)
 │   ├── (pages)/termini/                   Termini di servizio
 │   ├── (pages)/privacy/                   Privacy policy
 │   ├── analyze/                           Pagina principale upload/analisi
@@ -73,6 +78,7 @@ SaaS italiano per l'analisi automatica di bollette (luce, gas, internet) e buste
 │   │   └── texts.ts                       Tutti i testi UI in italiano
 │   ├── auth.ts                            Config NextAuth + callbacks
 │   ├── auth.config.ts                     Validazione credenziali
+│   ├── email.ts                           Invio email transazionali (Resend)
 │   └── prisma.ts                          Prisma singleton
 ├── prisma/
 │   └── schema.prisma                      Schema DB (User, Document, MarketRate)
@@ -125,6 +131,11 @@ enum AnalysisStatus { PENDING  PROCESSING  AWAITING_CONFIRMATION  DONE  ERROR  D
 
 **User**
 - `id` (cuid), `email` (unique), `password` (bcrypt), `plan` (default: FREE), `createdAt`
+
+**PasswordResetToken**
+- `id`, `userId` (FK, cascade), `tokenHash` (unique, SHA-256 del token in chiaro inviato via email)
+- `expiresAt` (creazione + 1 ora), `usedAt` (null finché non consumato o invalidato), `createdAt`
+- RLS abilitata senza policy pubbliche — accesso solo server-side via Prisma (service role)
 
 **Document**
 - `id`, `userId` (FK), `type`, `fileName`, `filePath` (Supabase Storage)
@@ -202,6 +213,7 @@ Estrae in JSON: `tipo_rilevato`, `datore_lavoro`, `competenza`, `stipendio_lordo
 - **Password:** bcryptjs, 12 round
 - **Session:** JWT con `user.id` e `user.plan`
 - **Middleware:** protegge `/analyze`, `/dashboard` (redirect a `/login`); redirect a `/dashboard` se già loggato
+- **Reset password:** flusso email con token monouso (crypto random 32 byte, hash SHA-256 in DB, scadenza 1h). Endpoint `/api/auth/forgot-password` risponde sempre 200 (anti user-enumeration), max 3 token attivi per utente, invalida i token precedenti non usati. `/forgot-password` e `/reset-password` sono pubbliche (non incluse nel matcher del middleware)
 
 ---
 
@@ -211,6 +223,8 @@ Estrae in JSON: `tipo_rilevato`, `datore_lavoro`, `competenza`, `stipendio_lordo
 |---|---|---|---|
 | `/api/auth/[...nextauth]` | GET/POST | — | NextAuth (sign-in/out/callback) |
 | `/api/auth/register` | POST | — | Crea account utente |
+| `/api/auth/forgot-password` | POST | — | Genera token reset e invia email (sempre 200) |
+| `/api/auth/reset-password` | POST | — | Valida token e imposta nuova password |
 | `/api/documents/upload` | POST | Session | Upload + trigger analisi |
 | `/api/documents/[id]` | GET | Session (owner) | Fetch documento |
 | `/api/documents/[id]` | DELETE | Session (owner) | Soft delete |
@@ -234,6 +248,7 @@ Estrae in JSON: `tipo_rilevato`, `datore_lavoro`, `competenza`, `stipendio_lordo
 | `ADMIN_SECRET` | ✅ | Token Bearer per endpoint admin |
 | `JOBS_SECRET` | ✅ | Token Bearer per endpoint job |
 | `SCRAPERAPI_KEY` | ✅ | Chiave ScraperAPI per scraping |
+| `RESEND_API_KEY` | ✅ | Chiave API Resend per invio email (reset password) |
 | `ANTHROPIC_MODEL` | ❌ | Modello Claude (default: `claude-haiku-4-5`) |
 | `AI_PROVIDER` | ❌ | Provider AI: `anthropic` (default), `openai`, `gemini` |
 | `NEXTAUTH_URL` | ❌ | URL sessione (default: `http://localhost:3000`) |
@@ -269,6 +284,7 @@ Upgrade piano tramite `/api/admin/set-plan` (Bearer token).
 - Design token Tailwind 4 centralizzati in `globals.css` (niente hex hardcoded nei componenti)
 - Indicatore quota mensile in dashboard (barra di avanzamento X/limite, stessa logica di conteggio dell'endpoint upload)
 - Messaggio di conferma post-registrazione nella pagina login (`?registered=1`)
+- Reset password via email (Resend): richiesta, invio link, conferma nuova password, link "Password dimenticata?" in login
 - Stato di timeout gestito nel polling analisi (dopo ~2 min: opzioni "continua ad attendere" / dashboard)
 - Accessibilità: dropzone upload usabile da tastiera, dialog conferma eliminazione con ESC/backdrop/focus, focus ring coerenti, label associate agli input
 - Landing con gerarchia corretta (h1 reale, sezione "Come funziona" con step numerati)
@@ -278,7 +294,7 @@ Upgrade piano tramite `/api/admin/set-plan` (Bearer token).
 - Pagamenti / billing (Stripe o simili)
 - Provider AI alternativi (OpenAI, Gemini — stub presenti in `lib/ai/providers/`)
 - Background job `refresh-market-rates` (stub presente, logica da implementare)
-- Email di benvenuto / notifiche
+- Email di benvenuto / altre notifiche transazionali
 - Supporto multi-lingua
 
 ---
