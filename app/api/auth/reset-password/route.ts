@@ -4,6 +4,17 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { TEXTS } from "@/lib/config/texts";
 
+export async function GET(req: NextRequest) {
+  const token = req.nextUrl.searchParams.get("token");
+  if (!token) return NextResponse.json({ valid: false });
+
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+  const resetToken = await prisma.passwordResetToken.findUnique({ where: { tokenHash } });
+
+  const valid = !!resetToken && !resetToken.usedAt && resetToken.expiresAt > new Date();
+  return NextResponse.json({ valid });
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { token, password } = await req.json();

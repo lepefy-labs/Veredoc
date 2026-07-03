@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, FormEvent } from "react";
+import { Suspense, useState, useEffect, FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Button from "@/components/ui/Button";
@@ -18,6 +18,33 @@ function ResetPasswordContent() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [invalidToken, setInvalidToken] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    if (!token) {
+      setChecking(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    fetch(`/api/auth/reset-password?token=${encodeURIComponent(token)}`)
+      .then((res) => res.json())
+      .then((data: { valid: boolean }) => {
+        if (cancelled) return;
+        if (!data.valid) setInvalidToken(true);
+        setChecking(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setInvalidToken(true);
+        setChecking(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -82,6 +109,8 @@ function ResetPasswordContent() {
                 {TEXTS.resetPassword.requestNewLink}
               </Link>
             </div>
+          ) : checking ? (
+            <p className="text-sm text-muted">{TEXTS.resetPassword.checkingToken}</p>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>

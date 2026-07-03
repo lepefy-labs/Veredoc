@@ -60,6 +60,7 @@ export const TEXTS = {
     passwordMismatch: "Le password non coincidono.",
     success: "Password aggiornata. Ora puoi accedere con la nuova password.",
     goToLogin: "Vai al login",
+    checkingToken: "Verifica del link in corso...",
     invalidTokenTitle: "Link non valido o scaduto",
     invalidTokenSubtitle: "Il link per reimpostare la password non è valido oppure è scaduto.",
     requestNewLink: "Richiedi un nuovo link",
