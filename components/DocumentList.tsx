@@ -1,11 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import { DOCUMENTO_LABEL } from "@/lib/config/constants";
-import { TEXTS } from "@/lib/config/texts";
 import { AnalysisStatus, DocumentType } from "@prisma/client";
 
 interface DocumentItem {
@@ -30,24 +29,42 @@ function ConfirmDialog({
   onCancel: () => void;
   loading: boolean;
 }) {
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onCancel();
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onCancel]);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-xl shadow-lg p-6 max-w-sm w-full mx-4 space-y-4">
-        <p className="text-sm text-[#0F172A]">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      onClick={onCancel}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-delete-title"
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-xl shadow-lg p-6 max-w-sm w-full mx-4 space-y-4"
+      >
+        <p id="confirm-delete-title" className="text-sm text-ink">
           Sei sicuro di voler eliminare questo documento? I dati analizzati verranno rimossi definitivamente.
         </p>
         <div className="flex gap-3 justify-end">
           <button
             onClick={onCancel}
             disabled={loading}
-            className="px-4 py-2 text-sm text-[#64748B] border border-[#E2E8F0] rounded-lg hover:bg-[#F7F9FC] disabled:opacity-60"
+            autoFocus
+            className="px-4 py-2 text-sm text-muted border border-line rounded-lg hover:bg-page disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-brand"
           >
             Annulla
           </button>
           <button
             onClick={onConfirm}
             disabled={loading}
-            className="px-4 py-2 text-sm text-white bg-[#EF4444] rounded-lg hover:bg-red-600 disabled:opacity-60"
+            className="px-4 py-2 text-sm text-white bg-danger rounded-lg hover:bg-red-600 disabled:opacity-60"
           >
             {loading ? "Eliminazione…" : "Elimina"}
           </button>
@@ -92,13 +109,13 @@ export default function DocumentList({ initialDocuments }: DocumentListProps) {
             <path d="M40.5 38.5L44 42" stroke="#1B4FD8" strokeWidth="2" strokeLinecap="round"/>
           </svg>
         </div>
-        <p className="text-[#0F172A] font-semibold text-base">Nessun documento ancora</p>
-        <p className="text-[#64748B] text-sm mt-2 max-w-xs mx-auto">
+        <p className="text-ink font-semibold text-base">Nessun documento ancora</p>
+        <p className="text-muted text-sm mt-2 max-w-xs mx-auto">
           Carica la tua prima bolletta o busta paga e scopri se stai pagando troppo.
         </p>
         <Link
           href="/analyze"
-          className="mt-6 inline-flex items-center justify-center px-5 py-2.5 bg-[#1B4FD8] text-white rounded-lg text-sm font-medium hover:bg-[#1640B0] transition-colors"
+          className="mt-6 inline-flex items-center justify-center px-5 py-2.5 bg-brand text-white rounded-lg text-sm font-medium hover:bg-brand-dark transition-colors"
         >
           Carica un documento
         </Link>
@@ -124,30 +141,30 @@ export default function DocumentList({ initialDocuments }: DocumentListProps) {
           return (
             <div key={doc.id} className="relative">
               <Link href={`/analyze?id=${doc.id}`}>
-                <Card padding="sm" className="hover:shadow-md transition-shadow cursor-pointer">
+                <Card padding="sm" className="hover:shadow-md transition-shadow cursor-pointer pr-12">
                   <div className="flex items-center gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold text-[#0F172A] truncate">
+                        <p className="text-sm font-semibold text-ink truncate">
                           {DOCUMENTO_LABEL[doc.type] ?? doc.type}
                         </p>
                         <Badge status={doc.status as AnalysisStatus} />
                       </div>
-                      <p className="text-xs text-[#64748B] mt-0.5 truncate">{doc.fileName}</p>
+                      <p className="text-xs text-muted mt-0.5 truncate">{doc.fileName}</p>
                       {fornitore != null && (
-                        <p className="text-xs text-[#64748B]">{String(fornitore)}</p>
+                        <p className="text-xs text-muted">{String(fornitore)}</p>
                       )}
                       {deleteError[doc.id] && (
-                        <p className="text-xs text-[#EF4444] mt-1">{deleteError[doc.id]}</p>
+                        <p className="text-xs text-danger mt-1">{deleteError[doc.id]}</p>
                       )}
                     </div>
                     <div className="text-right shrink-0">
                       {importo !== undefined && importo !== null && (
-                        <p className="font-mono text-sm font-bold text-[#0F172A]">
+                        <p className="font-mono text-sm font-bold text-ink">
                           {Number(importo).toLocaleString("it-IT", { style: "currency", currency: "EUR" })}
                         </p>
                       )}
-                      <p className="text-xs text-[#64748B]">
+                      <p className="text-xs text-muted">
                         {new Date(doc.createdAt).toLocaleDateString("it-IT")}
                       </p>
                     </div>
@@ -160,9 +177,15 @@ export default function DocumentList({ initialDocuments }: DocumentListProps) {
                   e.stopPropagation();
                   setConfirmDeleteId(doc.id);
                 }}
-                className="absolute top-2 right-2 text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded"
+                aria-label={`Elimina ${DOCUMENTO_LABEL[doc.type] ?? "documento"} ${doc.fileName}`}
+                title="Elimina documento"
+                className="absolute top-1/2 -translate-y-1/2 right-2 p-2 rounded-lg text-faint hover:text-danger hover:bg-red-50 transition-colors focus-visible:outline-2 focus-visible:outline-brand"
               >
-                Elimina
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14" />
+                  <line x1="10" y1="11" x2="10" y2="17" />
+                  <line x1="14" y1="11" x2="14" y2="17" />
+                </svg>
               </button>
             </div>
           );

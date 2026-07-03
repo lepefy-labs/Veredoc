@@ -55,9 +55,9 @@ function LoadingSpinner() {
 
   return (
     <div className="flex flex-col items-center gap-4 py-12">
-      <div className="w-10 h-10 border-4 border-[#1B4FD8] border-t-transparent rounded-full animate-spin" />
-      <p className="text-sm font-medium text-[#0F172A] transition-all">{LOADING_MESSAGES[msgIdx]}</p>
-      <p className="text-xs text-[#64748B]">L&apos;analisi richiede circa 30-60 secondi</p>
+      <div className="w-10 h-10 border-4 border-brand border-t-transparent rounded-full animate-spin" />
+      <p className="text-sm font-medium text-ink transition-all">{LOADING_MESSAGES[msgIdx]}</p>
+      <p className="text-xs text-muted">L&apos;analisi richiede circa 30-60 secondi</p>
     </div>
   );
 }
@@ -121,6 +121,32 @@ export default function AnalysisResult({ documentId, onReset, onDocLoaded }: Ana
   if (!doc) return null;
 
   if (doc.status === "PENDING" || doc.status === "PROCESSING" || doc.status === "AWAITING_CONFIRMATION") {
+    if (polls >= MAX_POLLS) {
+      return (
+        <div className="rounded-xl border border-line bg-white p-6 text-center space-y-4">
+          <p className="text-sm font-medium text-ink">
+            L&apos;analisi sta impiegando più tempo del previsto.
+          </p>
+          <p className="text-sm text-muted">
+            Il documento è in coda di elaborazione: puoi continuare ad attendere oppure ritrovarlo più tardi nella dashboard.
+          </p>
+          <div className="flex flex-wrap gap-3 justify-center">
+            <button
+              onClick={() => setPolls(0)}
+              className="inline-flex items-center justify-center px-4 py-2 bg-brand text-white rounded-lg text-sm font-medium hover:bg-brand-dark transition-colors"
+            >
+              Continua ad attendere
+            </button>
+            <a
+              href="/dashboard"
+              className="inline-flex items-center justify-center px-4 py-2 bg-white text-ink border border-line rounded-lg text-sm font-medium hover:bg-page transition-colors"
+            >
+              Vai alla dashboard
+            </a>
+          </div>
+        </div>
+      );
+    }
     return <LoadingSpinner />;
   }
 
@@ -136,7 +162,7 @@ export default function AnalysisResult({ documentId, onReset, onDocLoaded }: Ana
         {onReset && (
           <button
             onClick={onReset}
-            className="inline-flex items-center justify-center px-4 py-2 bg-[#1B4FD8] text-white rounded-lg text-sm font-medium hover:bg-[#1640B0] transition-colors"
+            className="inline-flex items-center justify-center px-4 py-2 bg-brand text-white rounded-lg text-sm font-medium hover:bg-brand-dark transition-colors"
           >
             Nuova analisi
           </button>

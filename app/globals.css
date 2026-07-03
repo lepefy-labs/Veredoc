@@ -5,6 +5,39 @@
   --font-mono: var(--font-mono);
 }
 
+/*
+ * Design token Veredoc — unica fonte di verità per i colori UI.
+ * Usare le utility generate (bg-brand, text-muted, border-line, …)
+ * invece di valori esadecimali arbitrari nei componenti.
+ */
+@theme {
+  /* Brand */
+  --color-brand: #1b4fd8;
+  --color-brand-dark: #1640b0;
+  --color-brand-soft: #eff4ff;
+
+  /* Testo */
+  --color-ink: #0f172a;
+  --color-muted: #64748b;
+  --color-faint: #94a3b8;
+
+  /* Superfici e bordi */
+  --color-line: #e2e8f0;
+  --color-page: #f7f9fc;
+  --color-chip: #f1f5f9;
+
+  /* Semantici */
+  --color-success: #10b981;
+  --color-success-dark: #059669;
+  --color-danger: #ef4444;
+  --color-danger-dark: #dc2626;
+}
+
 body {
   font-family: var(--font-inter), system-ui, sans-serif;
+}
+
+::selection {
+  background: var(--color-brand);
+  color: #fff;
 }

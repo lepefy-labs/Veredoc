@@ -75,7 +75,7 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
   return (
     <div className="space-y-6">
       {mostraBanner && (
-        <div className="bg-[#10B981] rounded-xl p-6 text-white">
+        <div className="bg-success rounded-xl p-6 text-white">
           <p className="text-sm font-medium uppercase tracking-wide opacity-80">{TEXTS.analysis.savingBanner}</p>
           <p className="font-mono text-4xl font-bold mt-1">
             {risparmiAnnuo.toLocaleString("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 })}
@@ -106,36 +106,36 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
 
       {/* Breakdown cosa puoi negoziare */}
       {haBreakdown && (
-        <div className="rounded-xl border border-[#E2E8F0] bg-[#F7F9FC] p-5">
-          <h3 className="font-semibold text-[#0F172A] mb-4">Cosa puoi negoziare cambiando fornitore</h3>
+        <div className="rounded-xl border border-line bg-page p-5">
+          <h3 className="font-semibold text-ink mb-4">Cosa puoi negoziare cambiando fornitore</h3>
 
           {/* Materia energia */}
           {materiaEur > 0 && (
             <div className="mb-3">
               <div className="flex justify-between items-baseline">
-                <span className="text-sm font-semibold text-[#0F172A]">Materia energia</span>
-                <span className="font-mono text-sm font-bold text-[#0F172A]">{fmt(materiaEur)}</span>
+                <span className="text-sm font-semibold text-ink">Materia energia</span>
+                <span className="font-mono text-sm font-bold text-ink">{fmt(materiaEur)}</span>
               </div>
               {data.materia_energia?.quota_variabile_eur !== null && data.materia_energia?.quota_variabile_eur !== undefined && (
                 <div className="flex justify-between items-baseline mt-1 pl-4">
-                  <span className="text-xs text-[#64748B]">
+                  <span className="text-xs text-muted">
                     ├─ Quota variabile
                     {data.consumi?.valore && data.materia_energia?.quota_variabile_prezzo_kwh
                       ? ` (${data.consumi.valore} ${data.consumi.unita} × ${fmtKwh(data.materia_energia.quota_variabile_prezzo_kwh)} ${unitaLabel})`
                       : ""}
                   </span>
-                  <span className="font-mono text-xs text-[#64748B]">{fmt(data.materia_energia.quota_variabile_eur)}</span>
+                  <span className="font-mono text-xs text-muted">{fmt(data.materia_energia.quota_variabile_eur)}</span>
                 </div>
               )}
               {data.materia_energia?.quota_fissa_eur !== null && data.materia_energia?.quota_fissa_eur !== undefined && (
                 <div className="flex justify-between items-baseline mt-1 pl-4">
-                  <span className="text-xs text-[#64748B]">
+                  <span className="text-xs text-muted">
                     └─ Quota fissa mensile
                     {data.materia_energia?.quota_fissa_mensile_eur
                       ? ` (${fmt(data.materia_energia.quota_fissa_mensile_eur)}/mese)`
                       : ""}
                   </span>
-                  <span className="font-mono text-xs text-[#64748B]">{fmt(data.materia_energia.quota_fissa_eur)}</span>
+                  <span className="font-mono text-xs text-muted">{fmt(data.materia_energia.quota_fissa_eur)}</span>
                 </div>
               )}
             </div>
@@ -145,12 +145,12 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
           {(data.rete_e_oneri?.totale_eur ?? 0) + (data.imposte?.totale_eur ?? 0) > 0 && (
             <div className="mb-3">
               <div className="flex justify-between items-baseline">
-                <span className="text-sm font-semibold text-[#64748B]">Costi fissi di sistema <span className="font-normal text-xs">(uguali per tutti)</span></span>
-                <span className="font-mono text-sm font-semibold text-[#64748B]">
+                <span className="text-sm font-semibold text-muted">Costi fissi di sistema <span className="font-normal text-xs">(uguali per tutti)</span></span>
+                <span className="font-mono text-sm font-semibold text-muted">
                   {fmt((data.rete_e_oneri?.totale_eur ?? 0) + (data.imposte?.totale_eur ?? 0))}
                 </span>
               </div>
-              <p className="text-xs text-[#94A3B8] pl-4 mt-0.5">rete, oneri, potenza, accise, IVA</p>
+              <p className="text-xs text-faint pl-4 mt-0.5">rete, oneri, potenza, accise, IVA</p>
             </div>
           )}
 
@@ -158,15 +158,15 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
           {canoRai > 0 && (
             <div className="mb-3">
               <div className="flex justify-between items-baseline">
-                <span className="text-sm font-semibold text-[#64748B]">Altro <span className="font-normal text-xs">(canone RAI, ecc.)</span></span>
-                <span className="font-mono text-sm font-semibold text-[#64748B]">{fmt(canoRai + (data.altro?.altri_eur ?? 0))}</span>
+                <span className="text-sm font-semibold text-muted">Altro <span className="font-normal text-xs">(canone RAI, ecc.)</span></span>
+                <span className="font-mono text-sm font-semibold text-muted">{fmt(canoRai + (data.altro?.altri_eur ?? 0))}</span>
               </div>
             </div>
           )}
 
           {pctNegoziabile !== null && (
-            <div className="mt-4 pt-3 border-t border-[#E2E8F0]">
-              <p className="text-sm font-medium text-[#1B4FD8]">
+            <div className="mt-4 pt-3 border-t border-line">
+              <p className="text-sm font-medium text-brand">
                 ▸ Il {pctNegoziabile}% della tua bolletta è negoziabile cambiando fornitore
               </p>
             </div>
@@ -176,15 +176,15 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
 
       {/* Voci in dettaglio */}
       <Card>
-        <h3 className="font-semibold text-[#0F172A] mb-4">Voci in dettaglio</h3>
+        <h3 className="font-semibold text-ink mb-4">Voci in dettaglio</h3>
         <div className="space-y-3">
           {data.voci_dettaglio.map((voce, i) => (
-            <div key={i} className="flex justify-between items-start gap-4 pb-3 border-b border-[#E2E8F0] last:border-0 last:pb-0">
+            <div key={i} className="flex justify-between items-start gap-4 pb-3 border-b border-line last:border-0 last:pb-0">
               <div>
-                <p className="text-sm font-medium text-[#0F172A]">{voce.nome}</p>
-                <p className="text-xs text-[#64748B] mt-0.5">{voce.spiegazione}</p>
+                <p className="text-sm font-medium text-ink">{voce.nome}</p>
+                <p className="text-xs text-muted mt-0.5">{voce.spiegazione}</p>
               </div>
-              <p className="font-mono text-sm font-semibold text-[#0F172A] whitespace-nowrap">
+              <p className="font-mono text-sm font-semibold text-ink whitespace-nowrap">
                 {fmt(voce.importo)}
               </p>
             </div>
@@ -195,7 +195,7 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
       {/* Confronto mercato */}
       {confronto && confronto.prezzo_kwh_attuale !== null && (
         <Card>
-          <h3 className="font-semibold text-[#0F172A] mb-4">Confronto con il mercato</h3>
+          <h3 className="font-semibold text-ink mb-4">Confronto con il mercato</h3>
 
           {/* Metriche sommario */}
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 mb-4">
@@ -282,7 +282,7 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
       {/* Nessun confronto disponibile */}
       {(!confronto || confronto.prezzo_kwh_attuale === null) && (
         <Card>
-          <p className="text-sm text-[#64748B]">{TEXTS.analysis.noMarketData}</p>
+          <p className="text-sm text-muted">{TEXTS.analysis.noMarketData}</p>
         </Card>
       )}
 
@@ -290,7 +290,7 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
         <button
           onClick={handleRefreshMarket}
           disabled={refreshing}
-          className="text-sm text-[#64748B] hover:text-[#1B4FD8] underline disabled:opacity-50"
+          className="text-sm text-muted hover:text-brand underline disabled:opacity-50"
         >
           {refreshing ? "Aggiornamento..." : "Aggiorna confronto mercato"}
         </button>
@@ -343,13 +343,13 @@ function OfferteSection({ offerte, unitaLabel, stimaAffidabile, percentualeSopra
 
   return (
     <>
-      <h4 className="text-sm font-semibold text-[#0F172A] mb-3">
+      <h4 className="text-sm font-semibold text-ink mb-3">
         {(percentualeSopraMedia ?? 0) < -5
           ? "Confronto con altre offerte"
           : TEXTS.analysis.suggestedOffers}
       </h4>
       {!stimaAffidabile && (
-        <p className="text-xs text-[#94A3B8] mb-2">
+        <p className="text-xs text-faint mb-2">
           * Stima basata solo sulla componente variabile — quota fissa non disponibile per alcune offerte
         </p>
       )}
@@ -363,8 +363,8 @@ function OfferteSection({ offerte, unitaLabel, stimaAffidabile, percentualeSopra
               onClick={() => setFiltroTipo(tipo)}
               className={`text-xs px-3 py-1 rounded-full border font-medium capitalize transition-colors ${
                 filtroTipo === tipo
-                  ? "bg-[#1B4FD8] border-[#1B4FD8] text-white"
-                  : "bg-white border-[#E2E8F0] text-[#64748B] hover:border-[#1B4FD8] hover:text-[#1B4FD8]"
+                  ? "bg-brand border-brand text-white"
+                  : "bg-white border-line text-muted hover:border-brand hover:text-brand"
               }`}
             >
               {tipo === "tutte" ? "Tutte" : tipo.charAt(0).toUpperCase() + tipo.slice(1)}
@@ -374,7 +374,7 @@ function OfferteSection({ offerte, unitaLabel, stimaAffidabile, percentualeSopra
       )}
 
       {offerteFiltrate.length === 0 && (
-        <p className="text-sm text-[#94A3B8] mb-4">Nessuna offerta disponibile per questo filtro.</p>
+        <p className="text-sm text-faint mb-4">Nessuna offerta disponibile per questo filtro.</p>
       )}
 
       {/* Griglia card unica — mobile colonna singola, desktop 2 colonne */}
@@ -389,7 +389,7 @@ function OfferteSection({ offerte, unitaLabel, stimaAffidabile, percentualeSopra
               <div className="flex justify-between items-start gap-3">
                 <div className="flex-1 min-w-0">
                   {i === 0 && (
-                    <span className="inline-block text-[11px] font-medium px-2 py-0.5 rounded bg-[#ECFDF5] text-[#10B981] mb-1.5">
+                    <span className="inline-block text-[11px] font-medium px-2 py-0.5 rounded bg-[#ECFDF5] text-success mb-1.5">
                       ★ Migliore
                     </span>
                   )}
@@ -401,42 +401,42 @@ function OfferteSection({ offerte, unitaLabel, stimaAffidabile, percentualeSopra
                       <span style={{ color: '#fff', fontSize: 13, fontWeight: 500 }}>{display.iniziali}</span>
                     </div>
                     <div className="min-w-0">
-                      <p className="font-medium text-[#0F172A] text-[15px] m-0 leading-snug">{display.nome}</p>
-                      <p className="text-[13px] text-[#64748B] m-0 leading-snug">{offerta.plan_name}</p>
+                      <p className="font-medium text-ink text-[15px] m-0 leading-snug">{display.nome}</p>
+                      <p className="text-[13px] text-muted m-0 leading-snug">{offerta.plan_name}</p>
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {offerta.tipo_offerta && (
-                      <span className="text-[12px] text-[#64748B] bg-[#F1F5F9] px-2 py-0.5 rounded-full capitalize">
+                      <span className="text-[12px] text-muted bg-chip px-2 py-0.5 rounded-full capitalize">
                         {offerta.tipo_offerta}{offerta.durata_mesi ? ` · ${offerta.durata_mesi} mesi` : ""}
                       </span>
                     )}
-                    <span className="text-[12px] text-[#64748B] bg-[#F1F5F9] px-2 py-0.5 rounded-full font-mono">
+                    <span className="text-[12px] text-muted bg-chip px-2 py-0.5 rounded-full font-mono">
                       {fmtKwh(offerta.prezzo_kwh)} {unitaLabel}
                     </span>
                     {offerta.quota_fissa_mensile !== null && (
-                      <span className="text-[12px] text-[#64748B] bg-[#F1F5F9] px-2 py-0.5 rounded-full font-mono">
+                      <span className="text-[12px] text-muted bg-chip px-2 py-0.5 rounded-full font-mono">
                         {offerta.quota_fissa_mensile === 0 ? "0 €/mese fissi" : `${fmt(offerta.quota_fissa_mensile, 0)}/mese fissi`}
                       </span>
                     )}
                     {offerta.offerta_fine && (
-                      <span className="text-[12px] text-[#64748B] bg-[#F1F5F9] px-2 py-0.5 rounded-full">
+                      <span className="text-[12px] text-muted bg-chip px-2 py-0.5 rounded-full">
                         Scade {formatScadenza(offerta.offerta_fine)}
                       </span>
                     )}
                   </div>
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <p className="text-[12px] text-[#64748B] m-0 mb-0.5">Energia/mese</p>
-                  <p className="text-[15px] text-[#0F172A] m-0 mb-2 font-mono">
+                  <p className="text-[12px] text-muted m-0 mb-0.5">Energia/mese</p>
+                  <p className="text-[15px] text-ink m-0 mb-2 font-mono">
                     {offerta.costo_mensile_stimato !== null
-                      ? <>{fmt(offerta.costo_mensile_stimato)}{!offerta.stima_completa && <span className="text-[#94A3B8]">*</span>}</>
+                      ? <>{fmt(offerta.costo_mensile_stimato)}{!offerta.stima_completa && <span className="text-faint">*</span>}</>
                       : "—"
                     }
                   </p>
                   {offerta.risparmio_mensile !== null && (
                     <p className={`text-[15px] font-medium m-0 whitespace-nowrap ${
-                      isMoreExpensive ? "text-[#EF4444]" : hasRisparmio ? "text-[#10B981]" : "text-[#64748B]"
+                      isMoreExpensive ? "text-danger" : hasRisparmio ? "text-success" : "text-muted"
                     }`}>
                       {isMoreExpensive
                         ? `+${fmt(Math.abs(offerta.risparmio_mensile))}/mese`
@@ -457,7 +457,7 @@ function OfferteSection({ offerte, unitaLabel, stimaAffidabile, percentualeSopra
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="flex-shrink-0 mt-1 text-[#94A3B8]"
+                  className="flex-shrink-0 mt-1 text-faint"
                   aria-hidden="true"
                 >
                   <polyline points="9 18 15 12 9 6" />
@@ -471,7 +471,7 @@ function OfferteSection({ offerte, unitaLabel, stimaAffidabile, percentualeSopra
                 href={offerta.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block no-underline text-inherit border border-[#E2E8F0] rounded-xl p-4 hover:border-[#CBD5E1] transition-colors"
+                className="block no-underline text-inherit border border-line rounded-xl p-4 hover:border-[#CBD5E1] transition-colors"
                 style={{ color: "inherit", textDecoration: "none" }}
               >
                 {inner}
@@ -479,7 +479,7 @@ function OfferteSection({ offerte, unitaLabel, stimaAffidabile, percentualeSopra
             ) : (
               <div
                 key={i}
-                className="border border-[#E2E8F0] rounded-xl p-4"
+                className="border border-line rounded-xl p-4"
               >
                 {inner}
               </div>
@@ -493,11 +493,11 @@ function OfferteSection({ offerte, unitaLabel, stimaAffidabile, percentualeSopra
         <div ref={sentinelRef} className="h-4 mt-1" />
       )}
 
-      <p className="text-xs text-[#64748B] mt-2">
+      <p className="text-xs text-muted mt-2">
         * Solo componente materia energia. Esclude rete, oneri, accise e IVA.
       </p>
       {areraPrezzo && (
-        <p className="text-xs text-[#94A3B8] mt-3">
+        <p className="text-xs text-faint mt-3">
           Riferimento ARERA (tutela vulnerabili): {fmtKwh(areraPrezzo)} {unitaLabel}
         </p>
       )}
@@ -508,8 +508,8 @@ function OfferteSection({ offerte, unitaLabel, stimaAffidabile, percentualeSopra
 function Stat({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div>
-      <p className="text-xs text-[#64748B] uppercase tracking-wide mb-0.5">{label}</p>
-      <p className={`text-sm font-semibold text-[#0F172A] ${mono ? "font-mono" : ""}`}>{value}</p>
+      <p className="text-xs text-muted uppercase tracking-wide mb-0.5">{label}</p>
+      <p className={`text-sm font-semibold text-ink ${mono ? "font-mono" : ""}`}>{value}</p>
     </div>
   );
 }

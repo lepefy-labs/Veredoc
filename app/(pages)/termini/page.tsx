@@ -6,25 +6,25 @@ export const metadata = {
 
 export default function TerminiPage() {
   return (
-    <main className="min-h-screen bg-[#F8FAFC] px-4 py-12">
+    <main className="min-h-screen bg-page px-4 py-12">
       <div className="max-w-2xl mx-auto">
         <Link
           href="/"
-          className="inline-block text-sm text-[#1B4FD8] hover:underline mb-8"
+          className="inline-block text-sm text-brand hover:underline mb-8"
         >
           ← Torna al sito
         </Link>
 
         <header className="mb-10">
-          <h1 className="text-3xl font-bold text-[#0F172A] mb-2">
+          <h1 className="text-3xl font-bold text-ink mb-2">
             Termini e Condizioni
           </h1>
-          <p className="text-[#64748B] text-sm">
+          <p className="text-muted text-sm">
             Condizioni di utilizzo del servizio Veredoc
           </p>
         </header>
 
-        <div className="space-y-8 text-[#0F172A] leading-relaxed text-sm">
+        <div className="space-y-8 text-ink leading-relaxed text-sm">
           <section>
             <h2 className="font-semibold text-base mb-2">Cos&apos;è Veredoc</h2>
             <p>
@@ -33,7 +33,7 @@ export default function TerminiPage() {
               e buste paga — con l&apos;obiettivo di aiutare l&apos;utente a comprendere
               i propri costi e confrontarli con il mercato.
             </p>
-            <p className="mt-2 text-[#64748B]">
+            <p className="mt-2 text-muted">
               Veredoc è uno strumento informativo, non un servizio di consulenza. Le
               analisi prodotte hanno finalità orientativa e non costituiscono consulenza
               legale, fiscale, energetica o finanziaria.
@@ -74,7 +74,7 @@ export default function TerminiPage() {
                 per il confronto
               </li>
             </ul>
-            <p className="mt-2 text-[#64748B]">
+            <p className="mt-2 text-muted">
               L&apos;utente è responsabile di verificare le informazioni prima di
               prendere decisioni basate sull&apos;analisi di Veredoc.
             </p>
@@ -110,14 +110,14 @@ export default function TerminiPage() {
           <section>
             <h2 className="font-semibold text-base mb-2">Contatto</h2>
             <p>
-              <a href="mailto:privacy@veredoc.it" className="text-[#1B4FD8] hover:underline">
+              <a href="mailto:privacy@veredoc.it" className="text-brand hover:underline">
                 privacy@veredoc.it
               </a>
             </p>
           </section>
         </div>
 
-        <footer className="mt-12 pt-6 border-t border-[#E2E8F0] text-xs text-[#64748B]">
+        <footer className="mt-12 pt-6 border-t border-line text-xs text-muted">
           Ultimo aggiornamento: giugno 2025
         </footer>
       </div>

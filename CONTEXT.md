@@ -1,6 +1,6 @@
 # CONTEXT.md — Veredoc
 
-> Aggiornato: 2026-06-28
+> Aggiornato: 2026-07-03
 
 ---
 
@@ -88,6 +88,26 @@ SaaS italiano per l'analisi automatica di bollette (luce, gas, internet) e buste
 ├── next.config.ts                         Config Next.js
 └── prisma.config.ts                       Config Prisma (DIRECT_URL)
 ```
+
+---
+
+## Design System UI
+
+I colori dell'interfaccia sono definiti come **design token Tailwind 4** in `app/globals.css` (blocco `@theme`). I componenti usano le utility generate — non valori esadecimali arbitrari.
+
+| Token | Valore | Uso |
+|---|---|---|
+| `brand` / `brand-dark` / `brand-soft` | `#1B4FD8` / `#1640B0` / `#EFF4FF` | Azioni primarie, link, focus ring |
+| `ink` / `muted` / `faint` | `#0F172A` / `#64748B` / `#94A3B8` | Testo primario / secondario / terziario |
+| `line` / `page` / `chip` | `#E2E8F0` / `#F7F9FC` / `#F1F5F9` | Bordi, sfondo pagina, pill/chip |
+| `success` / `danger` (+ varianti `-dark`) | `#10B981` / `#EF4444` | Stati semantici |
+
+Esempio: `bg-brand`, `text-muted`, `border-line`, `focus-visible:outline-brand`.
+
+Convenzioni UI:
+- Focus visibile (`focus-visible:outline-2 outline-brand`) su tutti gli elementi interattivi
+- Input sempre con `label htmlFor` + `id` e `autoComplete` appropriato
+- Dialog modali con `role="dialog"`, `aria-modal`, chiusura con ESC e click sul backdrop
 
 ---
 
@@ -246,6 +266,12 @@ Upgrade piano tramite `/api/admin/set-plan` (Bearer token).
 - Endpoint admin per gestione piani
 - Testi UI completamente in italiano
 - Endpoint refresh confronto mercato (senza nuova chiamata AI)
+- Design token Tailwind 4 centralizzati in `globals.css` (niente hex hardcoded nei componenti)
+- Indicatore quota mensile in dashboard (barra di avanzamento X/limite, stessa logica di conteggio dell'endpoint upload)
+- Messaggio di conferma post-registrazione nella pagina login (`?registered=1`)
+- Stato di timeout gestito nel polling analisi (dopo ~2 min: opzioni "continua ad attendere" / dashboard)
+- Accessibilità: dropzone upload usabile da tastiera, dialog conferma eliminazione con ESC/backdrop/focus, focus ring coerenti, label associate agli input
+- Landing con gerarchia corretta (h1 reale, sezione "Come funziona" con step numerati)
 
 ### Non ancora implementato / Future features
 - Anonimizzatore server-side (campo legacy presente in DB, rimosso dal flusso UI)

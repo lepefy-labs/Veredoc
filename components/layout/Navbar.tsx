@@ -6,7 +6,7 @@ import VeredocLogo from "@/components/ui/VeredocLogo";
 export default function Navbar() {
   const { data: session } = useSession();
   return (
-    <nav className="bg-white border-b border-[#E2E8F0] px-6 py-3 flex items-center justify-between sticky top-0 z-50">
+    <nav aria-label="Principale" className="bg-white border-b border-line px-4 sm:px-6 py-3 flex items-center justify-between gap-3 sticky top-0 z-50">
       <Link href={session ? "/dashboard" : "/"} onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
         <VeredocLogo variant="full" size="sm" />
       </Link>
@@ -16,35 +16,35 @@ export default function Navbar() {
             <Link
               href="/dashboard"
               onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-              className="text-[#0F172A] hover:text-[#1B4FD8] transition-colors"
+              className="text-ink hover:text-brand transition-colors"
             >
               Dashboard
             </Link>
-            <Link href="/analyze" className="text-[#0F172A] hover:text-[#1B4FD8] transition-colors">
+            <Link href="/analyze" className="text-ink hover:text-brand transition-colors">
               Nuova analisi
             </Link>
-            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+            <span className={`hidden sm:inline-flex text-xs font-semibold px-2 py-0.5 rounded-full ${
               session.user?.plan === "PRO"
-                ? "bg-[#10B981] text-white"
-                : "bg-[#E2E8F0] text-[#64748B]"
+                ? "bg-success text-white"
+                : "bg-line text-muted"
             }`}>
               {session.user?.plan ?? "FREE"}
             </span>
             <button
               onClick={() => signOut({ callbackUrl: "/" })}
-              className="text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"
+              className="text-muted hover:text-ink transition-colors cursor-pointer"
             >
               Esci
             </button>
           </>
         ) : (
           <>
-            <Link href="/login" className="text-[#0F172A] hover:text-[#1B4FD8] transition-colors">
+            <Link href="/login" className="text-ink hover:text-brand transition-colors">
               Accedi
             </Link>
             <Link
               href="/register"
-              className="px-4 py-1.5 bg-[#1B4FD8] text-white rounded-lg hover:bg-[#1640B0] transition-colors"
+              className="px-4 py-1.5 bg-brand text-white rounded-lg hover:bg-brand-dark transition-colors"
             >
               Registrati
             </Link>

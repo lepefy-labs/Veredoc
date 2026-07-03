@@ -111,7 +111,7 @@ function AnalyzeContent() {
   if (status === "loading") {
     return (
       <main className="min-h-screen flex items-center justify-center px-4">
-        <p className="text-sm text-[#64748B]">Caricamento...</p>
+        <p className="text-sm text-muted">Caricamento...</p>
       </main>
     );
   }
@@ -120,18 +120,18 @@ function AnalyzeContent() {
     return (
       <main className="min-h-screen flex items-center justify-center px-4">
         <div className="text-center space-y-4">
-          <p className="text-[#0F172A] font-medium">Non sei autenticato.</p>
+          <p className="text-ink font-medium">Non sei autenticato.</p>
           <div className="flex gap-3 justify-center">
             <Link
               href="/login"
-              className="inline-flex items-center justify-center px-5 py-2 bg-[#1B4FD8] text-white rounded-lg font-medium hover:bg-[#1640B0] transition-colors text-sm"
+              className="inline-flex items-center justify-center px-5 py-2 bg-brand text-white rounded-lg font-medium hover:bg-brand-dark transition-colors text-sm"
             >
               Accedi
             </Link>
-            <span className="self-center text-[#64748B] text-sm">oppure</span>
+            <span className="self-center text-muted text-sm">oppure</span>
             <Link
               href="/register"
-              className="inline-flex items-center justify-center px-5 py-2 bg-white text-[#0F172A] border border-[#E2E8F0] rounded-lg font-medium hover:bg-[#F7F9FC] transition-colors text-sm"
+              className="inline-flex items-center justify-center px-5 py-2 bg-white text-ink border border-line rounded-lg font-medium hover:bg-page transition-colors text-sm"
             >
               Registrati
             </Link>
@@ -146,12 +146,12 @@ function AnalyzeContent() {
       <div className="max-w-2xl mx-auto space-y-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-[#0F172A]">{pageTitle}</h1>
+            <h1 className="text-2xl font-bold text-ink">{pageTitle}</h1>
             {pageSubtitle && (
-              <p className="text-sm text-[#64748B] mt-1">{pageSubtitle}</p>
+              <p className="text-sm text-muted mt-1">{pageSubtitle}</p>
             )}
           </div>
-          <Link href="/dashboard" className="text-sm text-[#1B4FD8] hover:underline">
+          <Link href="/dashboard" className="text-sm text-brand hover:underline">
             Dashboard →
           </Link>
         </div>
@@ -164,7 +164,7 @@ function AnalyzeContent() {
           />
         ) : flowState === "redacting" && pendingFile ? (
           <Card>
-            <p className="text-sm font-medium text-[#0F172A] mb-4">
+            <p className="text-sm font-medium text-ink mb-4">
               Oscura i dati personali prima di inviare il documento
             </p>
             <DocumentRedactor
@@ -176,13 +176,13 @@ function AnalyzeContent() {
         ) : flowState === "uploading" ? (
           <Card>
             <div className="flex items-center justify-center py-12">
-              <p className="text-sm text-[#64748B]">Invio documento in corso...</p>
+              <p className="text-sm text-muted">Invio documento in corso...</p>
             </div>
           </Card>
         ) : (
           <Card>
             <FileUploader onUpload={handleUpload} loading={false} />
-            {uploadError && <p className="mt-3 text-sm text-[#EF4444]">{uploadError}</p>}
+            {uploadError && <p className="mt-3 text-sm text-danger">{uploadError}</p>}
           </Card>
         )}
       </div>
@@ -194,7 +194,7 @@ export default function AnalyzePage() {
   return (
     <Suspense fallback={
       <main className="min-h-screen flex items-center justify-center px-4">
-        <p className="text-sm text-[#64748B]">Caricamento...</p>
+        <p className="text-sm text-muted">Caricamento...</p>
       </main>
     }>
       <AnalyzeContent />

@@ -6,30 +6,30 @@ export const metadata = {
 
 export default function PrivacyPage() {
   return (
-    <main className="min-h-screen bg-[#F8FAFC] px-4 py-12">
+    <main className="min-h-screen bg-page px-4 py-12">
       <div className="max-w-2xl mx-auto">
         <Link
           href="/"
-          className="inline-block text-sm text-[#1B4FD8] hover:underline mb-8"
+          className="inline-block text-sm text-brand hover:underline mb-8"
         >
           ← Torna al sito
         </Link>
 
         <header className="mb-10">
-          <h1 className="text-3xl font-bold text-[#0F172A] mb-2">
+          <h1 className="text-3xl font-bold text-ink mb-2">
             Informativa sulla Privacy
           </h1>
-          <p className="text-[#64748B] text-sm">
+          <p className="text-muted text-sm">
             ai sensi del Regolamento UE 2016/679 — GDPR
           </p>
         </header>
 
-        <div className="space-y-8 text-[#0F172A] leading-relaxed text-sm">
+        <div className="space-y-8 text-ink leading-relaxed text-sm">
           <section>
             <h2 className="font-semibold text-base mb-2">Titolare del trattamento</h2>
             <p>
               Veredoc —{" "}
-              <a href="mailto:privacy@veredoc.it" className="text-[#1B4FD8] hover:underline">
+              <a href="mailto:privacy@veredoc.it" className="text-brand hover:underline">
                 privacy@veredoc.it
               </a>
             </p>
@@ -37,7 +37,7 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="font-semibold text-base mb-2">Quali dati raccogliamo</h2>
-            <ul className="list-disc list-inside space-y-1 text-[#0F172A]">
+            <ul className="list-disc list-inside space-y-1 text-ink">
               <li>
                 <strong>Dati di account:</strong> indirizzo email e password (in forma
                 cifrata) forniti al momento della registrazione
@@ -62,7 +62,7 @@ export default function PrivacyPage() {
               <li>Gestire l&apos;account utente e l&apos;autenticazione</li>
               <li>Migliorare la qualità del servizio in forma aggregata e anonima</li>
             </ul>
-            <p className="mt-2 text-[#64748B]">
+            <p className="mt-2 text-muted">
               Non vengono effettuate attività di profilazione, marketing o cessione dati
               a terzi.
             </p>
@@ -82,7 +82,7 @@ export default function PrivacyPage() {
             </p>
             <p className="mt-2">
               Per conoscere i fornitori specifici:{" "}
-              <a href="mailto:privacy@veredoc.it" className="text-[#1B4FD8] hover:underline">
+              <a href="mailto:privacy@veredoc.it" className="text-brand hover:underline">
                 privacy@veredoc.it
               </a>
             </p>
@@ -115,7 +115,7 @@ export default function PrivacyPage() {
             </p>
             <p className="mt-2">
               Per esercitare i propri diritti:{" "}
-              <a href="mailto:privacy@veredoc.it" className="text-[#1B4FD8] hover:underline">
+              <a href="mailto:privacy@veredoc.it" className="text-brand hover:underline">
                 privacy@veredoc.it
               </a>
             </p>
@@ -125,7 +125,7 @@ export default function PrivacyPage() {
                 href="https://www.garanteprivacy.it"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[#1B4FD8] hover:underline"
+                className="text-brand hover:underline"
               >
                 garanteprivacy.it
               </a>
@@ -141,7 +141,7 @@ export default function PrivacyPage() {
           </section>
         </div>
 
-        <footer className="mt-12 pt-6 border-t border-[#E2E8F0] text-xs text-[#64748B]">
+        <footer className="mt-12 pt-6 border-t border-line text-xs text-muted">
           Ultimo aggiornamento: giugno 2025
         </footer>
       </div>

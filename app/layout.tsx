@@ -42,7 +42,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="it" className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-[#F7F9FC] text-[#0F172A]">
+      <body className="min-h-full flex flex-col bg-page text-ink">
         <Providers>
           <Navbar />
           {children}

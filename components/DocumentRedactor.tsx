@@ -284,7 +284,7 @@ export default function DocumentRedactor({ file, onReady, onCancel }: DocumentRe
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <p className="text-sm text-[#64748B]">Caricamento documento...</p>
+        <p className="text-sm text-muted">Caricamento documento...</p>
       </div>
     );
   }
@@ -293,21 +293,21 @@ export default function DocumentRedactor({ file, onReady, onCancel }: DocumentRe
     <div className="space-y-4">
       {/* Page header */}
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-[#0F172A]">
+        <span className="text-sm font-medium text-ink">
           Pagina {currentPage + 1} di {pages.length}
         </span>
         <div className="flex gap-2">
           <button
             onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
             disabled={currentPage === 0}
-            className="px-3 py-1 rounded border border-[#E2E8F0] text-sm disabled:opacity-40 hover:bg-[#F7F9FC]"
+            className="px-3 py-1 rounded border border-line text-sm disabled:opacity-40 hover:bg-page"
           >
             ‹
           </button>
           <button
             onClick={() => setCurrentPage((p) => Math.min(pages.length - 1, p + 1))}
             disabled={currentPage === pages.length - 1}
-            className="px-3 py-1 rounded border border-[#E2E8F0] text-sm disabled:opacity-40 hover:bg-[#F7F9FC]"
+            className="px-3 py-1 rounded border border-line text-sm disabled:opacity-40 hover:bg-page"
           >
             ›
           </button>
@@ -315,7 +315,7 @@ export default function DocumentRedactor({ file, onReady, onCancel }: DocumentRe
       </div>
 
       {/* Canvas */}
-      <div className="relative w-full overflow-hidden rounded-lg border border-[#E2E8F0] bg-[#F7F9FC]">
+      <div className="relative w-full overflow-hidden rounded-lg border border-line bg-page">
         <canvas
           ref={canvasRef}
           className="w-full h-auto block"
@@ -330,7 +330,7 @@ export default function DocumentRedactor({ file, onReady, onCancel }: DocumentRe
         />
       </div>
 
-      <p className="text-xs text-[#64748B]">
+      <p className="text-xs text-muted">
         Trascina per oscurare le aree con dati personali (nome, codice fiscale, IBAN, ecc.)
       </p>
 
@@ -339,14 +339,14 @@ export default function DocumentRedactor({ file, onReady, onCancel }: DocumentRe
         <div className="flex gap-2">
           <button
             onClick={onCancel}
-            className="px-4 py-2 rounded-lg border border-[#E2E8F0] text-sm text-[#64748B] hover:bg-[#F7F9FC]"
+            className="px-4 py-2 rounded-lg border border-line text-sm text-muted hover:bg-page"
           >
             Annulla
           </button>
           <button
             onClick={undoLast}
             disabled={(rects[currentPage]?.length ?? 0) === 0}
-            className="px-4 py-2 rounded-lg border border-[#E2E8F0] text-sm disabled:opacity-40 hover:bg-[#F7F9FC]"
+            className="px-4 py-2 rounded-lg border border-line text-sm disabled:opacity-40 hover:bg-page"
           >
             Annulla ultimo
           </button>
@@ -354,14 +354,14 @@ export default function DocumentRedactor({ file, onReady, onCancel }: DocumentRe
         <div className="flex gap-2">
           <button
             onClick={handleSkip}
-            className="px-4 py-2 rounded-lg border border-[#E2E8F0] text-sm text-[#64748B] hover:bg-[#F7F9FC]"
+            className="px-4 py-2 rounded-lg border border-line text-sm text-muted hover:bg-page"
           >
             Salta
           </button>
           <button
             onClick={handleSubmit}
             disabled={composing}
-            className="px-4 py-2 rounded-lg bg-[#1B4FD8] text-white text-sm font-medium hover:bg-[#1640B0] disabled:opacity-50"
+            className="px-4 py-2 rounded-lg bg-brand text-white text-sm font-medium hover:bg-brand-dark disabled:opacity-50"
           >
             {composing ? "Preparazione..." : "Invia →"}
           </button>
@@ -372,20 +372,20 @@ export default function DocumentRedactor({ file, onReady, onCancel }: DocumentRe
       {skipModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 max-w-sm w-full space-y-4 shadow-xl">
-            <p className="text-[#0F172A] font-medium">Nessuna area oscurata. Procedere?</p>
-            <p className="text-sm text-[#64748B]">
+            <p className="text-ink font-medium">Nessuna area oscurata. Procedere?</p>
+            <p className="text-sm text-muted">
               Il documento verrà inviato senza oscuramenti. I dati personali visibili saranno inclusi nell&apos;analisi.
             </p>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setSkipModal(false)}
-                className="px-4 py-2 rounded-lg border border-[#E2E8F0] text-sm"
+                className="px-4 py-2 rounded-lg border border-line text-sm"
               >
                 Torna indietro
               </button>
               <button
                 onClick={() => { setSkipModal(false); handleSubmit(); }}
-                className="px-4 py-2 rounded-lg bg-[#1B4FD8] text-white text-sm font-medium"
+                className="px-4 py-2 rounded-lg bg-brand text-white text-sm font-medium"
               >
                 Procedi
               </button>
