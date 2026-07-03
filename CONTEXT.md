@@ -20,7 +20,7 @@ SaaS italiano per l'analisi automatica di bollette (luce, gas, internet) e buste
 | ORM | Prisma | ^7.8.0 |
 | Database | Supabase PostgreSQL | — |
 | Auth | NextAuth v5 (beta) | 5.0.0-beta.31 |
-| Email transazionale | Resend | ^4.8.0 |
+| Email transazionale | Brevo (API REST, no SDK) | v3 |
 | AI | Anthropic Claude | @anthropic-ai/sdk ^0.105.0 |
 | PDF render | pdfjs-dist | ^4.4.168 |
 | PDF compose | pdf-lib | ^1.17.1 |
@@ -78,7 +78,7 @@ SaaS italiano per l'analisi automatica di bollette (luce, gas, internet) e buste
 │   │   └── texts.ts                       Tutti i testi UI in italiano
 │   ├── auth.ts                            Config NextAuth + callbacks
 │   ├── auth.config.ts                     Validazione credenziali
-│   ├── email.ts                           Invio email transazionali (Resend)
+│   ├── email.ts                           Invio email transazionali (Brevo, fetch diretto)
 │   └── prisma.ts                          Prisma singleton
 ├── prisma/
 │   └── schema.prisma                      Schema DB (User, Document, MarketRate)
@@ -248,7 +248,7 @@ Estrae in JSON: `tipo_rilevato`, `datore_lavoro`, `competenza`, `stipendio_lordo
 | `ADMIN_SECRET` | ✅ | Token Bearer per endpoint admin |
 | `JOBS_SECRET` | ✅ | Token Bearer per endpoint job |
 | `SCRAPERAPI_KEY` | ✅ | Chiave ScraperAPI per scraping |
-| `RESEND_API_KEY` | ✅ | Chiave API Resend per invio email (reset password) |
+| `BREVO_API_KEY` | ✅ | Chiave API Brevo per invio email (reset password) |
 | `ANTHROPIC_MODEL` | ❌ | Modello Claude (default: `claude-haiku-4-5`) |
 | `AI_PROVIDER` | ❌ | Provider AI: `anthropic` (default), `openai`, `gemini` |
 | `NEXTAUTH_URL` | ❌ | URL sessione (default: `http://localhost:3000`) |
@@ -284,7 +284,7 @@ Upgrade piano tramite `/api/admin/set-plan` (Bearer token).
 - Design token Tailwind 4 centralizzati in `globals.css` (niente hex hardcoded nei componenti)
 - Indicatore quota mensile in dashboard (barra di avanzamento X/limite, stessa logica di conteggio dell'endpoint upload)
 - Messaggio di conferma post-registrazione nella pagina login (`?registered=1`)
-- Reset password via email (Resend): richiesta, invio link, conferma nuova password, link "Password dimenticata?" in login
+- Reset password via email (Brevo): richiesta, invio link, conferma nuova password, link "Password dimenticata?" in login
 - Stato di timeout gestito nel polling analisi (dopo ~2 min: opzioni "continua ad attendere" / dashboard)
 - Accessibilità: dropzone upload usabile da tastiera, dialog conferma eliminazione con ESC/backdrop/focus, focus ring coerenti, label associate agli input
 - Landing con gerarchia corretta (h1 reale, sezione "Come funziona" con step numerati)
