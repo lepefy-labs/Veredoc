@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { TEXTS } from "@/lib/config/texts";
 import VeredocLogo from "@/components/ui/VeredocLogo";
+import PricingCardPro from "@/components/PricingCardPro";
 
 export default function Home() {
   const { data: session } = useSession();
@@ -155,6 +156,45 @@ export default function Home() {
             ))}
           </div>
         </div>
+
+        {/* Prezzi */}
+        <section id="prezzi" className="mt-16 text-left">
+          <h2 className="text-lg font-semibold text-ink text-center">{TEXTS.pricing.title}</h2>
+          <p className="text-sm text-muted text-center mt-1 mb-8">{TEXTS.pricing.subtitle}</p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {/* FREE */}
+            <div className="bg-white rounded-2xl border border-line p-6 flex flex-col h-full">
+              <span className="self-start text-[11px] font-semibold px-2 py-0.5 rounded-full bg-chip text-muted mb-4">
+                {TEXTS.pricing.free.badge}
+              </span>
+              <div className="mb-1">
+                <span className="text-3xl font-bold text-ink font-mono">{TEXTS.pricing.free.price}</span>
+                <span className="text-sm text-muted"> / {TEXTS.pricing.free.period}</span>
+              </div>
+              <p className="text-xs text-success font-medium mt-1 mb-4 h-4"> </p>
+              <ul className="space-y-2.5 text-sm text-ink flex-1">
+                {TEXTS.pricing.free.features.map((f) => (
+                  <li key={f} className="flex items-start gap-2">
+                    <span className="text-success font-bold mt-0.5" aria-hidden="true">✓</span>
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/register"
+                className="mt-6 inline-flex items-center justify-center px-5 py-3 bg-white text-brand border border-brand rounded-lg font-semibold hover:bg-brand-soft transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+              >
+                {TEXTS.pricing.free.cta}
+              </Link>
+            </div>
+
+            {/* PRO */}
+            <PricingCardPro />
+          </div>
+
+          <p className="text-sm text-muted text-center mt-8">{TEXTS.pricing.dataNote}</p>
+        </section>
       </div>
     </main>
   );

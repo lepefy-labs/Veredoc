@@ -41,4 +41,37 @@ export const TEXTS = {
     signUp: "Registrati",
     signIn: "Accedi",
   },
+  pricing: {
+    title: "Prezzi semplici, senza sorprese",
+    subtitle: "Scegli il piano più adatto a te. Nessun vincolo, cancella quando vuoi.",
+    free: {
+      badge: "GRATUITO",
+      price: "€0",
+      period: "sempre",
+      features: [
+        "Analisi di bollette luce, gas e internet",
+        "Analisi buste paga",
+        "Confronto con le offerte di mercato aggiornate",
+        "10 analisi al mese",
+      ],
+      cta: "Inizia gratis",
+    },
+    pro: {
+      badge: "PRO",
+      popularBadge: "PIÙ POPOLARE",
+      monthly: { label: "Mensile", price: "€2,49", period: "/mese" },
+      annual: { label: "Annuale", price: "€19,90", period: "/anno", note: "€1,66/mese — risparmi il 33%" },
+      features: [
+        { text: "Tutto quello del piano gratuito" },
+        { text: "30 analisi al mese" },
+        { text: "Anonimizzatore documenti — il tuo PDF non lascia mai il dispositivo" },
+        { text: "Storico completo dei tuoi documenti" },
+        { text: "Export report in PDF", soon: true },
+        { text: "Supporto prioritario", soon: true },
+      ],
+      cta: "Prova PRO",
+      ctaNote: "Pagamento sicuro — cancella quando vuoi",
+    },
+    dataNote: "Non usiamo i tuoi documenti per addestrare modelli AI. I PDF vengono eliminati automaticamente dopo l'analisi.",
+  },
 };
