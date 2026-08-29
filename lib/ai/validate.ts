@@ -141,13 +141,14 @@ export function validateBustaPagaOutput(raw: unknown): BustaPagaData & { tipo_ri
 
   const voci = requireArray(root.voci, "voci").map((item, index) => {
     const voce = requireRecord(item, `voci[${index}]`);
-    if (voce.tipo !== "competenza" && voce.tipo !== "trattenuta") {
+    const tipo = voce.tipo;
+    if (tipo !== "competenza" && tipo !== "trattenuta") {
       throw new Error(`Output AI non valido: voci[${index}].tipo non supportato.`);
     }
     return {
       nome: requireString(voce.nome, `voci[${index}].nome`),
       importo: requireNumber(voce.importo, `voci[${index}].importo`),
-      tipo: voce.tipo,
+      tipo,
       spiegazione: requireString(voce.spiegazione, `voci[${index}].spiegazione`),
     };
   });
