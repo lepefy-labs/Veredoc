@@ -148,7 +148,7 @@ export function validateBustaPagaOutput(raw: unknown): BustaPagaData & { tipo_ri
     return {
       nome: requireString(voce.nome, `voci[${index}].nome`),
       importo: requireNumber(voce.importo, `voci[${index}].importo`),
-      tipo,
+      tipo: tipo as "competenza" | "trattenuta",
       spiegazione: requireString(voce.spiegazione, `voci[${index}].spiegazione`),
     };
   });
