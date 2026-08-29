@@ -1,14 +1,25 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AnalysisStatus, Prisma } from "@prisma/client";
 import { createClient } from "@supabase/supabase-js";
+import { processDocumentAnalysis, shouldRecoverAnalysis } from "@/lib/jobs/process-document";
 
 function getSupabase() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
+}
+
+function scheduleRecovery(documentId: string) {
+  after(async () => {
+    try {
+      await processDocumentAnalysis(documentId);
+    } catch (error) {
+      console.error("[analysis] recovery failed", documentId, error);
+    }
+  });
 }
 
 export async function GET(
@@ -29,6 +40,14 @@ export async function GET(
 
   if (document.userId !== session.user.id) {
     return NextResponse.json({ error: "Non autorizzato." }, { status: 403 });
+  }
+
+  if (shouldRecoverAnalysis({
+    status: document.status,
+    analysis: document.analysis,
+    updatedAt: document.updatedAt,
+  })) {
+    scheduleRecovery(document.id);
   }
 
   return NextResponse.json(document);
@@ -56,13 +75,11 @@ export async function DELETE(
     return NextResponse.json({ error: "Documento già eliminato." }, { status: 400 });
   }
 
-  // Rimuovi file fisico da Supabase Storage (non bloccare su errore)
   if (document.filePath) {
     const supabase = getSupabase();
     await supabase.storage.from("documents").remove([document.filePath]);
   }
 
-  // Soft delete: azzera i dati sensibili, conserva i metadati per analytics
   await prisma.document.update({
     where: { id },
     data: {

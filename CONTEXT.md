@@ -1,311 +1,255 @@
 # CONTEXT.md — Veredoc
 
-> Aggiornato: 2026-07-03 (password reset via email)
+> Aggiornato: 2026-08-30 — production hardening analisi/upload/CI
 
 ---
 
 ## Cos'è Veredoc
 
-SaaS italiano per l'analisi automatica di bollette (luce, gas, internet) e buste paga tramite AI (Claude). L'utente carica un PDF/immagine, riceve una lettura dettagliata di ogni voce con spiegazioni in italiano semplice, e — per le bollette — un confronto con le offerte di mercato correnti.
+Veredoc è un SaaS italiano che analizza bollette (luce, gas, internet) e buste paga tramite AI. L'utente carica un PDF/JPG/PNG, riceve una lettura strutturata e spiegazioni in italiano semplice; per le bollette il risultato viene arricchito con un confronto delle tariffe di mercato.
+
+## Stack tecnico
+
+| Layer | Tecnologia |
+|---|---|
+| Framework | Next.js 16.2.9 App Router |
+| UI | React 19.2.4 + Tailwind CSS 4 |
+| Language | TypeScript 5 |
+| ORM | Prisma 7.8.0 |
+| Database | Supabase PostgreSQL |
+| Storage | Supabase Storage |
+| Auth | NextAuth 5 beta + bcryptjs |
+| AI | Anthropic Claude tramite provider abstraction |
+| PDF | pdfjs-dist + pdf-lib |
+| Email | Brevo REST API |
+| Hosting | Vercel |
+| CI | GitHub Actions |
 
 ---
 
-## Stack Tecnico
+## Architettura principale
 
-| Layer | Tecnologia | Versione |
-|---|---|---|
-| Framework | Next.js (App Router) | 16.2.9 |
-| Language | TypeScript | ^5 |
-| Styling | Tailwind CSS 4 | @tailwindcss/postcss ^4 |
-| ORM | Prisma | ^7.8.0 |
-| Database | Supabase PostgreSQL | — |
-| Auth | NextAuth v5 (beta) | 5.0.0-beta.31 |
-| Email transazionale | Brevo (API REST, no SDK) | v3 |
-| AI | Anthropic Claude | @anthropic-ai/sdk ^0.105.0 |
-| PDF render | pdfjs-dist | ^4.4.168 |
-| PDF compose | pdf-lib | ^1.17.1 |
-| Scraping | cheerio | ^1.2.0 |
-| Runtime | Node.js / Vercel | — |
-
----
-
-## Struttura Progetto
-
-```
-/
-├── app/
-│   ├── api/
-│   │   ├── auth/[...nextauth]/            NextAuth handler
-│   │   ├── auth/register/                 Registrazione utente
-│   │   ├── auth/forgot-password/          Richiesta reset password (invio email)
-│   │   ├── auth/reset-password/           Conferma reset password (nuova password)
-│   │   ├── documents/upload/              Upload file + trigger analisi
-│   │   ├── documents/[id]/                GET (fetch doc) + DELETE (soft delete)
-│   │   ├── documents/[id]/refresh-market/ Ricalcola confronto mercato
-│   │   ├── market-rates/                  Lettura tariffe di mercato
-│   │   ├── admin/set-plan/                Admin: aggiorna piano utente
-│   │   └── jobs/scrape-market-rates/      Scraping offerte da Sorgenia/Illumia/Sostariffe
-│   ├── (auth)/login/                      Pagina login
-│   ├── (auth)/register/                   Pagina registrazione
-│   ├── (auth)/forgot-password/            Richiesta link reset password
-│   ├── (auth)/reset-password/             Form nuova password (legge ?token=)
-│   ├── (pages)/termini/                   Termini di servizio
-│   ├── (pages)/privacy/                   Privacy policy
-│   ├── analyze/                           Pagina principale upload/analisi
-│   ├── dashboard/                         Lista documenti utente
-│   ├── layout.tsx                         Root layout (font, Navbar, Providers)
-│   ├── page.tsx                           Homepage (landing)
-│   └── providers.tsx                      NextAuth SessionProvider
-├── components/
-│   ├── ui/                                Button, Card, Badge, VeredocLogo
-│   ├── layout/Navbar.tsx                  Barra di navigazione
-│   ├── FileUploader.tsx                   Drag-drop + selezione tipo documento
-│   ├── DocumentRedactor.tsx               Redattore PDF visuale (canvas)
-│   ├── AnalysisResult.tsx                 Polling + display risultato analisi
-│   ├── BollettaReport.tsx                 Report bolletta con confronto mercato
-│   ├── BustaPagaReport.tsx                Report busta paga con breakdown voci
-│   └── DocumentList.tsx                   Lista dashboard con soft-delete
-├── lib/
-│   ├── ai/
-│   │   ├── analyze.ts                     Orchestratore analisi (chiamata AI + salvataggio)
-│   │   ├── types.ts                       Interfaccia AIProvider
-│   │   └── providers/anthropic.ts         Provider Anthropic (prompt bolletta/busta paga)
-│   ├── parsers/
-│   │   ├── bolletta.ts                    Logica confronto mercato e calcolo risparmi
-│   │   └── bustapaga.ts                   Calcoli busta paga (aliquota effettiva, ecc.)
-│   ├── config/
-│   │   ├── constants.ts                   Limiti, soglie, URL scraping
-│   │   └── texts.ts                       Tutti i testi UI in italiano
-│   ├── auth.ts                            Config NextAuth + callbacks
-│   ├── auth.config.ts                     Validazione credenziali
-│   ├── email.ts                           Invio email transazionali (Brevo, fetch diretto)
-│   └── prisma.ts                          Prisma singleton
-├── prisma/
-│   └── schema.prisma                      Schema DB (User, Document, MarketRate)
-├── supabase/
-│   ├── migrations/                        Migrazioni SQL
-│   ├── seeds/                             Seed tariffe di mercato
-│   └── rls.sql                            Row-Level Security policies
-├── types/
-│   ├── bolletta.ts                        Tipi TypeScript per bollette
-│   ├── bustapaga.ts                       Tipi TypeScript per buste paga
-│   └── next-auth.d.ts                     Estensione session NextAuth
-├── middleware.ts                          Protezione route (auth redirect)
-├── next.config.ts                         Config Next.js
-└── prisma.config.ts                       Config Prisma (DIRECT_URL)
+```text
+app/
+  api/
+    auth/                         autenticazione, registrazione, reset password
+    documents/upload/             validazione, quota, upload e creazione job
+    documents/[id]/               lettura, recovery analisi e cancellazione
+    documents/[id]/refresh-market refresh confronto senza nuova analisi AI
+    jobs/process-analysis/         recovery batch protetto da JOBS_SECRET
+    jobs/scrape-market-rates/      scraping tariffe
+    market-rates/                  lettura tariffe
+    admin/set-plan/                gestione piano amministrativa
+  analyze/                         upload + polling risultato
+  dashboard/                       storico documenti
+  (auth)/                          login/register/reset
+  (pages)/                         privacy/termini
+components/
+  FileUploader.tsx
+  AnalysisResult.tsx
+  DocumentRedactor.tsx
+  BollettaReport.tsx
+  BustaPagaReport.tsx
+lib/
+  ai/
+    analyze.ts                     selezione provider
+    validate.ts                    validazione runtime output AI
+    providers/anthropic.ts
+  documents/upload-validation.ts   magic bytes, MIME e limiti file
+  jobs/process-document.ts         worker, lease, retry e recovery
+  parsers/                         arricchimento bollette/buste paga
+  config/                          costanti e testi
+  auth.ts
+  email.ts
+  prisma.ts
+prisma/schema.prisma
+supabase/
+  migrations/
+  seeds/
+  rls.sql
+tests/validation.test.ts
+.github/workflows/ci.yml
 ```
 
 ---
 
-## Design System UI
+## Flusso upload hardenizzato
 
-I colori dell'interfaccia sono definiti come **design token Tailwind 4** in `app/globals.css` (blocco `@theme`). I componenti usano le utility generate — non valori esadecimali arbitrari.
+1. L'utente deve essere autenticato.
+2. Il server legge il piano reale dal DB e verifica la quota mensile **prima** di salvare il file.
+3. Il flusso JSON/base64 del redattore è consentito esclusivamente agli utenti PRO.
+4. Il contenuto viene validato server-side tramite magic bytes; PDF/JPEG/PNG devono corrispondere al MIME dichiarato quando presente.
+5. Limite server-side: 10 MB.
+6. Il file viene salvato in Supabase Storage usando un'estensione derivata dal MIME realmente rilevato.
+7. Viene creato il record `Document` in stato `PENDING`.
+8. Se la creazione DB fallisce dopo l'upload, il file appena creato viene rimosso dallo Storage per evitare oggetti orfani.
+9. L'analisi viene avviata con `after()` di Next.js, ma il lavoro non dipende più da una singola esecuzione: stato e retry sono persistenti sul record `Document`.
 
-| Token | Valore | Uso |
-|---|---|---|
-| `brand` / `brand-dark` / `brand-soft` | `#1B4FD8` / `#1640B0` / `#EFF4FF` | Azioni primarie, link, focus ring |
-| `ink` / `muted` / `faint` | `#0F172A` / `#64748B` / `#94A3B8` | Testo primario / secondario / terziario |
-| `line` / `page` / `chip` | `#E2E8F0` / `#F7F9FC` / `#F1F5F9` | Bordi, sfondo pagina, pill/chip |
-| `success` / `danger` (+ varianti `-dark`) | `#10B981` / `#EF4444` | Stati semantici |
-
-Esempio: `bg-brand`, `text-muted`, `border-line`, `focus-visible:outline-brand`.
-
-Convenzioni UI:
-- Focus visibile (`focus-visible:outline-2 outline-brand`) su tutti gli elementi interattivi
-- Input sempre con `label htmlFor` + `id` e `autoComplete` appropriato
-- Dialog modali con `role="dialog"`, `aria-modal`, chiusura con ESC e click sul backdrop
+La policy di retention dei file **non è stata modificata in questo hardening**: il documento resta nello Storage finché l'utente non lo elimina tramite il flusso esistente.
 
 ---
 
-## Schema Database (Prisma / PostgreSQL)
+## Worker analisi, lease e retry
 
-### Enum
+`lib/jobs/process-document.ts` è il punto unico di elaborazione.
 
-```prisma
-enum UserPlan      { FREE  PRO }
-enum DocumentType  { BOLLETTA_LUCE  BOLLETTA_GAS  BOLLETTA_INTERNET  BUSTA_PAGA }
-enum AnalysisStatus { PENDING  PROCESSING  AWAITING_CONFIRMATION  DONE  ERROR  DELETED }
+- Accetta documenti `PENDING` o `PROCESSING` con lease scaduta.
+- Usa `status + updatedAt` come lock ottimistico per impedire doppie elaborazioni concorrenti.
+- Scrive temporaneamente in `analysis._job`:
+  - numero tentativi;
+  - ultimo errore.
+- Massimo tentativi: **3**.
+- Lease considerata scaduta dopo **2 minuti**.
+- Il worker riscarica il file da Supabase Storage: il retry non dipende quindi dai byte rimasti in memoria nella request originale.
+- A errore recuperabile il documento torna `PENDING`; dopo il terzo tentativo passa a `ERROR`.
+- `GET /api/documents/[id]`, già usato dal polling UI, prova a rianimare automaticamente documenti `PENDING` o `PROCESSING` stale.
+- `POST /api/jobs/process-analysis` consente anche un recupero batch esterno ed è protetto con `Authorization: Bearer JOBS_SECRET`.
+
+Questo approccio non richiede una nuova migrazione DB e mantiene compatibilità con lo schema attuale.
+
+---
+
+## Validazione output AI
+
+L'output Claude non viene più considerato valido solo perché è JSON parseabile.
+
+`lib/ai/validate.ts` valida a runtime:
+
+### Bollette
+- `tipo_rilevato` e `tipo` supportati;
+- fornitore e periodo;
+- importi numerici finiti;
+- consumi e unità;
+- struttura `materia_energia`;
+- rete/oneri, imposte e altro, incluse sezioni nullable per internet;
+- dettaglio voci e categorie ammesse.
+
+### Buste paga
+- tipo rilevato;
+- datore e competenza;
+- lordo/netto;
+- contributi, IRPEF, TFR;
+- voci con tipo limitato a `competenza | trattenuta`.
+
+Solo un payload validato può essere salvato come risultato definitivo o passato al parser di confronto mercato.
+
+---
+
+## Stato e recupero documento
+
+```text
+PENDING
+  ↓ claim worker
+PROCESSING
+  ├─ successo → DONE
+  ├─ documento non supportato → ERROR
+  └─ errore tecnico
+       ├─ tentativi < 3 → PENDING
+       └─ tentativi = 3 → ERROR
+
+PROCESSING stale (>2 min)
+  → recuperabile da polling utente o endpoint job batch
 ```
 
-### Modelli
-
-**User**
-- `id` (cuid), `email` (unique), `password` (bcrypt), `plan` (default: FREE), `createdAt`
-
-**PasswordResetToken**
-- `id`, `userId` (FK, cascade), `tokenHash` (unique, SHA-256 del token in chiaro inviato via email)
-- `expiresAt` (creazione + 1 ora), `usedAt` (null finché non consumato o invalidato), `createdAt`
-- RLS abilitata senza policy pubbliche — accesso solo server-side via Prisma (service role)
-
-**Document**
-- `id`, `userId` (FK), `type`, `fileName`, `filePath` (Supabase Storage)
-- `status` (default: PENDING)
-- `rawExtracted` (Json?) — Output grezzo AI, immutabile dopo prima analisi
-- `analysis` (Json?) — Output arricchito con confronto mercato
-- `typeCorrected` (Boolean) — AI ha rilevato tipo diverso da quello selezionato
-- `typeSelectedByUser` (String?) — Tipo scelto dall'utente
-- `deletedAt` (DateTime?) — Soft delete
-- `anonymizedText`, `anonymizedMap` — Legacy, non usati
-
-**MarketRate**
-- `id`, `category` (luce/gas/internet), `provider`, `planName`
-- `priceValue`, `priceUnit`, `monthlyFee?`, `url?`, `scrapedAt`
-- Unique: (provider, planName)
+Gli stati `AWAITING_CONFIRMATION` e `DELETED` rimangono nello schema per compatibilità con il prodotto esistente.
 
 ---
 
-## Flusso Upload & Analisi
+## Sicurezza e autorizzazione
 
-### Piano FREE
-1. Utente seleziona file in `FileUploader` (tipo + file)
-2. Validazione client (tipo, dimensione ≤ 10 MB)
-3. POST `/api/documents/upload` come FormData
-4. Server: verifica quota mensile (10 doc/mese FREE), crea Document (PENDING), carica su Supabase Storage
-5. Trigger `runAnalysis()` in background (fire-and-forget, senza await)
-6. Risposta immediata 202 con `documentId`
-7. Client: polling `/api/documents/[id]` ogni 3s (max 40 poll) tramite `AnalysisResult`
-8. Quando status = DONE → mostra `BollettaReport` o `BustaPagaReport`
-
-### Piano PRO
-1. Dopo selezione file → stato `redacting`
-2. `DocumentRedactor`: render PDF su canvas via pdfjs-dist (scala 1.5×)
-3. Utente disegna rettangoli neri sulle aree sensibili; supporto multi-pagina, undo, touch
-4. Click "Invia →": pdf-lib compone nuovo PDF con rettangoli → base64
-5. POST `/api/documents/upload` come JSON (`fileBase64` + `tipo`)
-6. Resto identico a FREE (quota: 30 doc/mese PRO)
-
-> Il file originale non lascia mai il browser prima della redazione (PRO).
+- Accesso ai documenti verificato per ownership utente.
+- Password con bcryptjs.
+- Reset password con token monouso hashato e scadenza.
+- Supabase Service Role utilizzata solo server-side.
+- Endpoint admin protetto da `ADMIN_SECRET`.
+- Endpoint job protetti da `JOBS_SECRET`.
+- Upload PRO verificato server-side, non solo tramite UI.
+- MIME sniffing server-side contro file con estensione/content-type falsificati.
 
 ---
 
-## Analisi AI
+## Piani
 
-**Modello:** `claude-haiku-4-5` (configurabile via `ANTHROPIC_MODEL`)
-
-**Invio contenuto:**
-- PDF → blocco `document` (base64)
-- JPEG/PNG → blocco `image` (base64)
-- Max tokens output: 2048
-
-### Prompt Bolletta
-Estrae in JSON: `tipo_rilevato`, `tipo`, `fornitore`, `offerta_nome`, `periodo`, `consumi`, `materia_energia` (costi negoziabili), `rete_e_oneri` (regolati ARERA), `imposte`, `altro`, `importo_totale`, `voci_dettaglio`
-
-### Prompt Busta Paga
-Estrae in JSON: `tipo_rilevato`, `datore_lavoro`, `competenza`, `stipendio_lordo`, `netto`, `voci` (competenze/trattenute con spiegazioni), `contributi_inps`, `irpef`, `tfr_maturato`
-
----
-
-## Confronto Mercato (`lib/parsers/bolletta.ts`)
-
-- Recupera tutte le `MarketRate` per la categoria del documento
-- Calcola costo attuale utente: prezzo/kWh × kWh_mensili + quota fissa
-- Per ogni offerta di mercato: costo stimato mensile, risparmio mensile/annuale, breakeven kWh
-- Calcola media e minimo di mercato, percentuale dell'utente sopra la media
-- Restituisce le top 5 offerte per costo totale mensile
-- Include tariffa ARERA di riferimento se disponibile
-- Banner risparmio mostrato se saving ≥ €50/anno (configurabile in `constants.ts`)
-
----
-
-## Autenticazione & Autorizzazione
-
-- **Strategy:** JWT (Credentials provider, email + password)
-- **Password:** bcryptjs, 12 round
-- **Session:** JWT con `user.id` e `user.plan`
-- **Middleware:** protegge `/analyze`, `/dashboard` (redirect a `/login`); redirect a `/dashboard` se già loggato
-- **Reset password:** flusso email con token monouso (crypto random 32 byte, hash SHA-256 in DB, scadenza 1h). Endpoint `/api/auth/forgot-password` risponde sempre 200 (anti user-enumeration), max 3 token attivi per utente, invalida i token precedenti non usati. `/forgot-password` e `/reset-password` sono pubbliche (non incluse nel matcher del middleware)
-
----
-
-## API Endpoints
-
-| Endpoint | Metodo | Auth | Scopo |
-|---|---|---|---|
-| `/api/auth/[...nextauth]` | GET/POST | — | NextAuth (sign-in/out/callback) |
-| `/api/auth/register` | POST | — | Crea account utente |
-| `/api/auth/forgot-password` | POST | — | Genera token reset e invia email (sempre 200) |
-| `/api/auth/reset-password` | POST | — | Valida token e imposta nuova password |
-| `/api/documents/upload` | POST | Session | Upload + trigger analisi |
-| `/api/documents/[id]` | GET | Session (owner) | Fetch documento |
-| `/api/documents/[id]` | DELETE | Session (owner) | Soft delete |
-| `/api/documents/[id]/refresh-market` | POST | Session (owner) | Ricalcola confronto mercato |
-| `/api/market-rates` | GET | — | Tariffe di mercato per categoria |
-| `/api/admin/set-plan` | POST | Bearer `ADMIN_SECRET` | Upgrade/downgrade piano utente |
-| `/api/jobs/scrape-market-rates` | POST | Bearer `JOBS_SECRET` | Scraping offerte mercato |
-
----
-
-## Variabili d'Ambiente
-
-| Variabile | Obbligatoria | Descrizione |
-|---|---|---|
-| `DATABASE_URL` | ✅ | Stringa connessione Supabase (pooler) |
-| `DIRECT_URL` | ✅ | Stringa connessione diretta (migrazioni) |
-| `NEXT_PUBLIC_SUPABASE_URL` | ✅ | URL pubblico Supabase |
-| `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Chiave service role Supabase |
-| `NEXTAUTH_SECRET` | ✅ | Segreto JWT NextAuth (32+ char) |
-| `ANTHROPIC_API_KEY` | ✅ | Chiave API Anthropic |
-| `ADMIN_SECRET` | ✅ | Token Bearer per endpoint admin |
-| `JOBS_SECRET` | ✅ | Token Bearer per endpoint job |
-| `SCRAPERAPI_KEY` | ✅ | Chiave ScraperAPI per scraping |
-| `BREVO_API_KEY` | ✅ | Chiave API Brevo per invio email (reset password) |
-| `ANTHROPIC_MODEL` | ❌ | Modello Claude (default: `claude-haiku-4-5`) |
-| `AI_PROVIDER` | ❌ | Provider AI: `anthropic` (default), `openai`, `gemini` |
-| `NEXTAUTH_URL` | ❌ | URL sessione (default: `http://localhost:3000`) |
-
----
-
-## Piani & Limiti
-
-| Piano | Documenti/mese | Redazione PDF |
-|---|---|---|
+| Piano | Analisi/mese | Redazione PDF client-side |
+|---|---:|---|
 | FREE | 10 | No |
-| PRO | 30 | Sì (DocumentRedactor) |
+| PRO | 30 | Sì |
 
-Upgrade piano tramite `/api/admin/set-plan` (Bearer token).
-
----
-
-## Stato Attuale
-
-### Completato ✅
-- Upload file (FormData e JSON base64)
-- Analisi AI bollette (luce/gas/internet) e buste paga
-- Confronto mercato con top 5 offerte e calcolo risparmi
-- Redattore PDF visuale (PRO) con multi-pagina, undo, touch support
-- Autenticazione (NextAuth v5 JWT + bcrypt)
-- Sistema piani FREE/PRO con quote mensili
-- Soft delete documenti (azzeramento dati sensibili + rimozione Storage)
-- Dashboard lista documenti
-- Scraping tariffe di mercato (Sorgenia, Illumia, Sostariffe)
-- Endpoint admin per gestione piani
-- Testi UI completamente in italiano
-- Endpoint refresh confronto mercato (senza nuova chiamata AI)
-- Design token Tailwind 4 centralizzati in `globals.css` (niente hex hardcoded nei componenti)
-- Indicatore quota mensile in dashboard (barra di avanzamento X/limite, stessa logica di conteggio dell'endpoint upload)
-- Messaggio di conferma post-registrazione nella pagina login (`?registered=1`)
-- Reset password via email (Brevo): richiesta, invio link, conferma nuova password, link "Password dimenticata?" in login
-- Stato di timeout gestito nel polling analisi (dopo ~2 min: opzioni "continua ad attendere" / dashboard)
-- Accessibilità: dropzone upload usabile da tastiera, dialog conferma eliminazione con ESC/backdrop/focus, focus ring coerenti, label associate agli input
-- Landing con gerarchia corretta (h1 reale, sezione "Come funziona" con step numerati)
-
-### Non ancora implementato / Future features
-- Anonimizzatore server-side (campo legacy presente in DB, rimosso dal flusso UI)
-- Pagamenti / billing (Stripe o simili)
-- Provider AI alternativi (OpenAI, Gemini — stub presenti in `lib/ai/providers/`)
-- Background job `refresh-market-rates` (stub presente, logica da implementare)
-- Email di benvenuto / altre notifiche transazionali
-- Supporto multi-lingua
+La quota viene controllata prima dello Storage. I documenti creati nel mese contano verso la quota indipendentemente dall'esito finale, impedendo di aggirare il limite generando continuamente job falliti o pendenti.
 
 ---
 
-## Deployment
+## CI e qualità
 
-- **Hosting:** Vercel (auto-deploy da `main`)
-- **Database:** Supabase PostgreSQL
-- **Storage:** Supabase Storage (PDF/immagini)
-- **Comandi:**
-  - `pnpm dev` — sviluppo locale (porta 3000)
-  - `pnpm build` — build produzione
-  - `pnpm start` — server produzione
-  - `pnpm lint` — linting ESLint
+Script disponibili:
+
+```bash
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
+`pnpm test` usa il test runner nativo Node e copre inizialmente:
+- magic bytes PDF/JPEG/PNG;
+- rifiuto MIME spoofing;
+- validazione payload bolletta;
+- sezioni nullable internet;
+- rifiuto output AI malformato;
+- validazione busta paga.
+
+GitHub Actions esegue su PR e push a `main`:
+1. install frozen lockfile;
+2. lint dei file introdotti/modificati dal production hardening;
+3. typecheck globale;
+4. unit test;
+5. build produzione globale.
+
+Il lint globale del repository presenta ancora debito preesistente in alcuni componenti/route precedenti a questo hardening; per non mescolare refactoring non richiesti nello stesso intervento, la CI blocca sul lint dei file hardenizzati mentre `typecheck`, test e build rimangono globali.
+
+---
+
+## Funzionalità completate
+
+- Autenticazione e reset password.
+- Upload PDF/JPG/PNG.
+- Quote FREE/PRO.
+- Redattore PDF PRO lato browser.
+- Analisi Claude di bollette e buste paga.
+- Correzione tipo documento rilevato.
+- Validazione runtime output AI.
+- Confronto bollette con tariffe mercato.
+- Dashboard e polling analisi.
+- Soft delete con cancellazione file Storage e azzeramento dati sensibili.
+- Retry/recovery analisi con lease persistente.
+- Recovery batch protetto.
+- Upload con magic-byte validation, quota anticipata e cleanup compensativo.
+- Scraping tariffe e refresh mercato.
+- CI, typecheck e unit test iniziali.
+
+## Prossimi passi consigliati
+
+1. Collegare `/api/jobs/process-analysis` a uno scheduler/queue durevole per recovery indipendente dal traffico utente.
+2. Eliminare il debito ESLint preesistente e riportare il lint CI all'intero repository.
+3. Aggiungere integration test con DB/Storage fittizi per concorrenza worker, retry e ownership.
+4. Implementare billing reale e subscription lifecycle per PRO.
+5. Aggiungere observability: error tracking, metriche durata AI, tentativi, documenti stale e costi provider.
+6. Espandere test dei parser e del confronto mercato con fixture reali anonimizzate.
+
+---
+
+## Variabili d'ambiente principali
+
+- `DATABASE_URL`
+- `DIRECT_URL`
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `NEXTAUTH_SECRET`
+- `NEXTAUTH_URL`
+- `ANTHROPIC_API_KEY`
+- `ANTHROPIC_MODEL` (opzionale)
+- `AI_PROVIDER` (opzionale)
+- `ADMIN_SECRET`
+- `JOBS_SECRET`
+- `SCRAPERAPI_KEY`
+- `BREVO_API_KEY`
