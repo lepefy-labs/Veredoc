@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { AnalysisStatus, DocumentType } from "@prisma/client";
+import { AnalysisStatus, DocumentType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { analyzeDocument } from "@/lib/ai";
 import { arricchisciConFrontoMercato } from "@/lib/parsers/bolletta";
@@ -143,8 +143,8 @@ export async function processDocumentAnalysis(documentId: string): Promise<boole
           typeCorrected: effectiveType !== current.type,
           typeSelectedByUser: effectiveType !== current.type ? current.type : null,
           status: AnalysisStatus.DONE,
-          rawExtracted: validated,
-          analysis: validated,
+          rawExtracted: validated as unknown as Prisma.InputJsonValue,
+          analysis: validated as unknown as Prisma.InputJsonValue,
         },
       });
       return true;
@@ -162,8 +162,8 @@ export async function processDocumentAnalysis(documentId: string): Promise<boole
         typeCorrected: effectiveType !== current.type,
         typeSelectedByUser: effectiveType !== current.type ? current.type : null,
         status: AnalysisStatus.DONE,
-        rawExtracted: validated,
-        analysis,
+        rawExtracted: validated as unknown as Prisma.InputJsonValue,
+        analysis: analysis as unknown as Prisma.InputJsonValue,
       },
     });
     return true;
