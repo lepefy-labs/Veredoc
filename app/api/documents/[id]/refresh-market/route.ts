@@ -8,6 +8,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { arricchisciConFrontoMercato } from "@/lib/parsers/bolletta";
 import { AnalysisStatus, DocumentType } from "@prisma/client";
+import type { BollettaRaw } from "@/types/bolletta";
 
 const BOLLETTA_TYPES = [
   DocumentType.BOLLETTA_LUCE,
@@ -43,13 +44,12 @@ export async function POST(
     return NextResponse.json({ error: "Dati grezzi non disponibili per questo documento." }, { status: 400 });
   }
 
-  // Nessuna chiamata AI — usa i dati già estratti
-  const analysis = await arricchisciConFrontoMercato(document.rawExtracted as any);
+  const rawExtracted = document.rawExtracted as unknown as BollettaRaw;
+  const analysis = await arricchisciConFrontoMercato(rawExtracted);
 
   await prisma.document.update({
     where: { id },
     data: { analysis: analysis as object },
-    // rawExtracted rimane intatto — non viene mai modificato dopo l'analisi iniziale
   });
 
   return NextResponse.json({ analysis });

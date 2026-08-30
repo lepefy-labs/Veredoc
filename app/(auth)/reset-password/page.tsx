@@ -8,6 +8,11 @@ import Card from "@/components/ui/Card";
 import { TEXTS } from "@/lib/config/texts";
 import VeredocLogo from "@/components/ui/VeredocLogo";
 
+interface TokenValidationState {
+  token: string;
+  valid: boolean | null;
+}
+
 function ResetPasswordContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
@@ -17,14 +22,13 @@ function ResetPasswordContent() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [invalidToken, setInvalidToken] = useState(false);
-  const [checking, setChecking] = useState(true);
+  const [tokenValidation, setTokenValidation] = useState<TokenValidationState>({
+    token: token ?? "",
+    valid: token ? null : false,
+  });
 
   useEffect(() => {
-    if (!token) {
-      setChecking(false);
-      return;
-    }
+    if (!token) return;
 
     let cancelled = false;
 
@@ -32,19 +36,20 @@ function ResetPasswordContent() {
       .then((res) => res.json())
       .then((data: { valid: boolean }) => {
         if (cancelled) return;
-        if (!data.valid) setInvalidToken(true);
-        setChecking(false);
+        setTokenValidation({ token, valid: data.valid });
       })
       .catch(() => {
         if (cancelled) return;
-        setInvalidToken(true);
-        setChecking(false);
+        setTokenValidation({ token, valid: false });
       });
 
     return () => {
       cancelled = true;
     };
   }, [token]);
+
+  const checking = Boolean(token) && (tokenValidation.token !== token || tokenValidation.valid === null);
+  const invalidToken = Boolean(token) && tokenValidation.token === token && tokenValidation.valid === false;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -68,7 +73,7 @@ function ResetPasswordContent() {
     if (!res.ok) {
       const data = await res.json() as { error: string };
       setError(data.error ?? TEXTS.resetPassword.errors.generic);
-      setInvalidToken(true);
+      if (token) setTokenValidation({ token, valid: false });
       return;
     }
 

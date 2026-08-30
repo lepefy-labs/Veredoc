@@ -1,20 +1,17 @@
+import { AnthropicProvider } from './providers/anthropic'
+import { GeminiProvider } from './providers/gemini'
+import { OpenAIProvider } from './providers/openai'
 import { AIProvider, AnalyzeDocumentParams, AnalyzeDocumentResult } from './types'
 
 function getProvider(): AIProvider {
   const name = process.env.AI_PROVIDER ?? 'anthropic'
   switch (name) {
-    case 'anthropic': {
-      const { AnthropicProvider } = require('./providers/anthropic')
+    case 'anthropic':
       return new AnthropicProvider()
-    }
-    case 'openai': {
-      const { OpenAIProvider } = require('./providers/openai')
+    case 'openai':
       return new OpenAIProvider()
-    }
-    case 'gemini': {
-      const { GeminiProvider } = require('./providers/gemini')
+    case 'gemini':
       return new GeminiProvider()
-    }
     default:
       throw new Error(`Unknown AI provider: ${name}`)
   }

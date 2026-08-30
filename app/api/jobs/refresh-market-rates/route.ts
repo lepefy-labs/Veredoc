@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { arricchisciConFrontoMercato } from "@/lib/parsers/bolletta";
 import { AnalysisStatus, DocumentType } from "@prisma/client";
+import type { BollettaRaw } from "@/types/bolletta";
 
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get("Authorization");
@@ -29,7 +30,8 @@ export async function POST(req: NextRequest) {
   for (const doc of documents) {
     if (!doc.rawExtracted) continue;
     try {
-      const analysis = await arricchisciConFrontoMercato(doc.rawExtracted as any);
+      const rawExtracted = doc.rawExtracted as unknown as BollettaRaw;
+      const analysis = await arricchisciConFrontoMercato(rawExtracted);
       await prisma.document.update({
         where: { id: doc.id },
         data: { analysis: analysis as object },
