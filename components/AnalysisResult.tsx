@@ -2,10 +2,10 @@
 
 import { useEffect, useState, useRef } from "react";
 import BollettaReport from "@/components/BollettaReport";
+import BollettaDecisionSummary from "@/components/BollettaDecisionSummary";
 import BustaPagaReport from "@/components/BustaPagaReport";
 import { BollettaAnalysis } from "@/types/bolletta";
 import { BustaPagaData } from "@/types/bustapaga";
-import { DOCUMENT_TYPE_LABELS } from "@/lib/config/constants";
 
 export interface DocMeta {
   title: string;
@@ -34,10 +34,10 @@ const POLL_INTERVAL_MS = 3000;
 const MAX_POLLS = 40;
 
 const LOADING_MESSAGES = [
-  "Sto leggendo il documento...",
-  "Identifico le voci...",
-  "Confronto con i prezzi di mercato...",
-  "Quasi pronto...",
+  "Riconosco il tipo di documento...",
+  "Leggo le voci principali...",
+  "Controllo coerenza e dati...",
+  "Preparo il risultato...",
 ];
 
 function LoadingSpinner() {
@@ -173,23 +173,17 @@ export default function AnalysisResult({ documentId, onReset, onDocLoaded }: Ana
 
   const isBustaPaga = doc.type === "BUSTA_PAGA";
 
+  if (isBustaPaga) {
+    return <BustaPagaReport data={doc.analysis as BustaPagaData} />;
+  }
+
+  const bolletta = doc.analysis as BollettaAnalysis;
   return (
-    <div>
-      {doc.typeCorrected && doc.typeSelectedByUser && (
-        <div className="mb-4 flex items-start gap-3 rounded-lg border border-[#FCD34D] bg-[#FFFBEB] px-4 py-3">
-          <span className="text-lg">⚠️</span>
-          <p className="text-sm text-[#92400E]">
-            Hai selezionato{' '}
-            <strong>{DOCUMENT_TYPE_LABELS[doc.typeSelectedByUser] ?? doc.typeSelectedByUser}</strong>,
-            ma abbiamo rilevato che si tratta di una{' '}
-            <strong>{DOCUMENT_TYPE_LABELS[doc.type] ?? doc.type}</strong>.
-            L&apos;analisi è stata eseguita correttamente.
-          </p>
-        </div>
-      )}
-      {isBustaPaga
-        ? <BustaPagaReport data={doc.analysis as BustaPagaData} />
-        : <BollettaReport data={doc.analysis as BollettaAnalysis} documentId={doc.id} />}
+    <div className="space-y-6">
+      <BollettaDecisionSummary data={bolletta} />
+      <div id="confronto-mercato">
+        <BollettaReport data={bolletta} documentId={doc.id} />
+      </div>
     </div>
   );
 }
