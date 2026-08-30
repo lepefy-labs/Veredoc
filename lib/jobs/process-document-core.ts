@@ -62,6 +62,7 @@ export interface DocumentAnalysisDependencies {
   validateBill(raw: unknown): ValidatedDocument;
   validatePayroll(raw: unknown): ValidatedDocument;
   enrichBill(validated: ValidatedDocument): Promise<unknown>;
+  verifyPayroll(validated: ValidatedDocument): unknown;
   now?: () => Date;
 }
 
@@ -73,6 +74,11 @@ export function getAnalysisAttempts(analysis: unknown): number {
     : 0;
 }
 
+function detectedTypeValue(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  return (raw as { tipo_rilevato?: unknown }).tipo_rilevato;
+}
+
 function mapDetectedType(value: unknown): DocumentType | null {
   if (value === "luce") return DocumentType.BOLLETTA_LUCE;
   if (value === "gas") return DocumentType.BOLLETTA_GAS;
@@ -82,8 +88,7 @@ function mapDetectedType(value: unknown): DocumentType | null {
 }
 
 function isUnsupportedOutput(raw: unknown): boolean {
-  return typeof raw === "object" && raw !== null && !Array.isArray(raw) &&
-    (raw as { tipo_rilevato?: unknown }).tipo_rilevato === "sconosciuto";
+  return detectedTypeValue(raw) === "sconosciuto";
 }
 
 export function shouldRecoverAnalysis(
@@ -119,7 +124,6 @@ export function createDocumentAnalysisProcessor(deps: DocumentAnalysisDependenci
       const buffer = await deps.download(current.filePath);
       const mimeType = deps.validateBuffer(buffer);
       const fileBase64 = buffer.toString("base64");
-      const isPayroll = current.type === DocumentType.BUSTA_PAGA;
 
       const { raw } = await deps.analyze({
         fileBase64,
@@ -132,18 +136,21 @@ export function createDocumentAnalysisProcessor(deps: DocumentAnalysisDependenci
         return true;
       }
 
-      const validated = isPayroll ? deps.validatePayroll(raw) : deps.validateBill(raw);
-      const effectiveType = mapDetectedType(validated.tipo_rilevato);
+      const effectiveType = mapDetectedType(detectedTypeValue(raw));
       if (!effectiveType) throw new Error("Tipo documento AI non riconosciuto.");
 
-      const analysis = isPayroll ? validated : await deps.enrichBill(validated);
+      const isPayroll = effectiveType === DocumentType.BUSTA_PAGA;
+      const validated = isPayroll ? deps.validatePayroll(raw) : deps.validateBill(raw);
+      const analysis = isPayroll
+        ? { ...validated, verifica: deps.verifyPayroll(validated) }
+        : await deps.enrichBill(validated);
 
       await deps.store.complete({
         documentId,
         leaseTime,
         type: effectiveType,
-        typeCorrected: effectiveType !== current.type,
-        typeSelectedByUser: effectiveType !== current.type ? current.type : null,
+        typeCorrected: false,
+        typeSelectedByUser: null,
         rawExtracted: validated,
         analysis,
       });
