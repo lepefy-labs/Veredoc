@@ -43,16 +43,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint hardening files
-        run: >-
-          pnpm exec eslint
-          app/api/documents/upload/route.ts
-          'app/api/documents/[id]/route.ts'
-          app/api/jobs/process-analysis/route.ts
-          lib/ai/validate.ts
-          lib/documents/upload-validation.ts
-          lib/jobs/process-document.ts
-          tests/validation.test.ts
+      - name: Lint
+        run: pnpm lint
 
       - name: Typecheck
         run: pnpm typecheck

@@ -1,20 +1,9 @@
 @AGENTS.md
 
-Claude Code — Istruzioni di Progetto  
+# Claude Code — Veredoc
 
-Workflow di Consegna
+`AGENTS.md` is the authoritative workflow and delivery policy for this repository.
 
-Non fare mai git push né tentativi di push via MCP GitHub.
+Follow its cloud-only execution, autonomy, project-context maintenance, validation, commit batching, target-branch and deployment-verification rules.
 
-Il developer (Robertin) lavora esclusivamente via interfacce web e carica i file manualmente tramite GitHub web UI. Claude Code deve:
-
-  1. Scrivere e committare il codice localmente (git add + git commit)
-  2. Generare uno ZIP con i soli file nuovi/modificati, coerente con la struttura del progetto.
-  3. Consegnare lo ZIP tramite SendUserFile
-  4. Spiegare nel messaggio quali file sono nello ZIP e come caricarli su GitHub
-
-Non tentare git push, mcp__github__push_files, né mcp__github__create_or_update_file. La sessione remota non ha permessi di scrittura verso GitHub — qualsiasi tentativo di push restituirà 403 e spreca tempo.
-
-Contesto Prodotto
-
-Ad ogni modifica genera un CONTEXT.md con l'architettura completa e aggiornata, stack tecnico e stato attuale del progetto.
+Do not use the previous ZIP-only/manual-upload workflow. When connected GitHub write capabilities are available and the requester has authorized implementation, use the delivery strategy defined in `AGENTS.md`, including atomic/staged changes and a single coherent production commit per logical delivery unit.
