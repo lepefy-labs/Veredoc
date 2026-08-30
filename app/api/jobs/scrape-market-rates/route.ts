@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ARERA_ML_BASE, INDICI_MERCATO, PROVIDER_WHITELIST_EXACT, PROVIDER_WHITELIST_CONTAINS } from "@/lib/config/constants";
+import { elapsedMs, logOperationalEvent } from "@/lib/observability/operations";
 import { isJobRequestAuthorized } from "@/lib/security/access";
 
 interface ScrapedRate {
@@ -160,8 +161,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Non autorizzato." }, { status: 401 });
   }
 
+  const startedAt = Date.now();
   let inserted = 0;
   let updated = 0;
+  let extracted = 0;
   const allErrors: string[] = [];
   const jobs = [["E", "luce"], ["G", "gas"]] as const;
 
@@ -169,6 +172,7 @@ export async function POST(req: NextRequest) {
     try {
       const xmlText = await findLatestAreraFile(cat);
       const rates = parseAreraXml(xmlText, category);
+      extracted += rates.length;
 
       if (rates.length === 0) {
         allErrors.push(`[WARN] Nessuna offerta domestica estratta per ${category}`);
@@ -222,5 +226,20 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ updated, inserted, errors: allErrors });
+  const durationMs = elapsedMs(startedAt);
+  logOperationalEvent("job.scrape_market_rates.completed", {
+    extracted,
+    inserted,
+    updated,
+    errors: allErrors.length,
+    durationMs,
+  }, allErrors.length > 0 ? "warn" : "info");
+
+  return NextResponse.json({
+    extracted,
+    updated,
+    inserted,
+    errors: allErrors,
+    durationMs,
+  });
 }

@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { analyzeDocument } from "@/lib/ai";
 import { arricchisciConFrontoMercato } from "@/lib/parsers/bolletta";
 import { validateBollettaOutput, validateBustaPagaOutput } from "@/lib/ai/validate";
-import { validateDocumentBuffer } from "@/lib/documents/upload-validation";
+import { validateDocumentBuffer, type AcceptedMimeType } from "@/lib/documents/upload-validation";
+import { elapsedMs, logOperationalEvent, toSafeErrorMessage } from "@/lib/observability/operations";
 import type { BollettaRaw } from "@/types/bolletta";
 import {
   createDocumentAnalysisProcessor,
@@ -51,11 +52,18 @@ const store: DocumentAnalysisStore = {
         analysis: { _job: { attempts: attempt, lastError: null } },
       },
     });
+    if (result.count > 0) {
+      logOperationalEvent("analysis.claimed", {
+        documentId: document.id,
+        attempt,
+        previousStatus: document.status,
+      });
+    }
     return result.count > 0;
   },
 
   async complete(input) {
-    await prisma.document.updateMany({
+    const result = await prisma.document.updateMany({
       where: {
         id: input.documentId,
         status: AnalysisStatus.PROCESSING,
@@ -70,10 +78,17 @@ const store: DocumentAnalysisStore = {
         analysis: input.analysis as Prisma.InputJsonValue,
       },
     });
+    if (result.count > 0) {
+      logOperationalEvent("analysis.completed", {
+        documentId: input.documentId,
+        type: input.type,
+        typeCorrected: input.typeCorrected,
+      });
+    }
   },
 
   async markUnsupported({ documentId, leaseTime }) {
-    await prisma.document.updateMany({
+    const result = await prisma.document.updateMany({
       where: { id: documentId, status: AnalysisStatus.PROCESSING, updatedAt: leaseTime },
       data: {
         status: AnalysisStatus.ERROR,
@@ -83,10 +98,13 @@ const store: DocumentAnalysisStore = {
         },
       },
     });
+    if (result.count > 0) {
+      logOperationalEvent("analysis.unsupported", { documentId }, "warn");
+    }
   },
 
   async markFailure({ documentId, leaseTime, attempts, message, exhausted }) {
-    await prisma.document.updateMany({
+    const result = await prisma.document.updateMany({
       where: { id: documentId, status: AnalysisStatus.PROCESSING, updatedAt: leaseTime },
       data: {
         status: exhausted ? AnalysisStatus.ERROR : AnalysisStatus.PENDING,
@@ -95,20 +113,55 @@ const store: DocumentAnalysisStore = {
           : { _job: { attempts, lastError: message.slice(0, 1000) } },
       },
     });
+    if (result.count > 0) {
+      logOperationalEvent("analysis.failed", {
+        documentId,
+        attempts,
+        exhausted,
+        error: message.slice(0, 500),
+      }, exhausted ? "error" : "warn");
+    }
   },
 };
 
 export const processDocumentAnalysis = createDocumentAnalysisProcessor({
   store,
   async download(filePath) {
+    const startedAt = Date.now();
     const { data, error } = await getSupabase().storage.from("documents").download(filePath);
     if (error || !data) {
+      logOperationalEvent("storage.document_download_failed", {
+        durationMs: elapsedMs(startedAt),
+        error: error?.message ?? "file non disponibile",
+      }, "error");
       throw new Error(`Download documento fallito: ${error?.message ?? "file non disponibile"}`);
     }
+    logOperationalEvent("storage.document_download_completed", { durationMs: elapsedMs(startedAt) });
     return Buffer.from(await data.arrayBuffer());
   },
   validateBuffer: validateDocumentBuffer,
-  analyze: analyzeDocument,
+  async analyze(input) {
+    const startedAt = Date.now();
+    try {
+      const result = await analyzeDocument({
+        ...input,
+        mimeType: input.mimeType as AcceptedMimeType,
+      });
+      logOperationalEvent("ai.analysis_completed", {
+        provider: result.provider,
+        documentType: input.documentType,
+        durationMs: elapsedMs(startedAt),
+      });
+      return result;
+    } catch (error) {
+      logOperationalEvent("ai.analysis_failed", {
+        documentType: input.documentType,
+        durationMs: elapsedMs(startedAt),
+        error: toSafeErrorMessage(error),
+      }, "error");
+      throw error;
+    }
+  },
   validateBill: (raw) => validateBollettaOutput(raw),
   validatePayroll: (raw) => validateBustaPagaOutput(raw),
   enrichBill: (validated) => arricchisciConFrontoMercato(validated as unknown as BollettaRaw),
