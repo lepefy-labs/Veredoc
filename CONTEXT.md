@@ -1,17 +1,18 @@
 # CONTEXT.md — Veredoc
 
-> Aggiornato: 2026-08-30 — production hardening, scheduler n8n, authorization/observability e product intelligence con auto-detection + controlli busta paga
+> Aggiornato: 2026-08-30 — product intelligence longitudinale + delivery senza PR preview di default
 
 ---
 
 ## Cos'è Veredoc
 
-Veredoc è un SaaS italiano che analizza bollette (luce, gas, internet) e buste paga tramite AI. L'utente carica un PDF/JPG/PNG senza dover scegliere manualmente il tipo di documento. Veredoc riconosce il contenuto, applica il flusso corretto e restituisce un risultato orientato all'azione:
+Veredoc è un SaaS italiano che analizza bollette (luce, gas, internet) e buste paga tramite AI. L'utente carica un PDF/JPG/PNG senza scegliere manualmente il tipo: Veredoc riconosce il documento, applica il flusso corretto e restituisce un risultato orientato all'azione.
 
-- per le bollette: lettura strutturata, confronto mercato e indicazione sintetica su cosa conviene fare;
-- per le buste paga: lettura strutturata e controlli automatici di coerenza/anomalia sulle informazioni presenti nel singolo cedolino.
+- **Bollette:** lettura strutturata, confronto mercato, verdetto sintetico e azione consigliata.
+- **Buste paga:** lettura strutturata, controlli deterministici di coerenza/anomalia e spiegazione delle voci.
+- **Storico intelligente:** dalla dashboard, quando esistono almeno due documenti `DONE` dello stesso tipo, Veredoc confronta automaticamente l'ultima analisi con la precedente e mette in evidenza variazioni rilevanti.
 
-I controlli busta paga non costituiscono certificazione fiscale, consulenza del lavoro o verifica legale completa: evidenziano incoerenze matematiche e valori che meritano approfondimento.
+I controlli payroll e longitudinali sono segnali di coerenza e variazione. Non costituiscono certificazione fiscale, consulenza del lavoro, verifica legale o diagnosi definitiva della causa di una variazione.
 
 ## Stack tecnico
 
@@ -37,51 +38,44 @@ I controlli busta paga non costituiscono certificazione fiscale, consulenza del 
 
 ```text
 app/
-  api/
-    auth/                           autenticazione, registrazione, reset password
-    documents/upload/              validazione, quota, upload e creazione job
-    documents/[id]/                lettura, recovery analisi e cancellazione
-    documents/[id]/refresh-market  refresh confronto senza nuova analisi AI
-    jobs/process-analysis/          recovery batch protetto da JOBS_SECRET
-    jobs/refresh-market-rates/      refresh confronto sui documenti DONE
-    jobs/scrape-market-rates/       scraping tariffe
-    market-rates/                   lettura tariffe
-    admin/set-plan/                 gestione piano amministrativa
   analyze/                          upload auto-detect + polling risultato
-  dashboard/                        storico documenti
+  dashboard/                        documenti + quota + storico intelligente
+  api/
+    documents/upload/               validazione, quota, upload e creazione job
+    documents/[id]/                 lettura, recovery analisi e cancellazione
+    documents/[id]/refresh-market/  refresh confronto mercato
+    jobs/process-analysis/           recovery batch
+    jobs/refresh-market-rates/       refresh mercato documenti DONE
+    jobs/scrape-market-rates/        scraping tariffe
 components/
   FileUploader.tsx                  upload senza selezione manuale tipo
   AnalysisResult.tsx                routing UI risultato
   BollettaDecisionSummary.tsx       verdetto/azione sintetica bolletta
   BollettaReport.tsx                dettaglio tecnico + offerte
   BustaPagaReport.tsx               verdetto anomalie + dettaglio cedolino
-  DocumentRedactor.tsx
+  HistoricalInsights.tsx            confronto ultima analisi vs precedente
+  DocumentList.tsx
 lib/
   ai/
     analyze.ts
     validate.ts
     providers/anthropic.ts          one-pass detection + extraction
-  documents/upload-validation.ts
+  insights/history.ts               motore longitudinale deterministico
   jobs/process-document-core.ts     routing dal tipo rilevato AI
   jobs/process-document.ts
-  observability/operations.ts
-  security/access.ts
   parsers/
     bolletta.ts
     bustapaga.ts                    engine payroll-coherence-v1
-  config/
-  auth.ts
-  email.ts
-  prisma.ts
+  observability/operations.ts
+  security/access.ts
+  documents/upload-validation.ts
 prisma/schema.prisma
 supabase/
-  migrations/
-  seeds/
-  rls.sql
 tests/
   validation.test.ts
   worker-integration.test.ts
   payroll-verification.test.ts
+  history-insights.test.ts
   authorization.test.ts
   observability.test.ts
 .github/workflows/ci.yml
@@ -91,202 +85,121 @@ tests/
 
 ## Flusso upload e auto-detection
 
-1. L'utente deve essere autenticato.
-2. Il server legge il piano reale dal DB e verifica la quota mensile prima di salvare il file.
-3. Il flusso JSON/base64 del redattore è consentito esclusivamente agli utenti PRO.
-4. Il contenuto viene validato server-side tramite magic bytes; PDF/JPEG/PNG devono corrispondere al MIME dichiarato quando presente.
-5. Limite server-side: 10 MB.
-6. L'utente **non seleziona più** luce/gas/internet/busta paga.
-7. Il file viene salvato in Supabase Storage usando un'estensione derivata dal MIME realmente rilevato.
-8. Viene creato il record `Document` in stato `PENDING`.
-9. Poiché lo schema Prisma esistente richiede `Document.type` e non dispone di un valore `AUTO`, alla creazione viene scritto un **hint operativo iniziale** inferito dal nome file. Questo valore non è considerato la classificazione definitiva e non richiede una migrazione DB.
-10. Claude riceve il documento e, in **una singola chiamata**, riconosce il tipo reale (`luce | gas | internet | busta_paga | sconosciuto`) e restituisce il payload specifico del tipo rilevato.
-11. Il worker sceglie il validator in base a `tipo_rilevato`, non in base all'hint iniziale, e sovrascrive `Document.type` con il tipo effettivo al completamento.
-12. Se la creazione DB fallisce dopo l'upload, il file appena creato viene rimosso dallo Storage.
-13. L'analisi viene avviata con `after()` di Next.js; stato e retry restano persistenti sul record `Document`.
+1. Utente autenticato.
+2. Piano reale e quota mensile verificati prima dello Storage.
+3. Redattore JSON/base64 consentito solo PRO.
+4. Magic bytes/MIME e limite 10 MB validati server-side.
+5. L'utente non seleziona luce/gas/internet/busta paga.
+6. Il record `Document` nasce `PENDING`; lo schema non ha un tipo `AUTO`, quindi viene usato un hint iniziale compatibile con lo schema esistente.
+7. Claude esegue **una sola chiamata** che riconosce `luce | gas | internet | busta_paga | sconosciuto` ed estrae il payload corrispondente.
+8. Il worker sceglie il validator in base al tipo realmente rilevato e salva il tipo definitivo.
+9. Retry e recovery restano persistenti sul record.
 
-L'auto-detection è one-pass per evitare una seconda chiamata AI dedicata alla sola classificazione, quindi non raddoppia intenzionalmente latenza e costo provider.
-
-La policy di retention dei file non è stata modificata in questo intervento.
+Nessuna migrazione DB è stata necessaria per l'auto-detection o per lo storico longitudinale.
 
 ---
 
-## Worker analisi, lease e retry
+## Worker, lease e recovery
 
-La state machine del worker vive in `lib/jobs/process-document-core.ts`; `lib/jobs/process-document.ts` collega la logica a Prisma, Supabase Storage, AI, validatori e parser reali.
-
-- Accetta documenti `PENDING` o `PROCESSING` con lease scaduta.
-- Usa `status + updatedAt` come lock ottimistico.
-- Scrive in `analysis._job` numero tentativi e ultimo errore.
-- Massimo tentativi: 3.
-- Lease scaduta dopo 2 minuti.
-- Ogni retry riscarica il file da Supabase Storage.
-- Errore recuperabile: ritorno a `PENDING`.
-- Terzo errore: passaggio a `ERROR`.
-- Il polling di `GET /api/documents/[id]` può rianimare analisi recuperabili.
-- `POST /api/jobs/process-analysis` consente recovery batch esterno.
-- Il tipo effettivo viene determinato dall'output AI prima di scegliere il validator bolletta/busta paga.
+- stati processabili: `PENDING` o `PROCESSING` stale;
+- lock ottimistico tramite `status + updatedAt`;
+- massimo 3 tentativi;
+- lease stale dopo 2 minuti;
+- retry con nuovo download da Supabase Storage;
+- errore recuperabile → `PENDING`;
+- terzo errore → `ERROR`;
+- polling documento e `POST /api/jobs/process-analysis` possono recuperare job stale;
+- n8n Analysis Recovery è configurato/testato ma al 2026-08-30 resta intenzionalmente **Unpublished**.
 
 ---
 
 ## Product intelligence bollette
 
-Il risultato bolletta è organizzato in due livelli:
+### Risultato singolo documento
 
-1. **Decision summary** (`BollettaDecisionSummary.tsx`):
-   - tariffa competitiva / in linea / sopra mercato;
-   - risparmio potenziale mensile e annuale quando disponibile;
-   - parte negoziabile della bolletta;
-   - CTA al confronto mercato quando esiste un'azione economicamente sensata.
-2. **Report tecnico** (`BollettaReport.tsx`):
-   - fornitore, periodo, consumi;
-   - breakdown materia energia/rete/oneri/imposte;
-   - dettaglio voci;
-   - confronto offerte e break-even.
+`BollettaDecisionSummary.tsx` porta in alto:
+- tariffa competitiva / in linea / sopra mercato;
+- risparmio potenziale mensile/annuale quando disponibile;
+- parte negoziabile;
+- CTA al confronto offerte quando economicamente sensata.
 
-La logica di confronto mercato esistente non è stata sostituita: è cambiata la gerarchia con cui il risultato viene presentato all'utente.
+`BollettaReport.tsx` mantiene dettaglio fornitore, periodo, consumi, breakdown, voci, offerte e break-even.
+
+### Storico longitudinale
+
+`lib/insights/history.ts` confronta esclusivamente documenti `DONE` dello **stesso tipo** e usa le due analisi più recenti in ordine di caricamento.
+
+Per luce/gas/internet confronta quando disponibili:
+- importo totale;
+- prezzo unitario della materia energia;
+- consumi mensili stimati o consumi estratti.
+
+Il motore distingue in modo prudente casi come:
+- spesa salita insieme ai consumi;
+- consumi simili ma prezzo unitario aumentato;
+- spesa/prezzo in calo;
+- situazione sostanzialmente stabile.
+
+Non attribuisce una causa certa quando i dati disponibili non la supportano.
 
 ---
 
 ## Product intelligence buste paga
 
-### Estrazione
+### Engine singolo cedolino `payroll-coherence-v1`
 
-Oltre ai campi storici, Claude prova a estrarre quando presenti:
+Controlli deterministici disponibili:
+- quadratura competenze - trattenute vs netto;
+- incidenza contributi su imponibile previdenziale;
+- compatibilità matematica IRPEF/imponibile fiscale;
+- rapporto netto/lordo;
+- valori principali negativi/anomali;
+- gestione esplicita dei dati insufficienti.
 
-- totale competenze;
-- totale trattenute;
-- imponibile previdenziale;
-- imponibile fiscale;
-- IRPEF lorda;
-- detrazioni;
-- addizionali.
+Verdetti: `coerente`, `da_verificare`, `dati_insufficienti`.
 
-I campi non leggibili devono restare `null`: il prompt vieta di inventare o ricostruire importi per supposizione.
+### Storico longitudinale payroll
 
-### Engine `payroll-coherence-v1`
+Quando esistono almeno due buste paga `DONE`, Veredoc confronta:
+- netto;
+- lordo;
+- contributi INPS + IRPEF estratti.
 
-`lib/parsers/bustapaga.ts` esegue controlli deterministici dopo l'estrazione AI:
+Esempi di segnali mostrati:
+- netto aumentato/diminuito;
+- variazione del lordo nella stessa direzione;
+- lordo simile ma trattenute principali in aumento o in calo.
 
-- quadratura `competenze_totali - trattenute_totali` rispetto al netto, con tolleranza tecnica;
-- incidenza dei contributi sull'imponibile previdenziale, usando un intervallo ampio come segnale di plausibilità e non come regola contrattuale assoluta;
-- compatibilità matematica di IRPEF e imponibile fiscale;
-- rapporto netto/lordo come informazione;
-- importi principali negativi/anomali;
-- dati insufficienti senza generare falsi allarmi.
-
-Verdetti:
-
-- `coerente`: nessuna anomalia evidente nei controlli disponibili;
-- `da_verificare`: almeno un'incoerenza o valore fuori dagli intervalli di controllo;
-- `dati_insufficienti`: documento letto ma mancano dati per alcuni controlli.
-
-Il motore **non certifica** che aliquote, contributi o trattamento fiscale siano legalmente corretti. Un singolo cedolino non contiene necessariamente contratto, situazione fiscale annuale, conguagli o altre informazioni indispensabili a una verifica completa.
-
-### UI
-
-`BustaPagaReport.tsx` è anomaly-first:
-
-1. verdetto e controlli da verificare;
-2. sintesi lordo/netto;
-3. trattenute e imponibili;
-4. voci dettagliate in sezione espandibile.
+Il sistema non conclude automaticamente che una variazione sia corretta o errata: conguagli, detrazioni, giornate lavorate e altre voci possono spiegarla.
 
 ---
 
-## Scheduler n8n
+## Dashboard
 
-I job operativi Veredoc sono schedulati esternamente tramite n8n.
+La dashboard mostra:
+1. piano e quota mensile coerente con la policy backend;
+2. se disponibili, card **Cosa sta cambiando** per bollette e buste paga confrontabili;
+3. link diretto all'ultima analisi e alla precedente;
+4. storico documenti tradizionale.
 
-### Market rates
-
-Il workflow `Veredoc — Nightly Market Rates` aggiorna le tariffe e richiama gli endpoint protetti da `JOBS_SECRET`, incluso `POST /api/jobs/refresh-market-rates`.
-
-### Analysis recovery
-
-Workflow separato predisposto:
-
-```text
-Schedule Trigger (ogni 5 minuti)
-  → POST /api/jobs/process-analysis
-  → Authorization: Bearer JOBS_SECRET
-```
-
-Stato al 2026-08-30:
-- workflow creato;
-- endpoint e autenticazione configurati;
-- test manuale riuscito;
-- workflow lasciato intenzionalmente Unpublished;
-- recovery tramite polling utente ancora operativo.
-
----
-
-## Validazione output AI
-
-`lib/ai/validate.ts` valida a runtime i payload Claude prima del salvataggio definitivo.
-
-### Bollette
-- tipo rilevato/supportato;
-- fornitore, periodo e importi;
-- consumi e unità;
-- sezioni energia/rete/imposte;
-- sezioni nullable internet;
-- dettaglio voci e categorie ammesse.
-
-### Buste paga
-- tipo rilevato;
-- datore e competenza;
-- lordo/netto;
-- contributi, IRPEF e TFR;
-- voci `competenza | trattenuta`;
-- totali/imponibili/detrazioni/addizionali opzionali e nullable.
+Lo storico intelligente non richiede configurazione utente né nuove tabelle: deriva dai JSON di analisi già persistiti.
 
 ---
 
 ## Sicurezza e autorizzazione
 
-`lib/security/access.ts` centralizza le guardie di accesso condivise.
-
-### Endpoint job
-
-Gli endpoint:
-- `POST /api/jobs/process-analysis`
-- `POST /api/jobs/refresh-market-rates`
-- `POST /api/jobs/scrape-market-rates`
-
-usano tutti la stessa validazione `Authorization: Bearer JOBS_SECRET` fail-closed con confronto `timingSafeEqual`.
-
-### Ownership documenti
-
-Le route di lettura, cancellazione e refresh mercato usano la stessa guardia `isDocumentOwner` dopo autenticazione e lookup del documento.
-
-- sessione assente → 401;
-- documento inesistente → 404;
-- utente diverso dal proprietario → 403;
-- proprietario autenticato → flusso autorizzato.
-
-Altre misure attive:
-- password bcryptjs;
-- reset password con token monouso hashato e scadenza;
+- ownership documento centralizzata in `lib/security/access.ts`;
+- job protetti da `JOBS_SECRET` fail-closed con `timingSafeEqual`;
 - Supabase Service Role solo server-side;
-- endpoint admin protetto da `ADMIN_SECRET`;
 - upload PRO verificato server-side;
-- MIME sniffing server-side.
+- MIME sniffing server-side;
+- reset password con token monouso hashato e scadenza.
 
 ---
 
-## Observability operativa
+## Observability
 
-`lib/observability/operations.ts` produce eventi JSON strutturati nei log server/Vercel senza introdurre servizi esterni o nuove variabili d'ambiente.
-
-Sono tracciati:
-- claim worker, tentativo e stato precedente;
-- completamento, documento non supportato e failure/retry;
-- durata download Supabase Storage;
-- durata chiamata AI, provider e hint documento iniziale;
-- metriche dei job `process-analysis`, refresh mercato e scraping ARERA.
-
-Non è ancora presente un backend esterno di error tracking/metriche. I costi monetari AI non sono calcolati.
+`lib/observability/operations.ts` produce eventi JSON strutturati per worker, Storage, AI e job schedulati. Sono disponibili durata chiamate, tentativi/retry, esiti e conteggi dei job. Non è ancora collegato un backend esterno tipo Sentry; i costi monetari AI non sono ancora calcolati.
 
 ---
 
@@ -297,11 +210,11 @@ Non è ancora presente un backend esterno di error tracking/metriche. I costi mo
 | FREE | 10 | No |
 | PRO | 30 | Sì |
 
-La quota viene controllata prima dello Storage. I documenti creati nel mese contano verso la quota indipendentemente dall'esito finale. Dashboard e upload usano la stessa regola di conteggio.
+I documenti creati nel mese contano verso la quota indipendentemente dall'esito finale. Dashboard e upload usano la stessa regola.
 
 ---
 
-## CI e qualità
+## CI e delivery
 
 Script:
 
@@ -312,84 +225,68 @@ pnpm test
 pnpm build
 ```
 
-GitHub Actions esegue su PR e push a `main`:
-1. install frozen lockfile;
-2. lint globale;
-3. typecheck globale;
-4. unit/integration test;
-5. build produzione globale.
+GitHub Actions esegue lint, typecheck, test e build su push a `main` e su PR.
 
-Copertura test corrente:
+### Policy deploy dal 2026-08-30
 
-### Validazione documenti/output AI
-- magic bytes PDF/JPEG/PNG;
-- MIME spoofing;
-- payload bolletta/busta paga;
-- sezioni nullable internet;
-- output AI malformato.
+Per lavoro ordinario destinato a `main` **non si apre una PR di staging per default**, per evitare preview deploy Vercel inutili.
 
-### Worker integration
-- concorrenza e singolo claim;
-- retry fino a 3 tentativi;
-- lease attiva/scaduta;
-- documenti cancellati o senza file;
-- failure Storage;
-- auto-detection che instrada una busta paga anche quando il tipo iniziale DB è una bolletta.
+Pattern preferito:
 
-### Payroll verification
-- cedolino coerente;
-- mismatch tra competenze/trattenute e netto;
-- incidenza contributiva anomala con wording non-certificativo;
-- dati mancanti senza falso allarme.
+```text
+INSPECT
+→ PREPARE FULL CHANGE
+→ ONE ATOMIC COMMIT ON CURRENT MAIN
+→ ONE MAIN UPDATE
+→ GITHUB ACTIONS
+→ ONE PRODUCTION DEPLOY
+```
 
-### Authorization
-- `JOBS_SECRET` assente;
-- header assente/malformato;
-- secret errato/corretto;
-- ownership documento.
+Una PR/preview è usata solo se richiesta esplicitamente, imposta da branch protection, oppure realmente necessaria per validare in sicurezza un cambiamento ad alto rischio. Gli errori introdotti dal delivery vengono corretti con un singolo commit atomico aggiuntivo, senza aprire automaticamente una PR.
 
-### Observability
-- formato eventi;
-- rimozione campi undefined;
-- timing non negativo;
-- normalizzazione errori.
+---
+
+## Test principali
+
+- magic bytes/MIME spoofing;
+- validazione output AI bolletta/busta paga;
+- worker concurrency/lease/retry/recovery;
+- auto-detection cross-type;
+- payroll coherence;
+- storico longitudinale bollette/payroll e isolamento tra tipi;
+- authorization job/ownership;
+- formato observability.
 
 ---
 
 ## Funzionalità completate
 
-- Autenticazione e reset password.
-- Upload PDF/JPG/PNG.
-- Auto-detection one-pass di bollette luce/gas/internet e buste paga.
-- Nessuna selezione manuale del tipo documento nell'upload.
-- Quote FREE/PRO coerenti tra backend e dashboard.
-- Redattore PDF PRO lato browser.
-- Analisi Claude di bollette e buste paga.
-- Validazione runtime output AI.
-- Decision summary action-first per bollette.
-- Confronto bollette con tariffe mercato.
-- Engine deterministico `payroll-coherence-v1` per controlli di coerenza/anomalia del cedolino.
-- Report busta paga anomaly-first.
-- Dashboard e polling analisi.
-- Soft delete con cancellazione file Storage e azzeramento dati sensibili.
-- Retry/recovery analisi con lease persistente.
-- Recovery batch protetto.
-- Workflow n8n Analysis Recovery creato/testato e attualmente Unpublished.
-- Upload con magic-byte validation, quota anticipata e cleanup compensativo.
-- Scraping tariffe e refresh mercato.
-- Scheduler n8n Nightly Market Rates.
-- CI globale con lint, typecheck, test e build.
-- Guardie centralizzate fail-closed per job e ownership documenti.
-- Observability operativa strutturata per worker, AI, Storage e job schedulati.
+- autenticazione e reset password;
+- upload PDF/JPG/PNG;
+- auto-detection one-pass;
+- quote FREE/PRO;
+- redattore PRO;
+- analisi Claude bollette/buste paga;
+- validazione runtime output;
+- decision summary bollette + confronto mercato;
+- payroll-coherence-v1;
+- dashboard con storico intelligente longitudinale;
+- soft delete + cleanup Storage;
+- retry/recovery persistente;
+- scheduler n8n Market Rates;
+- Analysis Recovery n8n configurato/testato, ancora Unpublished;
+- CI globale;
+- guardie authorization centralizzate;
+- observability operativa.
 
 ## Prossimi passi consigliati
 
-1. Validare l'auto-detection e i controlli busta paga su un set crescente di documenti reali anonimizzati, misurando falsi positivi/falsi negativi.
-2. Evolvere la busta paga da controllo del singolo mese a **storico longitudinale**: variazioni netto/lordo, ferie/TFR, imponibili, trattenute ricorrenti e anomalie tra mesi.
-3. Rendere la dashboard più orientata al valore: risparmi potenziali bollette, documenti con anomalie e azioni consigliate in evidenza.
-4. Valutare una knowledge layer normativa/contrattuale versionata per controlli payroll più profondi, mantenendo separati dati estratti, regole deterministiche e spiegazioni AI.
-5. Implementare billing reale e subscription lifecycle per PRO, previa approvazione esplicita perché modulo pagamento/critico.
-6. Pubblicare il workflow n8n `Analysis Recovery` quando si decide di attivare il recovery automatico ogni 5 minuti.
+1. Validare auto-detection, payroll checks e storico longitudinale su documenti reali anonimizzati, misurando falsi positivi e casi non confrontabili.
+2. Evolvere lo storico da confronto 1-vs-1 a trend multi-periodo quando esistono almeno 3-4 documenti dello stesso tipo.
+3. Per payroll, aggiungere dati strutturati su ferie/permessi/TFR solo dopo aver verificato affidabilità di estrazione su cedolini reali eterogenei.
+4. Valutare una knowledge layer normativa/contrattuale versionata per controlli payroll più profondi.
+5. Billing reale e subscription lifecycle PRO solo previa approvazione esplicita perché modulo pagamento/critico.
+6. Pubblicare n8n Analysis Recovery quando si decide di attivare il recovery automatico ogni 5 minuti.
 
 ---
 

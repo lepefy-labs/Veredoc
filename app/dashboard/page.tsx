@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import Button from "@/components/ui/Button";
 import DocumentList from "@/components/DocumentList";
+import HistoricalInsights from "@/components/HistoricalInsights";
+import { buildLongitudinalInsights } from "@/lib/insights/history";
 import { TEXTS } from "@/lib/config/texts";
 import { ANALYSIS_LIMITS } from "@/lib/config/constants";
 import { AnalysisStatus, UserPlan } from "@prisma/client";
@@ -34,6 +36,7 @@ export default async function DashboardPage() {
   const plan = session.user.plan === "PRO" ? UserPlan.PRO : UserPlan.FREE;
   const monthlyLimit = ANALYSIS_LIMITS[plan];
   const quotaPct = Math.min(100, Math.round((usedThisMonth / monthlyLimit) * 100));
+  const historicalInsights = buildLongitudinalInsights(documents);
 
   return (
     <main className="min-h-screen px-4 py-10">
@@ -54,7 +57,6 @@ export default async function DashboardPage() {
           </Link>
         </div>
 
-        {/* Piano utente + quota mensile */}
         <div className="rounded-xl border border-line bg-white p-5 space-y-4">
           <div className="flex items-center justify-between gap-4">
             <div className="space-y-1">
@@ -98,6 +100,8 @@ export default async function DashboardPage() {
             )}
           </div>
         </div>
+
+        <HistoricalInsights insights={historicalInsights} />
 
         {documents.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center space-y-4">
