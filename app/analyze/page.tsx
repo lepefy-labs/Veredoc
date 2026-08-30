@@ -18,7 +18,6 @@ function AnalyzeFlow({ initialDocumentId }: { initialDocumentId: string | null }
   const [documentId, setDocumentId] = useState<string | null>(initialDocumentId);
   const [flowState, setFlowState] = useState<FlowState>("idle");
   const [pendingFile, setPendingFile] = useState<File | null>(null);
-  const [pendingTipo, setPendingTipo] = useState<string>("luce");
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [docMeta, setDocMeta] = useState<DocMeta | null>(null);
 
@@ -30,24 +29,21 @@ function AnalyzeFlow({ initialDocumentId }: { initialDocumentId: string | null }
     router.replace("/analyze");
   }
 
-  async function handleUpload(file: File, tipo: string) {
+  async function handleUpload(file: File) {
     setUploadError(null);
     const isPro = session?.user?.plan === "PRO";
 
     if (isPro) {
       setPendingFile(file);
-      setPendingTipo(tipo);
       setFlowState("redacting");
       return;
     }
 
     setPendingFile(file);
-    setPendingTipo(tipo);
     setFlowState("uploading");
 
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("tipo", tipo);
     const res = await fetch("/api/documents/upload", {
       method: "POST",
       body: formData,
@@ -78,7 +74,6 @@ function AnalyzeFlow({ initialDocumentId }: { initialDocumentId: string | null }
         fileBase64: redactedPdfBase64,
         mimeType: "application/pdf",
         fileName: pendingFile.name,
-        tipo: pendingTipo,
       }),
     });
 

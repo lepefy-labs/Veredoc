@@ -40,13 +40,12 @@ export default function Home() {
           <h2 className="text-lg font-semibold text-ink text-center">Come funziona</h2>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-left !mt-4">
-          {/* Bollette column */}
           <div className="space-y-3">
             <p className="text-sm font-semibold text-muted uppercase tracking-wide">⚡ Bollette</p>
             {[
-              { title: "Carica", body: "PDF, JPG o PNG. Nessun inserimento manuale di dati." },
+              { title: "Carica", body: "PDF, JPG o PNG. Veredoc riconosce automaticamente il tipo di bolletta." },
               { title: "Lettura AI", body: "L'AI identifica ogni voce (materia energia, oneri, tasse) e la spiega in italiano semplice." },
-              { title: "Confronto prezzi", body: "Vedi se la tua tariffa è in linea col mercato. Se esiste un'offerta migliore, te la mostriamo." },
+              { title: "Confronto prezzi", body: "Vedi se la tua tariffa è in linea col mercato e cosa conviene fare, con le alternative più interessanti quando disponibili." },
             ].map((item, i) => (
               <div key={item.title} className="bg-white rounded-xl border border-line p-5">
                 <div className="flex items-center gap-2 mb-1">
@@ -58,13 +57,12 @@ export default function Home() {
             ))}
           </div>
 
-          {/* Buste paga column */}
           <div className="space-y-3">
             <p className="text-sm font-semibold text-muted uppercase tracking-wide">📄 Buste paga</p>
             {[
-              { title: "Carica", body: "PDF o JPG. Il documento non serve compilato: basta fotografarlo." },
-              { title: "Lettura AI", body: "Ogni voce spiegata: RAL, trattenute IRPEF, contributi INPS, ferie maturate, TFR." },
-              { title: "Verifica calcoli", body: "Controlla se l'aliquota fiscale applicata è quella giusta per il tuo reddito." },
+              { title: "Carica", body: "PDF, JPG o PNG. Non devi indicare il tipo: Veredoc riconosce il cedolino automaticamente." },
+              { title: "Lettura AI", body: "Estrae e spiega lordo, netto, contributi, imponibili, IRPEF, detrazioni, TFR e le principali voci del mese." },
+              { title: "Controllo anomalie", body: "Verifica la quadratura del netto e segnala contributi, imponibili o trattenute che meritano un controllo." },
             ].map((item, i) => (
               <div key={item.title} className="bg-white rounded-xl border border-line p-5">
                 <div className="flex items-center gap-2 mb-1">
@@ -77,21 +75,18 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Mockup risultato analisi */}
         <div className="text-left mt-8 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-ink">Ecco cosa ottieni</h2>
             <span className="text-xs bg-chip text-muted px-2 py-1 rounded-full font-medium">Esempio</span>
           </div>
 
-          {/* Banner risparmio */}
           <div className="bg-success rounded-xl p-5 text-white">
             <p className="text-sm font-medium opacity-90">Stai pagando il 28% in più della media di mercato</p>
             <p className="font-mono text-4xl font-bold mt-1">€312<span className="text-xl font-semibold opacity-80">/anno</span></p>
             <p className="text-sm opacity-80 mt-1">Risparmio stimato</p>
           </div>
 
-          {/* Tabella voci */}
           <div className="bg-white rounded-xl border border-line overflow-hidden">
             <table className="w-full text-sm">
               <thead>
@@ -118,7 +113,6 @@ export default function Home() {
             </table>
           </div>
 
-          {/* Card alternativa mercato */}
           <div className="bg-white rounded-xl border-2 border-success p-5">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -135,7 +129,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Trust & Privacy */}
         <div className="mt-16 bg-white border border-line rounded-2xl p-8 text-left">
           <h2 className="text-xl font-semibold text-ink text-center">I tuoi dati sono al sicuro</h2>
           <p className="text-sm text-muted text-center mt-1 mb-8">Veredoc tratta i tuoi documenti con la stessa cura che vorresti dal tuo commercialista.</p>
@@ -157,13 +150,11 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Prezzi */}
         <section id="prezzi" className="mt-16 text-left">
           <h2 className="text-lg font-semibold text-ink text-center">{TEXTS.pricing.title}</h2>
           <p className="text-sm text-muted text-center mt-1 mb-8">{TEXTS.pricing.subtitle}</p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {/* FREE */}
             <div className="bg-white rounded-2xl border border-line p-6 flex flex-col h-full">
               <span className="self-start text-[11px] font-semibold px-2 py-0.5 rounded-full bg-chip text-muted mb-4">
                 {TEXTS.pricing.free.badge}
@@ -189,7 +180,6 @@ export default function Home() {
               </Link>
             </div>
 
-            {/* PRO */}
             <PricingCardPro />
           </div>
 
