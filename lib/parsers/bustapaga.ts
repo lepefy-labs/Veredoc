@@ -1,4 +1,4 @@
-import { BustaPagaData, PayrollCheck, PayrollVerification } from "@/types/bustapaga";
+import type { BustaPagaData, PayrollCheck, PayrollVerification } from "../../types/bustapaga.ts";
 
 export function calcolaAliquotaEffettiva(busta: BustaPagaData): number {
   if (busta.stipendio_lordo === 0) return 0;
