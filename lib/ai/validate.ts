@@ -163,5 +163,12 @@ export function validateBustaPagaOutput(raw: unknown): BustaPagaData & { tipo_ri
     contributi_inps: requireNumber(root.contributi_inps, "contributi_inps"),
     irpef: requireNumber(root.irpef, "irpef"),
     tfr_maturato: requireNullableNumber(root.tfr_maturato, "tfr_maturato"),
+    competenze_totali: requireNullableNumber(root.competenze_totali ?? null, "competenze_totali"),
+    trattenute_totali: requireNullableNumber(root.trattenute_totali ?? null, "trattenute_totali"),
+    imponibile_previdenziale: requireNullableNumber(root.imponibile_previdenziale ?? null, "imponibile_previdenziale"),
+    imponibile_fiscale: requireNullableNumber(root.imponibile_fiscale ?? null, "imponibile_fiscale"),
+    irpef_lorda: requireNullableNumber(root.irpef_lorda ?? null, "irpef_lorda"),
+    detrazioni: requireNullableNumber(root.detrazioni ?? null, "detrazioni"),
+    addizionali: requireNullableNumber(root.addizionali ?? null, "addizionali"),
   };
 }
