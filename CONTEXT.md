@@ -84,7 +84,7 @@ components/
 lib/
   profiles/selection.ts
   insights/history.ts
-  insights/trends.ts
+  insights/trends.ts                trend bollette + payroll intelligence v2
   parsers/bustapaga.ts              payroll-coherence-v2
   ai/
   jobs/
@@ -120,9 +120,17 @@ supabase/rls.sql
 
 `lib/insights/trends.ts` entra in gioco quando esistono almeno 3 documenti comparabili dello stesso tipo. Usa fino alle 4 analisi più recenti e confronta il documento più recente con l'inizio della finestra osservata.
 
-Per le bollette considera quando disponibili spesa totale, prezzo unitario e consumi. Per le buste paga considera netto e lordo. Il motore trend applica anche un filtro `profileId` interno.
+Per le bollette considera quando disponibili spesa totale, prezzo unitario e consumi.
 
-La dashboard può essere filtrata con chip `Tutti` / singolo profilo. Il filtro nasconde insieme documenti e storico degli altri profili.
+Per le buste paga considera ora, quando i campi sono realmente disponibili:
+- netto e lordo;
+- variazione assoluta del TFR progressivo;
+- residui ferie, permessi, ROL ed ex festività;
+- nuove voci variabili e voci non più presenti negli `eventi_periodo`.
+
+I saldi assenza vengono confrontati solo se tipo e unità coincidono tra i documenti: Veredoc non converte ore in giorni né mescola unità eterogenee. La comparsa/scomparsa di una voce è trattata come informazione di contesto e non come prova della causa di una variazione retributiva.
+
+Il motore trend applica anche un filtro `profileId` interno. La dashboard può essere filtrata con chip `Tutti` / singolo profilo e nasconde insieme documenti e storico degli altri profili.
 
 ---
 
@@ -155,11 +163,13 @@ Regole di estrazione:
 `payroll-coherence-v2` mantiene quadratura netto, imponibili, contributi, IRPEF e controlli sui valori negativi, e aggiunge:
 - segnalazione prudente di saldi ferie/permessi negativi;
 - segnalazione di TFR progressivo negativo o sospetto;
-- acquisizione informativa di saldi ed eventi del periodo per spiegare variazioni mensili future.
+- acquisizione informativa di saldi ed eventi del periodo.
 
 `BustaPagaReport.tsx` mostra una sezione `Cosa è successo questo mese` solo quando questi dati sono realmente disponibili.
 
-I test includono payload payroll sintetici ma realistici e anonimizzati per validare schema, categorie e motore deterministico. Questi test NON dimostrano ancora l'affidabilità di estrazione di Claude su cedolini reali eterogenei: quella validazione richiede un corpus reale/anomizzato e rimane un prossimo passo di prodotto.
+Lo storico multi-periodo utilizza gli stessi campi opzionali senza inventare dati: TFR, saldi ed eventi entrano nel trend solo quando sono confrontabili. Le nuove/scomparse voci servono come contesto e non vengono presentate come causalità certa.
+
+I test includono payload payroll sintetici ma realistici e anonimizzati per validare schema, categorie, motore deterministico e trend su TFR/saldi/eventi. Questi test NON dimostrano ancora l'affidabilità di estrazione di Claude su cedolini reali eterogenei: quella validazione richiede un corpus reale/anomizzato. Al 2026-08-30 non è stato fornito in questa sessione un corpus payroll reale da usare come evidenza.
 
 ---
 
@@ -211,6 +221,7 @@ PR solo se richiesta, imposta da policy o realmente necessaria per validare in s
 - payload payroll realistici sintetici per saldi/TFR/eventi variabili;
 - storico ultimo-vs-precedente;
 - trend multi-periodo bollette/payroll;
+- trend payroll v2 su TFR progressivo, saldi con unità compatibili e nuove/scomparse voci;
 - isolamento trend tra profili differenti;
 - authorization job/ownership;
 - observability.
@@ -220,7 +231,7 @@ PR solo se richiesta, imposta da policy o realmente necessaria per validare in s
 ## Prossimi passi consigliati
 
 1. Validare l'estrazione payroll v2 su un corpus di cedolini reali eterogenei e anonimizzati prima di attribuire affidabilità ai nuovi campi.
-2. Dopo la validazione, estendere i trend payroll a ferie/permessi/TFR, straordinari, premi, assenze e nuove/scomparse voci.
+2. Trasformare gli errori osservati sui cedolini reali in fixture/regressioni permanenti, mantenendo separata la validazione dell'AI dai test deterministici.
 3. Evolvere le bollette da trend a monitoraggio tariffa/consumo con spiegazione della causa dominante.
 4. Valutare rename/archive profilo mantenendo la cancellazione documenti separata.
 5. Billing reale PRO solo previa approvazione esplicita.

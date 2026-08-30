@@ -32,10 +32,22 @@ const BILL_LABELS: Record<string, string> = {
   BOLLETTA_INTERNET: "Bolletta internet",
 };
 
+const PAYROLL_BALANCE_LABELS: Record<string, string> = {
+  ferie: "Ferie residue",
+  permessi: "Permessi residui",
+  rol: "ROL residui",
+  ex_festivita: "Ex festività residue",
+};
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null && !Array.isArray(value)
     ? value as Record<string, unknown>
     : null;
+}
+
+function asRecordArray(value: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(value)) return [];
+  return value.map(asRecord).filter((item): item is Record<string, unknown> => item !== null);
 }
 
 function finiteNumber(value: unknown): number | null {
@@ -52,9 +64,26 @@ function percentageChange(current: number | null, reference: number | null): num
   return Math.round(((current - reference) / Math.abs(reference)) * 1000) / 10;
 }
 
+function absoluteChange(current: number | null, reference: number | null): number | null {
+  if (current === null || reference === null) return null;
+  return Math.round((current - reference) * 100) / 100;
+}
+
 function percent(value: number | null): string | null {
   if (value === null) return null;
   return `${value > 0 ? "+" : ""}${value}%`;
+}
+
+function signedNumber(value: number, unit: string): string {
+  return `${value > 0 ? "+" : ""}${value.toLocaleString("it-IT", { maximumFractionDigits: 2 })} ${unit}`;
+}
+
+function signedMoney(value: number): string {
+  return `${value > 0 ? "+" : ""}${value.toLocaleString("it-IT", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 function dateValue(value: Date | string): number {
@@ -66,6 +95,42 @@ function dateValue(value: Date | string): number {
 function profileScoped(documents: TrendDocument[], profileId?: string | null): TrendDocument[] {
   if (!profileId) return documents.filter((document) => !document.profileId);
   return documents.filter((document) => document.profileId === profileId);
+}
+
+function payrollBalance(root: Record<string, unknown>, type: string): { value: number; unit: string } | null {
+  for (const item of asRecordArray(root.saldi_assenze)) {
+    if (item.tipo !== type) continue;
+    const value = finiteNumber(item.residuo);
+    const unit = typeof item.unita === "string" ? item.unita.trim() : "";
+    if (value !== null && unit) return { value, unit };
+  }
+  return null;
+}
+
+function normalizeEventKey(value: Record<string, unknown>): string | null {
+  const type = typeof value.tipo === "string" ? value.tipo.trim().toLowerCase() : "";
+  const description = typeof value.descrizione === "string"
+    ? value.descrizione.trim().toLowerCase().replace(/\s+/g, " ")
+    : "";
+  if (!type || !description) return null;
+  return `${type}:${description}`;
+}
+
+function eventKeySet(root: Record<string, unknown>): Set<string> {
+  const keys = new Set<string>();
+  for (const item of asRecordArray(root.eventi_periodo)) {
+    const key = normalizeEventKey(item);
+    if (key) keys.add(key);
+  }
+  return keys;
+}
+
+function setDifferenceSize(left: Set<string>, right: Set<string>): number {
+  let count = 0;
+  for (const value of left) {
+    if (!right.has(value)) count += 1;
+  }
+  return count;
 }
 
 function buildBillTrend(documents: TrendDocument[], type: string): TrendInsight | null {
@@ -155,7 +220,41 @@ function buildPayrollTrend(documents: TrendDocument[]): TrendInsight | null {
     finiteNumber(currentAnalysis.stipendio_lordo),
     finiteNumber(referenceAnalysis.stipendio_lordo)
   );
-  if (netDelta === null && grossDelta === null) return null;
+  const tfrDelta = absoluteChange(
+    finiteNumber(currentAnalysis.tfr_progressivo),
+    finiteNumber(referenceAnalysis.tfr_progressivo)
+  );
+
+  const balanceMetrics: TrendMetric[] = [];
+  const balanceNotes: string[] = [];
+  for (const type of Object.keys(PAYROLL_BALANCE_LABELS)) {
+    const currentBalance = payrollBalance(currentAnalysis, type);
+    const referenceBalance = payrollBalance(referenceAnalysis, type);
+    if (!currentBalance || !referenceBalance || currentBalance.unit !== referenceBalance.unit) continue;
+    const delta = absoluteChange(currentBalance.value, referenceBalance.value);
+    if (delta === null || delta === 0) continue;
+    balanceMetrics.push({
+      label: PAYROLL_BALANCE_LABELS[type],
+      value: signedNumber(delta, currentBalance.unit),
+    });
+    if (Math.abs(delta) >= 1) {
+      balanceNotes.push(`${PAYROLL_BALANCE_LABELS[type].toLowerCase()} ${delta > 0 ? "aumentate" : "diminuite"} di ${Math.abs(delta).toLocaleString("it-IT", { maximumFractionDigits: 2 })} ${currentBalance.unit}`);
+    }
+  }
+
+  const currentEvents = eventKeySet(currentAnalysis);
+  const referenceEvents = eventKeySet(referenceAnalysis);
+  const newEvents = setDifferenceSize(currentEvents, referenceEvents);
+  const removedEvents = setDifferenceSize(referenceEvents, currentEvents);
+
+  if (
+    netDelta === null
+    && grossDelta === null
+    && tfrDelta === null
+    && balanceMetrics.length === 0
+    && newEvents === 0
+    && removedEvents === 0
+  ) return null;
 
   let headline = `Retribuzione stabile su ${sample.length} cedolini`;
   let summary = "Il netto e il lordo non mostrano variazioni rilevanti tra il primo e l'ultimo cedolino del periodo osservato.";
@@ -168,11 +267,32 @@ function buildPayrollTrend(documents: TrendDocument[]): TrendInsight | null {
     summary = grossDelta !== null && Math.sign(grossDelta) === Math.sign(netDelta) && Math.abs(grossDelta) >= 3
       ? `Tra gli ultimi ${sample.length} cedolini il netto è cambiato del ${percent(netDelta)} e il lordo del ${percent(grossDelta)} nella stessa direzione.`
       : `Tra gli ultimi ${sample.length} cedolini il netto è cambiato del ${percent(netDelta)}. Conguagli, detrazioni e altre voci possono influire: il trend segnala la variazione, non ne certifica la causa.`;
+  } else if (balanceMetrics.length > 0) {
+    headline = "Saldi ferie e permessi cambiati nel periodo";
+    summary = `Veredoc ha trovato variazioni nei saldi confrontabili tra il primo e l'ultimo dei ${sample.length} cedolini osservati.`;
+  } else if (newEvents > 0 || removedEvents > 0) {
+    headline = "Voci variabili cambiate nel periodo";
+    summary = "Nel cedolino più recente compaiono o scompaiono voci variabili rispetto all'inizio del periodo. Sono segnali da contestualizzare, non prove della causa di una variazione retributiva.";
+  } else if (tfrDelta !== null && tfrDelta !== 0) {
+    headline = "TFR progressivo aggiornato nel periodo";
+    summary = "Il TFR progressivo estratto è cambiato tra il primo e l'ultimo cedolino confrontabile.";
+  }
+
+  const contextParts: string[] = [];
+  if (newEvents > 0) contextParts.push(`${newEvents} ${newEvents === 1 ? "nuova voce variabile" : "nuove voci variabili"}`);
+  if (removedEvents > 0) contextParts.push(`${removedEvents} ${removedEvents === 1 ? "voce non più presente" : "voci non più presenti"}`);
+  if (balanceNotes.length > 0) contextParts.push(balanceNotes.slice(0, 2).join(" e "));
+  if (contextParts.length > 0) {
+    summary += ` Nello stesso confronto risultano ${contextParts.join(", ")}. Queste variazioni possono aiutare a leggere il mese, ma non ne provano da sole la causa.`;
   }
 
   const metrics: TrendMetric[] = [];
   if (netDelta !== null) metrics.push({ label: "Netto nel periodo", value: percent(netDelta)! });
   if (grossDelta !== null) metrics.push({ label: "Lordo nel periodo", value: percent(grossDelta)! });
+  if (tfrDelta !== null && tfrDelta !== 0) metrics.push({ label: "TFR progressivo", value: signedMoney(tfrDelta) });
+  metrics.push(...balanceMetrics.slice(0, 2));
+  if (newEvents > 0) metrics.push({ label: "Nuove voci", value: `+${newEvents}` });
+  if (removedEvents > 0) metrics.push({ label: "Voci scomparse", value: `-${removedEvents}` });
 
   return {
     id: `trend:BUSTA_PAGA:${current.id}:${reference.id}`,
@@ -183,7 +303,7 @@ function buildPayrollTrend(documents: TrendDocument[]): TrendInsight | null {
     sampleCount: sample.length,
     currentDocumentId: current.id,
     referenceDocumentId: reference.id,
-    metrics,
+    metrics: metrics.slice(0, 6),
   };
 }
 

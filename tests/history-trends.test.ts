@@ -17,14 +17,21 @@ function bill(id: string, profileId: string, createdAt: string, amount: number, 
   };
 }
 
-function payroll(id: string, profileId: string, createdAt: string, net: number, gross: number) {
+function payroll(
+  id: string,
+  profileId: string,
+  createdAt: string,
+  net: number,
+  gross: number,
+  extra: Record<string, unknown> = {}
+) {
   return {
     id,
     profileId,
     type: "BUSTA_PAGA",
     status: "DONE",
     createdAt,
-    analysis: { stipendio_netto: net, stipendio_lordo: gross },
+    analysis: { stipendio_netto: net, stipendio_lordo: gross, ...extra },
   };
 }
 
@@ -65,4 +72,60 @@ test("isola sempre i profili anche quando il chiamante passa documenti misti", (
   assert.equal(trends.length, 1);
   assert.equal(trends[0].currentDocumentId, "me-3");
   assert.equal(trends[0].referenceDocumentId, "me-1");
+});
+
+test("il trend payroll include TFR, saldi e nuove voci variabili quando confrontabili", () => {
+  const trends = buildMultiPeriodTrends([
+    payroll("aug", "me", "2026-08-30T10:00:00Z", 1800, 2500, {
+      tfr_progressivo: 2100,
+      saldi_assenze: [
+        { tipo: "ferie", residuo: 40, unita: "ore" },
+        { tipo: "permessi", residuo: 18, unita: "ore" },
+      ],
+      eventi_periodo: [
+        { tipo: "premio", descrizione: "Premio risultato" },
+        { tipo: "straordinario", descrizione: "Straordinario 25%" },
+      ],
+    }),
+    payroll("jul", "me", "2026-07-30T10:00:00Z", 1760, 2470, {
+      tfr_progressivo: 1900,
+      saldi_assenze: [{ tipo: "ferie", residuo: 48, unita: "ore" }],
+      eventi_periodo: [{ tipo: "straordinario", descrizione: "Straordinario 25%" }],
+    }),
+    payroll("jun", "me", "2026-06-30T10:00:00Z", 1750, 2450, {
+      tfr_progressivo: 1700,
+      saldi_assenze: [{ tipo: "ferie", residuo: 52, unita: "ore" }],
+      eventi_periodo: [],
+    }),
+    payroll("may", "me", "2026-05-30T10:00:00Z", 1750, 2450, {
+      tfr_progressivo: 1500,
+      saldi_assenze: [
+        { tipo: "ferie", residuo: 56, unita: "ore" },
+        { tipo: "permessi", residuo: 20, unita: "ore" },
+      ],
+      eventi_periodo: [],
+    }),
+  ], "me");
+
+  assert.equal(trends.length, 1);
+  const trend = trends[0];
+  assert.ok(trend.metrics.some((metric) => metric.label === "TFR progressivo" && metric.value.includes("600")));
+  assert.ok(trend.metrics.some((metric) => metric.label === "Ferie residue" && metric.value.includes("-16")));
+  assert.ok(trend.metrics.some((metric) => metric.label === "Nuove voci" && metric.value === "+2"));
+  assert.match(trend.summary, /nuove voci variabili/i);
+});
+
+test("non confronta saldi assenza espressi in unità diverse", () => {
+  const trends = buildMultiPeriodTrends([
+    payroll("aug", "me", "2026-08-30T10:00:00Z", 1800, 2500, {
+      saldi_assenze: [{ tipo: "ferie", residuo: 5, unita: "giorni" }],
+    }),
+    payroll("jul", "me", "2026-07-30T10:00:00Z", 1800, 2500),
+    payroll("jun", "me", "2026-06-30T10:00:00Z", 1800, 2500, {
+      saldi_assenze: [{ tipo: "ferie", residuo: 40, unita: "ore" }],
+    }),
+  ], "me");
+
+  assert.equal(trends.length, 1);
+  assert.equal(trends[0].metrics.some((metric) => metric.label === "Ferie residue"), false);
 });
