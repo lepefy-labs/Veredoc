@@ -1,6 +1,6 @@
 # CONTEXT.md — Veredoc
 
-> Aggiornato: 2026-08-30 — production hardening + scheduler n8n + CI/lint globale
+> Aggiornato: 2026-08-30 — production hardening + scheduler n8n + CI/lint globale + integration test worker
 
 ---
 
@@ -58,7 +58,8 @@ lib/
     validate.ts                    validazione runtime output AI
     providers/anthropic.ts
   documents/upload-validation.ts   magic bytes, MIME e limiti file
-  jobs/process-document.ts         worker, lease, retry e recovery
+  jobs/process-document-core.ts    state machine worker testabile con dipendenze iniettate
+  jobs/process-document.ts         wiring Prisma/Supabase/AI del worker
   parsers/                         arricchimento bollette/buste paga
   config/                          costanti e testi
   auth.ts
@@ -69,7 +70,9 @@ supabase/
   migrations/
   seeds/
   rls.sql
-tests/validation.test.ts
+tests/
+  validation.test.ts
+  worker-integration.test.ts
 .github/workflows/ci.yml
 ```
 
@@ -93,7 +96,9 @@ La policy di retention dei file **non è stata modificata in questo hardening**:
 
 ## Worker analisi, lease e retry
 
-`lib/jobs/process-document.ts` è il punto unico di elaborazione.
+La state machine del worker vive in `lib/jobs/process-document-core.ts`; `lib/jobs/process-document.ts` collega la logica al database Prisma, Supabase Storage, validazione file, AI e parser reali.
+
+Questa separazione consente di testare il comportamento operativo con store/Storage/AI fittizi senza cambiare la semantica di produzione.
 
 - Accetta documenti `PENDING` o `PROCESSING` con lease scaduta.
 - Usa `status + updatedAt` come lock ottimistico per impedire doppie elaborazioni concorrenti.
@@ -221,7 +226,9 @@ pnpm test
 pnpm build
 ```
 
-`pnpm test` usa il test runner nativo Node e copre inizialmente:
+`pnpm test` usa il test runner nativo Node e copre:
+
+### Validazione documenti/output AI
 - magic bytes PDF/JPEG/PNG;
 - rifiuto MIME spoofing;
 - validazione payload bolletta;
@@ -229,11 +236,19 @@ pnpm build
 - rifiuto output AI malformato;
 - validazione busta paga.
 
+### Worker integration
+- due worker concorrenti sullo stesso documento: un solo claim/elaborazione;
+- retry tecnico fino a 3 tentativi e passaggio finale a `ERROR`;
+- lease `PROCESSING` ancora valido non rubabile;
+- lease scaduto recuperabile;
+- documenti cancellati o privi di file non toccano Storage/AI;
+- errore Storage: ritorno a `PENDING` con tentativo persistito.
+
 GitHub Actions esegue su PR e push a `main`:
 1. install frozen lockfile;
 2. lint globale (`pnpm lint`);
 3. typecheck globale;
-4. unit test;
+4. unit/integration test;
 5. build produzione globale.
 
 Il debito ESLint preesistente emerso durante il production hardening è stato eliminato. La CI blocca ora sul lint dell'intero repository, oltre a typecheck, test e build globali.
@@ -258,12 +273,13 @@ Il debito ESLint preesistente emerso durante il production hardening è stato el
 - Upload con magic-byte validation, quota anticipata e cleanup compensativo.
 - Scraping tariffe e refresh mercato.
 - Scheduler n8n Nightly Market Rates esistente.
-- CI globale con lint, typecheck, unit test e build.
+- CI globale con lint, typecheck, test e build.
+- Integration test del worker con dipendenze fittizie per concorrenza, lease, retry e failure Storage.
 
 ## Prossimi passi consigliati
 
 1. Pubblicare il workflow n8n `Analysis Recovery` quando si decide di rendere attivo il recovery automatico ogni 5 minuti.
-2. Aggiungere integration test con DB/Storage fittizi per concorrenza worker, retry e ownership.
+2. Aggiungere test di ownership/autorizzazione sugli endpoint documento e job.
 3. Implementare billing reale e subscription lifecycle per PRO.
 4. Aggiungere observability: error tracking, metriche durata AI, tentativi, documenti stale e costi provider.
 5. Espandere test dei parser e del confronto mercato con fixture reali anonimizzate.
