@@ -1,6 +1,6 @@
 # CONTEXT.md — Veredoc
 
-> Aggiornato: 2026-08-30 — production hardening analisi/upload/CI
+> Aggiornato: 2026-08-30 — production hardening + scheduler recovery n8n configurato/testato
 
 ---
 
@@ -24,6 +24,7 @@ Veredoc è un SaaS italiano che analizza bollette (luce, gas, internet) e buste 
 | Email | Brevo REST API |
 | Hosting | Vercel |
 | CI | GitHub Actions |
+| Scheduler esterno | n8n |
 
 ---
 
@@ -37,6 +38,7 @@ app/
     documents/[id]/               lettura, recovery analisi e cancellazione
     documents/[id]/refresh-market refresh confronto senza nuova analisi AI
     jobs/process-analysis/         recovery batch protetto da JOBS_SECRET
+    jobs/refresh-market-rates/     refresh confronto sui documenti DONE
     jobs/scrape-market-rates/      scraping tariffe
     market-rates/                  lettura tariffe
     admin/set-plan/                gestione piano amministrativa
@@ -106,6 +108,35 @@ La policy di retention dei file **non è stata modificata in questo hardening**:
 - `POST /api/jobs/process-analysis` consente anche un recupero batch esterno ed è protetto con `Authorization: Bearer JOBS_SECRET`.
 
 Questo approccio non richiede una nuova migrazione DB e mantiene compatibilità con lo schema attuale.
+
+---
+
+## Scheduler n8n
+
+I job operativi Veredoc sono schedulati esternamente tramite n8n, mantenendo Vercel come hosting applicativo e Supabase come persistenza dello stato.
+
+### Market rates
+
+Il workflow n8n esistente `Veredoc — Nightly Market Rates` esegue ogni notte il flusso di aggiornamento tariffe e richiama gli endpoint Veredoc protetti da `JOBS_SECRET`, incluso `POST /api/jobs/refresh-market-rates` per ricalcolare il confronto mercato sui documenti `DONE` di tipo bolletta.
+
+### Analysis recovery
+
+È stato creato un workflow n8n separato per il recovery delle analisi:
+
+```text
+Schedule Trigger (ogni 5 minuti)
+  → POST /api/jobs/process-analysis
+  → Authorization: Bearer JOBS_SECRET
+```
+
+Stato al 2026-08-30:
+- workflow creato clonando il pattern del job Market Rates;
+- endpoint e autenticazione configurati;
+- esecuzione manuale di test completata con successo;
+- workflow lasciato intenzionalmente **Unpublished** per il momento;
+- il recovery tramite polling utente rimane comunque operativo anche con lo scheduler non pubblicato.
+
+Quando il workflow verrà pubblicato, il recovery batch funzionerà indipendentemente dal fatto che l'utente mantenga aperta la pagina Veredoc.
 
 ---
 
@@ -223,13 +254,15 @@ Il lint globale del repository presenta ancora debito preesistente in alcuni com
 - Soft delete con cancellazione file Storage e azzeramento dati sensibili.
 - Retry/recovery analisi con lease persistente.
 - Recovery batch protetto.
+- Workflow n8n di recovery analisi creato e testato manualmente; attualmente Unpublished.
 - Upload con magic-byte validation, quota anticipata e cleanup compensativo.
 - Scraping tariffe e refresh mercato.
+- Scheduler n8n Nightly Market Rates esistente.
 - CI, typecheck e unit test iniziali.
 
 ## Prossimi passi consigliati
 
-1. Collegare `/api/jobs/process-analysis` a uno scheduler/queue durevole per recovery indipendente dal traffico utente.
+1. Pubblicare il workflow n8n `Analysis Recovery` quando si decide di rendere attivo il recovery automatico ogni 5 minuti.
 2. Eliminare il debito ESLint preesistente e riportare il lint CI all'intero repository.
 3. Aggiungere integration test con DB/Storage fittizi per concorrenza worker, retry e ownership.
 4. Implementare billing reale e subscription lifecycle per PRO.
