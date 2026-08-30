@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { AnalysisStatus, Prisma } from "@prisma/client";
 import { createClient } from "@supabase/supabase-js";
 import { processDocumentAnalysis, shouldRecoverAnalysis } from "@/lib/jobs/process-document";
+import { isDocumentOwner } from "@/lib/security/access";
 
 function getSupabase() {
   return createClient(
@@ -38,7 +39,7 @@ export async function GET(
     return NextResponse.json({ error: "Documento non trovato." }, { status: 404 });
   }
 
-  if (document.userId !== session.user.id) {
+  if (!isDocumentOwner(session.user.id, document.userId)) {
     return NextResponse.json({ error: "Non autorizzato." }, { status: 403 });
   }
 
@@ -68,7 +69,7 @@ export async function DELETE(
   if (!document) {
     return NextResponse.json({ error: "Documento non trovato." }, { status: 404 });
   }
-  if (document.userId !== session.user.id) {
+  if (!isDocumentOwner(session.user.id, document.userId)) {
     return NextResponse.json({ error: "Non autorizzato." }, { status: 403 });
   }
   if (document.status === AnalysisStatus.DELETED) {

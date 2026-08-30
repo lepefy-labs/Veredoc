@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { arricchisciConFrontoMercato } from "@/lib/parsers/bolletta";
+import { isDocumentOwner } from "@/lib/security/access";
 import { AnalysisStatus, DocumentType } from "@prisma/client";
 import type { BollettaRaw } from "@/types/bolletta";
 
@@ -31,7 +32,7 @@ export async function POST(
   if (!document) {
     return NextResponse.json({ error: "Documento non trovato." }, { status: 404 });
   }
-  if (document.userId !== session.user.id) {
+  if (!isDocumentOwner(session.user.id, document.userId)) {
     return NextResponse.json({ error: "Non autorizzato." }, { status: 403 });
   }
   if (document.status !== AnalysisStatus.DONE) {

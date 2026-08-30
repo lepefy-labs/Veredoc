@@ -6,15 +6,10 @@ import {
   processDocumentAnalysis,
   shouldRecoverAnalysis,
 } from "@/lib/jobs/process-document";
-
-function isAuthorized(req: NextRequest): boolean {
-  const secret = process.env.JOBS_SECRET;
-  if (!secret) return false;
-  return req.headers.get("authorization") === `Bearer ${secret}`;
-}
+import { isJobRequestAuthorized } from "@/lib/security/access";
 
 export async function POST(req: NextRequest) {
-  if (!isAuthorized(req)) {
+  if (!isJobRequestAuthorized(req.headers.get("authorization"))) {
     return NextResponse.json({ error: "Non autorizzato." }, { status: 401 });
   }
 

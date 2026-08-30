@@ -6,12 +6,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { arricchisciConFrontoMercato } from "@/lib/parsers/bolletta";
+import { isJobRequestAuthorized } from "@/lib/security/access";
 import { AnalysisStatus, DocumentType } from "@prisma/client";
 import type { BollettaRaw } from "@/types/bolletta";
 
 export async function POST(req: NextRequest) {
-  const authHeader = req.headers.get("Authorization");
-  if (authHeader !== `Bearer ${process.env.JOBS_SECRET}`) {
+  if (!isJobRequestAuthorized(req.headers.get("authorization"))) {
     return NextResponse.json({ error: "Non autorizzato." }, { status: 401 });
   }
 
