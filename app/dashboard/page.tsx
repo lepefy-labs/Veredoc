@@ -21,11 +21,11 @@ export default async function DashboardPage() {
       },
       orderBy: { createdAt: "desc" },
     }),
-    // Stessa logica di conteggio quota dell'endpoint di upload
+    // Deve riflettere esattamente la quota applicata dall'endpoint di upload:
+    // ogni documento creato nel mese consuma un'analisi, indipendentemente dallo stato finale.
     prisma.document.count({
       where: {
         userId: session.user.id,
-        status: { in: [AnalysisStatus.DONE, AnalysisStatus.ERROR, AnalysisStatus.DELETED] },
         createdAt: { gte: startOfMonth },
       },
     }),
@@ -45,8 +45,8 @@ export default async function DashboardPage() {
               {documents.length === 0
                 ? "Carica il tuo primo documento per iniziare"
                 : documents.length === 1
-                  ? "1 documento analizzato"
-                  : `${documents.length} documenti analizzati`}
+                  ? "1 documento"
+                  : `${documents.length} documenti`}
             </p>
           </div>
           <Link href="/analyze">
@@ -62,7 +62,7 @@ export default async function DashboardPage() {
               <p className="text-sm text-muted">
                 {session.user.plan === "PRO"
                   ? "Sei su piano PRO. Hai accesso a tutte le funzionalità."
-                  : "Vuoi più analisi e il DocumentRedactor? Passa a PRO."}
+                  : "Vuoi più analisi e l'anonimizzatore dei documenti? Passa a PRO."}
               </p>
             </div>
             <span className={`shrink-0 text-xs font-semibold px-3 py-1 rounded-full ${
@@ -75,7 +75,7 @@ export default async function DashboardPage() {
           </div>
           <div>
             <div className="flex items-baseline justify-between mb-1.5">
-              <p className="text-xs text-muted">Analisi questo mese</p>
+              <p className="text-xs text-muted">Analisi utilizzate questo mese</p>
               <p className="text-xs font-semibold text-ink font-mono">{usedThisMonth} / {monthlyLimit}</p>
             </div>
             <div
