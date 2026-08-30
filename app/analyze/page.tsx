@@ -12,7 +12,7 @@ import { TEXTS } from "@/lib/config/texts";
 
 type FlowState = "idle" | "redacting" | "uploading" | "done";
 
-function AnalyzeFlow({ initialDocumentId }: { initialDocumentId: string | null }) {
+function AnalyzeFlow({ initialDocumentId, profileId }: { initialDocumentId: string | null; profileId: string | null }) {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [documentId, setDocumentId] = useState<string | null>(initialDocumentId);
@@ -26,7 +26,7 @@ function AnalyzeFlow({ initialDocumentId }: { initialDocumentId: string | null }
     setDocMeta(null);
     setFlowState("idle");
     setPendingFile(null);
-    router.replace("/analyze");
+    router.replace(profileId ? `/analyze?profile=${encodeURIComponent(profileId)}` : "/analyze");
   }
 
   async function handleUpload(file: File) {
@@ -44,6 +44,7 @@ function AnalyzeFlow({ initialDocumentId }: { initialDocumentId: string | null }
 
     const formData = new FormData();
     formData.append("file", file);
+    if (profileId) formData.append("profileId", profileId);
     const res = await fetch("/api/documents/upload", {
       method: "POST",
       body: formData,
@@ -74,6 +75,7 @@ function AnalyzeFlow({ initialDocumentId }: { initialDocumentId: string | null }
         fileBase64: redactedPdfBase64,
         mimeType: "application/pdf",
         fileName: pendingFile.name,
+        profileId,
       }),
     });
 
@@ -94,11 +96,7 @@ function AnalyzeFlow({ initialDocumentId }: { initialDocumentId: string | null }
   const pageSubtitle = documentId && docMeta ? docMeta.subtitle : TEXTS.upload.subtitle;
 
   if (status === "loading") {
-    return (
-      <main className="min-h-screen flex items-center justify-center px-4">
-        <p className="text-sm text-muted">Caricamento...</p>
-      </main>
-    );
+    return <main className="min-h-screen flex items-center justify-center px-4"><p className="text-sm text-muted">Caricamento...</p></main>;
   }
 
   if (!session) {
@@ -107,19 +105,9 @@ function AnalyzeFlow({ initialDocumentId }: { initialDocumentId: string | null }
         <div className="text-center space-y-4">
           <p className="text-ink font-medium">Non sei autenticato.</p>
           <div className="flex gap-3 justify-center">
-            <Link
-              href="/login"
-              className="inline-flex items-center justify-center px-5 py-2 bg-brand text-white rounded-lg font-medium hover:bg-brand-dark transition-colors text-sm"
-            >
-              Accedi
-            </Link>
+            <Link href="/login" className="inline-flex items-center justify-center px-5 py-2 bg-brand text-white rounded-lg font-medium hover:bg-brand-dark transition-colors text-sm">Accedi</Link>
             <span className="self-center text-muted text-sm">oppure</span>
-            <Link
-              href="/register"
-              className="inline-flex items-center justify-center px-5 py-2 bg-white text-ink border border-line rounded-lg font-medium hover:bg-page transition-colors text-sm"
-            >
-              Registrati
-            </Link>
+            <Link href="/register" className="inline-flex items-center justify-center px-5 py-2 bg-white text-ink border border-line rounded-lg font-medium hover:bg-page transition-colors text-sm">Registrati</Link>
           </div>
         </div>
       </main>
@@ -132,41 +120,24 @@ function AnalyzeFlow({ initialDocumentId }: { initialDocumentId: string | null }
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-ink">{pageTitle}</h1>
-            {pageSubtitle && (
-              <p className="text-sm text-muted mt-1">{pageSubtitle}</p>
-            )}
+            {pageSubtitle && <p className="text-sm text-muted mt-1">{pageSubtitle}</p>}
           </div>
-          <Link href="/dashboard" className="text-sm text-brand hover:underline">
-            Dashboard →
-          </Link>
+          <Link href="/dashboard" className="text-sm text-brand hover:underline">Dashboard →</Link>
         </div>
 
         {documentId ? (
-          <AnalysisResult
-            documentId={documentId}
-            onReset={resetToForm}
-            onDocLoaded={setDocMeta}
-          />
+          <AnalysisResult documentId={documentId} onReset={resetToForm} onDocLoaded={setDocMeta} />
         ) : flowState === "redacting" && pendingFile ? (
           <Card>
-            <p className="text-sm font-medium text-ink mb-4">
-              Oscura i dati personali prima di inviare il documento
-            </p>
-            <DocumentRedactor
-              file={pendingFile}
-              onReady={handleRedacted}
-              onCancel={resetToForm}
-            />
+            <p className="text-sm font-medium text-ink mb-4">Oscura i dati personali prima di inviare il documento</p>
+            <DocumentRedactor file={pendingFile} onReady={handleRedacted} onCancel={resetToForm} />
           </Card>
         ) : flowState === "uploading" ? (
-          <Card>
-            <div className="flex items-center justify-center py-12">
-              <p className="text-sm text-muted">Invio documento in corso...</p>
-            </div>
-          </Card>
+          <Card><div className="flex items-center justify-center py-12"><p className="text-sm text-muted">Invio documento in corso...</p></div></Card>
         ) : (
           <Card>
             <FileUploader onUpload={handleUpload} loading={false} />
+            {profileId && <p className="mt-3 text-xs text-muted">Il documento verrà assegnato al profilo selezionato dalla dashboard.</p>}
             {uploadError && <p className="mt-3 text-sm text-danger">{uploadError}</p>}
           </Card>
         )}
@@ -178,17 +149,14 @@ function AnalyzeFlow({ initialDocumentId }: { initialDocumentId: string | null }
 function AnalyzeContent() {
   const searchParams = useSearchParams();
   const urlId = searchParams.get("id");
+  const profileId = searchParams.get("profile");
 
-  return <AnalyzeFlow key={urlId ?? "new"} initialDocumentId={urlId} />;
+  return <AnalyzeFlow key={`${urlId ?? "new"}:${profileId ?? "default"}`} initialDocumentId={urlId} profileId={profileId} />;
 }
 
 export default function AnalyzePage() {
   return (
-    <Suspense fallback={
-      <main className="min-h-screen flex items-center justify-center px-4">
-        <p className="text-sm text-muted">Caricamento...</p>
-      </main>
-    }>
+    <Suspense fallback={<main className="min-h-screen flex items-center justify-center px-4"><p className="text-sm text-muted">Caricamento...</p></main>}>
       <AnalyzeContent />
     </Suspense>
   );

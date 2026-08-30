@@ -11,6 +11,12 @@ enum UserPlan {
   PRO
 }
 
+enum ProfileKind {
+  PERSON
+  HOUSEHOLD
+  BUSINESS
+}
+
 enum DocumentType {
   BOLLETTA_LUCE
   BOLLETTA_GAS
@@ -33,8 +39,23 @@ model User {
   password            String
   plan                UserPlan             @default(FREE)
   documents           Document[]
+  profiles            AnalysisProfile[]
   passwordResetTokens PasswordResetToken[]
   createdAt           DateTime             @default(now())
+}
+
+model AnalysisProfile {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label     String
+  kind      ProfileKind @default(PERSON)
+  isDefault Boolean     @default(false)
+  documents Document[]
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([userId])
 }
 
 model PasswordResetToken {
@@ -48,38 +69,42 @@ model PasswordResetToken {
 }
 
 model Document {
-  id           String         @id @default(cuid())
-  userId       String
-  user         User           @relation(fields: [userId], references: [id])
-  type         DocumentType
-  filePath     String?
-  fileName     String
-  status       AnalysisStatus @default(PENDING)
-  rawExtracted    Json?
-  analysis        Json?
-  anonymizedText  String?
-  anonymizedMap   Json?
-  typeCorrected      Boolean  @default(false)
+  id                 String          @id @default(cuid())
+  userId             String
+  user               User            @relation(fields: [userId], references: [id])
+  profileId          String
+  profile            AnalysisProfile @relation(fields: [profileId], references: [id], onDelete: Restrict)
+  type               DocumentType
+  filePath           String?
+  fileName           String
+  status             AnalysisStatus  @default(PENDING)
+  rawExtracted       Json?
+  analysis           Json?
+  anonymizedText     String?
+  anonymizedMap      Json?
+  typeCorrected      Boolean         @default(false)
   typeSelectedByUser String?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  deletedAt       DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  deletedAt          DateTime?
+
+  @@index([profileId])
 }
 
 model MarketRate {
-  id         String   @id @default(cuid())
-  category   String
-  provider   String
-  planName   String
-  priceValue Float
-  priceUnit  String
-  monthlyFee Float?
-  url        String?
-  scrapedAt  DateTime @default(now())
-  offertaInizio   DateTime?
-  offertaFine     DateTime?
-  tipoOfferta     String?
-  durataEsclusive Int?
+  id               String   @id @default(cuid())
+  category         String
+  provider         String
+  planName         String
+  priceValue       Float
+  priceUnit        String
+  monthlyFee       Float?
+  url              String?
+  scrapedAt        DateTime @default(now())
+  offertaInizio    DateTime?
+  offertaFine      DateTime?
+  tipoOfferta      String?
+  durataEsclusive  Int?
 
   @@unique([provider, planName])
 }

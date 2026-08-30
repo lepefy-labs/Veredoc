@@ -41,22 +41,33 @@ async function getUserPlanAndCheckQuota(userId: string): Promise<QuotaCheck> {
   const now = new Date();
   const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   const monthlyCount = await prisma.document.count({
-    where: {
-      userId,
-      createdAt: { gte: startOfMonth },
-    },
+    where: { userId, createdAt: { gte: startOfMonth } },
   });
 
   const limit = ANALYSIS_LIMITS[userRecord.plan];
   if (monthlyCount >= limit) {
-    const message =
-      userRecord.plan === UserPlan.FREE
-        ? `Hai raggiunto il limite di ${ANALYSIS_LIMITS.FREE} analisi mensili del piano gratuito. Passa a PRO per continuare ad analizzare i tuoi documenti.`
-        : `Hai raggiunto il limite di ${ANALYSIS_LIMITS.PRO} analisi mensili del piano PRO.`;
+    const message = userRecord.plan === UserPlan.FREE
+      ? `Hai raggiunto il limite di ${ANALYSIS_LIMITS.FREE} analisi mensili del piano gratuito. Passa a PRO per continuare ad analizzare i tuoi documenti.`
+      : `Hai raggiunto il limite di ${ANALYSIS_LIMITS.PRO} analisi mensili del piano PRO.`;
     return { ok: false, status: 429, error: "limit_reached", message };
   }
 
   return { ok: true, plan: userRecord.plan };
+}
+
+async function resolveProfile(userId: string, requestedProfileId: string | null) {
+  if (requestedProfileId) {
+    return prisma.analysisProfile.findFirst({
+      where: { id: requestedProfileId, userId },
+      select: { id: true },
+    });
+  }
+
+  return prisma.analysisProfile.findFirst({
+    where: { userId, isDefault: true },
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
+  });
 }
 
 function scheduleAnalysis(documentId: string) {
@@ -87,6 +98,7 @@ export async function POST(req: NextRequest) {
   let buffer: Buffer;
   let mimeType: AcceptedMimeType;
   let fileName: string;
+  let requestedProfileId: string | null = null;
 
   try {
     if (contentType.includes("application/json")) {
@@ -94,7 +106,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Funzione disponibile solo con il piano PRO." }, { status: 403 });
       }
 
-      const body = await req.json() as { fileBase64?: string; fileName?: string };
+      const body = await req.json() as { fileBase64?: string; fileName?: string; profileId?: string };
       if (!body.fileBase64) {
         return NextResponse.json({ error: "Dati mancanti." }, { status: 400 });
       }
@@ -102,9 +114,11 @@ export async function POST(req: NextRequest) {
       buffer = Buffer.from(body.fileBase64, "base64");
       mimeType = validateDocumentBuffer(buffer, "application/pdf");
       fileName = body.fileName?.trim() || "documento.pdf";
+      requestedProfileId = body.profileId?.trim() || null;
     } else {
       const formData = await req.formData();
       const file = formData.get("file") as File | null;
+      const profileValue = formData.get("profileId");
 
       if (!file) {
         return NextResponse.json({ error: "Nessun file ricevuto." }, { status: 400 });
@@ -113,10 +127,16 @@ export async function POST(req: NextRequest) {
       buffer = Buffer.from(await file.arrayBuffer());
       mimeType = validateDocumentBuffer(buffer, file.type || undefined);
       fileName = file.name || "documento";
+      requestedProfileId = typeof profileValue === "string" && profileValue.trim() ? profileValue.trim() : null;
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "File non valido.";
     return NextResponse.json({ error: message }, { status: 400 });
+  }
+
+  const profile = await resolveProfile(session.user.id, requestedProfileId);
+  if (!profile) {
+    return NextResponse.json({ error: "Profilo di analisi non valido. Torna alla dashboard e seleziona un profilo." }, { status: 400 });
   }
 
   const supabase = getSupabase();
@@ -133,8 +153,7 @@ export async function POST(req: NextRequest) {
     const document = await prisma.document.create({
       data: {
         userId: session.user.id,
-        // Il tipo iniziale è solo un hint operativo per lo schema esistente.
-        // Il worker usa auto-detection AI completa e sovrascrive il tipo effettivo a fine analisi.
+        profileId: profile.id,
         type: inferInitialDocumentType(fileName),
         filePath: storagePath,
         fileName,
@@ -143,7 +162,7 @@ export async function POST(req: NextRequest) {
     });
 
     scheduleAnalysis(document.id);
-    return NextResponse.json({ id: document.id, status: "PENDING" }, { status: 202 });
+    return NextResponse.json({ id: document.id, status: "PENDING", profileId: profile.id }, { status: 202 });
   } catch (error) {
     await supabase.storage.from("documents").remove([storagePath]);
     console.error("[upload] database create failed; storage object removed", error);

@@ -1,18 +1,19 @@
 # CONTEXT.md — Veredoc
 
-> Aggiornato: 2026-08-30 — product intelligence longitudinale + delivery senza PR preview di default
+> Aggiornato: 2026-08-30 — profili di analisi, storico isolato per soggetto e spostamento documenti tra profili
 
 ---
 
 ## Cos'è Veredoc
 
-Veredoc è un SaaS italiano che analizza bollette (luce, gas, internet) e buste paga tramite AI. L'utente carica un PDF/JPG/PNG senza scegliere manualmente il tipo: Veredoc riconosce il documento, applica il flusso corretto e restituisce un risultato orientato all'azione.
+Veredoc è un SaaS italiano che analizza bollette (luce, gas, internet) e buste paga tramite AI. L'utente carica PDF/JPG/PNG senza scegliere manualmente il tipo: Veredoc riconosce il documento, applica il flusso corretto e restituisce un risultato orientato all'azione.
 
 - **Bollette:** lettura strutturata, confronto mercato, verdetto sintetico e azione consigliata.
 - **Buste paga:** lettura strutturata, controlli deterministici di coerenza/anomalia e spiegazione delle voci.
-- **Storico intelligente:** dalla dashboard, quando esistono almeno due documenti `DONE` dello stesso tipo, Veredoc confronta automaticamente l'ultima analisi con la precedente e mette in evidenza variazioni rilevanti.
+- **Profili di analisi:** uno stesso account può separare i documenti di persone, case/nuclei e attività diverse.
+- **Storico intelligente:** i confronti longitudinali vengono calcolati esclusivamente tra documenti dello stesso profilo e dello stesso tipo.
 
-I controlli payroll e longitudinali sono segnali di coerenza e variazione. Non costituiscono certificazione fiscale, consulenza del lavoro, verifica legale o diagnosi definitiva della causa di una variazione.
+I controlli payroll e longitudinali sono segnali di coerenza e variazione. Non costituiscono certificazione fiscale, consulenza del lavoro o verifica legale.
 
 ## Stack tecnico
 
@@ -25,12 +26,38 @@ I controlli payroll e longitudinali sono segnali di coerenza e variazione. Non c
 | Database | Supabase PostgreSQL |
 | Storage | Supabase Storage |
 | Auth | NextAuth 5 beta + bcryptjs |
-| AI | Anthropic Claude tramite provider abstraction |
-| PDF | pdfjs-dist + pdf-lib |
-| Email | Brevo REST API |
+| AI | Anthropic Claude |
 | Hosting | Vercel |
 | CI | GitHub Actions |
-| Scheduler esterno | n8n |
+| Scheduler | n8n |
+
+---
+
+## Modello profili
+
+Relazione principale:
+
+```text
+User
+  └── AnalysisProfile
+        ├── label
+        ├── kind: PERSON | HOUSEHOLD | BUSINESS
+        ├── isDefault
+        └── Document[]
+```
+
+Ogni `Document` conserva sia `userId` sia `profileId`.
+
+Regole:
+- ogni nuovo account nasce con il profilo default `Io`;
+- la migrazione `002_analysis_profiles.sql` crea `Io` per ogni account esistente e vi assegna tutti i documenti preesistenti;
+- un account può creare ulteriori profili senza raccogliere dati personali non necessari;
+- un documento può essere spostato tra profili dello stesso account;
+- una route di spostamento rifiuta profili appartenenti ad altri account;
+- il profilo default viene usato per gli upload generici senza `profileId`;
+- dalla dashboard ogni profilo espone una CTA `Carica per <profilo>` che passa esplicitamente il profilo al flusso upload.
+
+La relazione `Document.profile` è `RESTRICT` in cancellazione: eliminare un profilo non deve cancellare implicitamente documenti. La UI attuale non espone ancora la cancellazione dei profili.
 
 ---
 
@@ -38,179 +65,104 @@ I controlli payroll e longitudinali sono segnali di coerenza e variazione. Non c
 
 ```text
 app/
-  analyze/                          upload auto-detect + polling risultato
-  dashboard/                        documenti + quota + storico intelligente
+  analyze/                          upload auto-detect, profile-aware
+  dashboard/                        profili, quota, storico e documenti
   api/
-    documents/upload/               validazione, quota, upload e creazione job
-    documents/[id]/                 lettura, recovery analisi e cancellazione
+    profiles/                       lista/creazione profili
+    documents/upload/               upload associato a profilo
+    documents/[id]/profile/         spostamento documento tra profili
+    documents/[id]/                 lettura/recovery/cancellazione
     documents/[id]/refresh-market/  refresh confronto mercato
     jobs/process-analysis/           recovery batch
-    jobs/refresh-market-rates/       refresh mercato documenti DONE
-    jobs/scrape-market-rates/        scraping tariffe
 components/
-  FileUploader.tsx                  upload senza selezione manuale tipo
-  AnalysisResult.tsx                routing UI risultato
-  BollettaDecisionSummary.tsx       verdetto/azione sintetica bolletta
-  BollettaReport.tsx                dettaglio tecnico + offerte
-  BustaPagaReport.tsx               verdetto anomalie + dettaglio cedolino
-  HistoricalInsights.tsx            confronto ultima analisi vs precedente
-  DocumentList.tsx
+  ProfileManager.tsx                creazione e riepilogo profili
+  DocumentList.tsx                  documenti + cambio profilo
+  HistoricalInsights.tsx            confronto longitudinale
+  FileUploader.tsx
+  AnalysisResult.tsx
+  BollettaDecisionSummary.tsx
+  BollettaReport.tsx
+  BustaPagaReport.tsx
 lib/
+  insights/history.ts               confronto deterministico con isolamento profilo
   ai/
-    analyze.ts
-    validate.ts
-    providers/anthropic.ts          one-pass detection + extraction
-  insights/history.ts               motore longitudinale deterministico
-  jobs/process-document-core.ts     routing dal tipo rilevato AI
-  jobs/process-document.ts
+  jobs/
   parsers/
-    bolletta.ts
-    bustapaga.ts                    engine payroll-coherence-v1
-  observability/operations.ts
-  security/access.ts
-  documents/upload-validation.ts
+  security/
 prisma/schema.prisma
-supabase/
-tests/
-  validation.test.ts
-  worker-integration.test.ts
-  payroll-verification.test.ts
-  history-insights.test.ts
-  authorization.test.ts
-  observability.test.ts
-.github/workflows/ci.yml
+supabase/migrations/002_analysis_profiles.sql
+supabase/rls.sql
 ```
 
 ---
 
-## Flusso upload e auto-detection
+## Flusso upload
 
 1. Utente autenticato.
-2. Piano reale e quota mensile verificati prima dello Storage.
-3. Redattore JSON/base64 consentito solo PRO.
-4. Magic bytes/MIME e limite 10 MB validati server-side.
-5. L'utente non seleziona luce/gas/internet/busta paga.
-6. Il record `Document` nasce `PENDING`; lo schema non ha un tipo `AUTO`, quindi viene usato un hint iniziale compatibile con lo schema esistente.
-7. Claude esegue **una sola chiamata** che riconosce `luce | gas | internet | busta_paga | sconosciuto` ed estrae il payload corrispondente.
-8. Il worker sceglie il validator in base al tipo realmente rilevato e salva il tipo definitivo.
-9. Retry e recovery restano persistenti sul record.
-
-Nessuna migrazione DB è stata necessaria per l'auto-detection o per lo storico longitudinale.
+2. Piano e quota verificati prima dello Storage.
+3. File validato tramite magic bytes/MIME e limite 10 MB.
+4. Se il chiamante passa `profileId`, il backend accetta solo un profilo appartenente allo stesso `userId`.
+5. Senza `profileId` viene usato il profilo default `Io`.
+6. Il documento nasce `PENDING` con `userId + profileId`.
+7. Claude esegue auto-detection one-pass di luce/gas/internet/busta paga.
+8. Worker, validazione runtime, retry e recovery restano invariati.
 
 ---
 
-## Worker, lease e recovery
+## Storico longitudinale
 
-- stati processabili: `PENDING` o `PROCESSING` stale;
-- lock ottimistico tramite `status + updatedAt`;
-- massimo 3 tentativi;
-- lease stale dopo 2 minuti;
-- retry con nuovo download da Supabase Storage;
-- errore recuperabile → `PENDING`;
-- terzo errore → `ERROR`;
-- polling documento e `POST /api/jobs/process-analysis` possono recuperare job stale;
-- n8n Analysis Recovery è configurato/testato ma al 2026-08-30 resta intenzionalmente **Unpublished**.
+`lib/insights/history.ts` non confronta mai documenti appartenenti a profili differenti.
 
----
+Per ogni profilo:
+- bollette: confronta solo stesso tipo (luce con luce, gas con gas, internet con internet);
+- buste paga: confronta solo cedolini dello stesso profilo;
+- usa esclusivamente documenti `DONE` con analisi valida;
+- l'ultima analisi viene confrontata con la precedente.
 
-## Product intelligence bollette
-
-### Risultato singolo documento
-
-`BollettaDecisionSummary.tsx` porta in alto:
-- tariffa competitiva / in linea / sopra mercato;
-- risparmio potenziale mensile/annuale quando disponibile;
-- parte negoziabile;
-- CTA al confronto offerte quando economicamente sensata.
-
-`BollettaReport.tsx` mantiene dettaglio fornitore, periodo, consumi, breakdown, voci, offerte e break-even.
-
-### Storico longitudinale
-
-`lib/insights/history.ts` confronta esclusivamente documenti `DONE` dello **stesso tipo** e usa le due analisi più recenti in ordine di caricamento.
-
-Per luce/gas/internet confronta quando disponibili:
-- importo totale;
-- prezzo unitario della materia energia;
-- consumi mensili stimati o consumi estratti.
-
-Il motore distingue in modo prudente casi come:
-- spesa salita insieme ai consumi;
-- consumi simili ma prezzo unitario aumentato;
-- spesa/prezzo in calo;
-- situazione sostanzialmente stabile.
-
-Non attribuisce una causa certa quando i dati disponibili non la supportano.
+Questo evita confronti errati, per esempio tra la busta paga dell'utente e quella di un familiare o tra bollette di abitazioni diverse.
 
 ---
 
-## Product intelligence buste paga
+## Product intelligence
 
-### Engine singolo cedolino `payroll-coherence-v1`
+### Bollette
 
-Controlli deterministici disponibili:
-- quadratura competenze - trattenute vs netto;
-- incidenza contributi su imponibile previdenziale;
-- compatibilità matematica IRPEF/imponibile fiscale;
-- rapporto netto/lordo;
-- valori principali negativi/anomali;
-- gestione esplicita dei dati insufficienti.
+`BollettaDecisionSummary.tsx` porta in alto verdetto, risparmio potenziale e azione consigliata. `BollettaReport.tsx` mantiene il dettaglio tecnico e le offerte.
 
-Verdetti: `coerente`, `da_verificare`, `dati_insufficienti`.
+### Buste paga
 
-### Storico longitudinale payroll
-
-Quando esistono almeno due buste paga `DONE`, Veredoc confronta:
-- netto;
-- lordo;
-- contributi INPS + IRPEF estratti.
-
-Esempi di segnali mostrati:
-- netto aumentato/diminuito;
-- variazione del lordo nella stessa direzione;
-- lordo simile ma trattenute principali in aumento o in calo.
-
-Il sistema non conclude automaticamente che una variazione sia corretta o errata: conguagli, detrazioni, giornate lavorate e altre voci possono spiegarla.
-
----
-
-## Dashboard
-
-La dashboard mostra:
-1. piano e quota mensile coerente con la policy backend;
-2. se disponibili, card **Cosa sta cambiando** per bollette e buste paga confrontabili;
-3. link diretto all'ultima analisi e alla precedente;
-4. storico documenti tradizionale.
-
-Lo storico intelligente non richiede configurazione utente né nuove tabelle: deriva dai JSON di analisi già persistiti.
+`payroll-coherence-v1` controlla quadrature, imponibili, contributi, IRPEF e valori anomali con wording prudente. `BustaPagaReport.tsx` è anomaly-first.
 
 ---
 
 ## Sicurezza e autorizzazione
 
-- ownership documento centralizzata in `lib/security/access.ts`;
-- job protetti da `JOBS_SECRET` fail-closed con `timingSafeEqual`;
+- ownership documento centralizzata;
+- spostamento documento consentito solo se documento e profilo appartengono alla sessione corrente;
+- RLS aggiunta a `AnalysisProfile` oltre a `User`, `Document` e `MarketRate`;
+- job protetti da `JOBS_SECRET` fail-closed;
 - Supabase Service Role solo server-side;
 - upload PRO verificato server-side;
-- MIME sniffing server-side;
-- reset password con token monouso hashato e scadenza.
+- MIME sniffing server-side.
 
 ---
 
-## Observability
+## Migrazione database
 
-`lib/observability/operations.ts` produce eventi JSON strutturati per worker, Storage, AI e job schedulati. Sono disponibili durata chiamate, tentativi/retry, esiti e conteggi dei job. Non è ancora collegato un backend esterno tipo Sentry; i costi monetari AI non sono ancora calcolati.
+File: `supabase/migrations/002_analysis_profiles.sql`.
 
----
+La migrazione:
+1. crea enum `ProfileKind`;
+2. crea `AnalysisProfile` e indici;
+3. garantisce al massimo un profilo default per user tramite indice parziale;
+4. crea `Io` per tutti gli utenti esistenti;
+5. aggiunge `Document.profileId`;
+6. assegna i documenti esistenti al profilo default del proprietario;
+7. rende `profileId` non nullable;
+8. aggiunge FK e indice;
+9. abilita RLS sulla nuova tabella.
 
-## Piani
-
-| Piano | Analisi/mese | Redazione PDF client-side |
-|---|---:|---|
-| FREE | 10 | No |
-| PRO | 30 | Sì |
-
-I documenti creati nel mese contano verso la quota indipendentemente dall'esito finale. Dashboard e upload usano la stessa regola.
+È una migrazione strutturale approvata esplicitamente il 2026-08-30.
 
 ---
 
@@ -225,68 +177,37 @@ pnpm test
 pnpm build
 ```
 
-GitHub Actions esegue lint, typecheck, test e build su push a `main` e su PR.
-
-### Policy deploy dal 2026-08-30
-
-Per lavoro ordinario destinato a `main` **non si apre una PR di staging per default**, per evitare preview deploy Vercel inutili.
-
-Pattern preferito:
+Per lavoro ordinario destinato a `main` non si apre una PR di staging per default, per evitare preview deploy Vercel inutili. Pattern preferito:
 
 ```text
-INSPECT
-→ PREPARE FULL CHANGE
-→ ONE ATOMIC COMMIT ON CURRENT MAIN
-→ ONE MAIN UPDATE
-→ GITHUB ACTIONS
-→ ONE PRODUCTION DEPLOY
+INSPECT → PREPARE FULL CHANGE → ONE ATOMIC COMMIT → ONE MAIN UPDATE → CI → PRODUCTION DEPLOY
 ```
 
-Una PR/preview è usata solo se richiesta esplicitamente, imposta da branch protection, oppure realmente necessaria per validare in sicurezza un cambiamento ad alto rischio. Gli errori introdotti dal delivery vengono corretti con un singolo commit atomico aggiuntivo, senza aprire automaticamente una PR.
+PR solo se richiesta, imposta da policy o realmente necessaria per validare in sicurezza un cambiamento ad alto rischio.
 
 ---
 
 ## Test principali
 
-- magic bytes/MIME spoofing;
-- validazione output AI bolletta/busta paga;
-- worker concurrency/lease/retry/recovery;
+- validazione upload e output AI;
+- worker concurrency/lease/retry;
 - auto-detection cross-type;
 - payroll coherence;
-- storico longitudinale bollette/payroll e isolamento tra tipi;
+- storico longitudinale bollette/payroll;
+- isolamento longitudinale tra profili differenti;
 - authorization job/ownership;
-- formato observability.
+- observability.
 
 ---
 
-## Funzionalità completate
-
-- autenticazione e reset password;
-- upload PDF/JPG/PNG;
-- auto-detection one-pass;
-- quote FREE/PRO;
-- redattore PRO;
-- analisi Claude bollette/buste paga;
-- validazione runtime output;
-- decision summary bollette + confronto mercato;
-- payroll-coherence-v1;
-- dashboard con storico intelligente longitudinale;
-- soft delete + cleanup Storage;
-- retry/recovery persistente;
-- scheduler n8n Market Rates;
-- Analysis Recovery n8n configurato/testato, ancora Unpublished;
-- CI globale;
-- guardie authorization centralizzate;
-- observability operativa.
-
 ## Prossimi passi consigliati
 
-1. Validare auto-detection, payroll checks e storico longitudinale su documenti reali anonimizzati, misurando falsi positivi e casi non confrontabili.
-2. Evolvere lo storico da confronto 1-vs-1 a trend multi-periodo quando esistono almeno 3-4 documenti dello stesso tipo.
-3. Per payroll, aggiungere dati strutturati su ferie/permessi/TFR solo dopo aver verificato affidabilità di estrazione su cedolini reali eterogenei.
-4. Valutare una knowledge layer normativa/contrattuale versionata per controlli payroll più profondi.
-5. Billing reale e subscription lifecycle PRO solo previa approvazione esplicita perché modulo pagamento/critico.
-6. Pubblicare n8n Analysis Recovery quando si decide di attivare il recovery automatico ogni 5 minuti.
+1. Applicare la migrazione `002_analysis_profiles.sql` in Supabase prima del deploy applicativo corrispondente.
+2. Validare profili/spostamento documenti con dati reali di prova.
+3. Evolvere lo storico da 1-vs-1 a trend multi-periodo all'interno dello stesso profilo.
+4. Aggiungere rename/archive profilo solo quando emerge il bisogno reale, mantenendo la cancellazione documenti separata.
+5. Billing reale PRO solo previa approvazione esplicita.
+6. Pubblicare n8n Analysis Recovery quando si decide di attivare il recovery automatico.
 
 ---
 
@@ -299,8 +220,8 @@ Una PR/preview è usata solo se richiesta esplicitamente, imposta da branch prot
 - `NEXTAUTH_SECRET`
 - `NEXTAUTH_URL`
 - `ANTHROPIC_API_KEY`
-- `ANTHROPIC_MODEL` (opzionale)
-- `AI_PROVIDER` (opzionale)
+- `ANTHROPIC_MODEL`
+- `AI_PROVIDER`
 - `ADMIN_SECRET`
 - `JOBS_SECRET`
 - `SCRAPERAPI_KEY`
