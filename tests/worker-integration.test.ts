@@ -117,6 +117,9 @@ function createHarness(options: {
     async enrichBill(validated) {
       return { ...validated, confronto_mercato: null };
     },
+    verifyPayroll() {
+      return { verdict: "coerente", engineVersion: "payroll-coherence-v1" };
+    },
     now: () => options.now ?? new Date("2026-08-30T10:10:00.000Z"),
   };
 
@@ -140,6 +143,17 @@ test("due worker concorrenti elaborano lo stesso documento una sola volta", asyn
   assert.equal(harness.getAnalyzeCalls(), 1);
   assert.equal(harness.getDownloadCalls(), 1);
   assert.equal(harness.store.document?.status, AnalysisStatus.DONE);
+});
+
+test("auto-detection instrada una busta paga anche se il tipo iniziale era bolletta", async () => {
+  const harness = createHarness({
+    document: pendingDocument({ type: DocumentType.BOLLETTA_LUCE }),
+    analyze: async () => ({ raw: { tipo_rilevato: "busta_paga", stipendio_lordo: 2000 } }),
+  });
+
+  assert.equal(await harness.process("doc-1"), true);
+  assert.equal(harness.store.document?.type, DocumentType.BUSTA_PAGA);
+  assert.equal((harness.store.document?.analysis as { verifica?: { verdict?: string } }).verifica?.verdict, "coerente");
 });
 
 test("gli errori tecnici ritentano tre volte e poi passano a ERROR", async () => {
