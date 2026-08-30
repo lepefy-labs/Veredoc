@@ -19,18 +19,11 @@ function getSupabase() {
   );
 }
 
-function detectDocumentType(filename: string, tipo?: string): DocumentType {
-  if (tipo) {
-    if (tipo === "luce") return DocumentType.BOLLETTA_LUCE;
-    if (tipo === "gas") return DocumentType.BOLLETTA_GAS;
-    if (tipo === "internet" || tipo === "telefonia") return DocumentType.BOLLETTA_INTERNET;
-    if (tipo === "busta_paga") return DocumentType.BUSTA_PAGA;
-  }
+function inferInitialDocumentType(filename: string): DocumentType {
   const lower = filename.toLowerCase();
-  if (lower.includes("luce") || lower.includes("energia")) return DocumentType.BOLLETTA_LUCE;
-  if (lower.includes("gas")) return DocumentType.BOLLETTA_GAS;
-  if (lower.includes("internet") || lower.includes("fibra")) return DocumentType.BOLLETTA_INTERNET;
   if (lower.includes("busta") || lower.includes("paga") || lower.includes("cedolino")) return DocumentType.BUSTA_PAGA;
+  if (lower.includes("gas")) return DocumentType.BOLLETTA_GAS;
+  if (lower.includes("internet") || lower.includes("fibra") || lower.includes("telefono")) return DocumentType.BOLLETTA_INTERNET;
   return DocumentType.BOLLETTA_LUCE;
 }
 
@@ -94,7 +87,6 @@ export async function POST(req: NextRequest) {
   let buffer: Buffer;
   let mimeType: AcceptedMimeType;
   let fileName: string;
-  let tipoHint: string | null;
 
   try {
     if (contentType.includes("application/json")) {
@@ -102,7 +94,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Funzione disponibile solo con il piano PRO." }, { status: 403 });
       }
 
-      const body = await req.json() as { fileBase64?: string; fileName?: string; tipo?: string };
+      const body = await req.json() as { fileBase64?: string; fileName?: string };
       if (!body.fileBase64) {
         return NextResponse.json({ error: "Dati mancanti." }, { status: 400 });
       }
@@ -110,11 +102,9 @@ export async function POST(req: NextRequest) {
       buffer = Buffer.from(body.fileBase64, "base64");
       mimeType = validateDocumentBuffer(buffer, "application/pdf");
       fileName = body.fileName?.trim() || "documento.pdf";
-      tipoHint = body.tipo ?? null;
     } else {
       const formData = await req.formData();
       const file = formData.get("file") as File | null;
-      tipoHint = formData.get("tipo") as string | null;
 
       if (!file) {
         return NextResponse.json({ error: "Nessun file ricevuto." }, { status: 400 });
@@ -143,7 +133,9 @@ export async function POST(req: NextRequest) {
     const document = await prisma.document.create({
       data: {
         userId: session.user.id,
-        type: detectDocumentType(fileName, tipoHint ?? undefined),
+        // Il tipo iniziale è solo un hint operativo per lo schema esistente.
+        // Il worker usa auto-detection AI completa e sovrascrive il tipo effettivo a fine analisi.
+        type: inferInitialDocumentType(fileName),
         filePath: storagePath,
         fileName,
         status: AnalysisStatus.PENDING,
