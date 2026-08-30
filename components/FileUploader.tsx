@@ -6,22 +6,14 @@ import { ACCEPTED_FILE_TYPES, MAX_FILE_SIZE_BYTES } from "@/lib/config/constants
 import { TEXTS } from "@/lib/config/texts";
 
 interface FileUploaderProps {
-  onUpload: (file: File, tipo: string) => void;
+  onUpload: (file: File) => void;
   loading: boolean;
 }
-
-const TIPI = [
-  { value: "luce", label: "Bolletta Luce" },
-  { value: "gas", label: "Bolletta Gas" },
-  { value: "internet", label: "Bolletta Internet/Telefonia" },
-  { value: "busta_paga", label: "Busta Paga" },
-];
 
 export default function FileUploader({ onUpload, loading }: FileUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [tipo, setTipo] = useState("luce");
   const [error, setError] = useState<string | null>(null);
 
   function validateFile(file: File): string | null {
@@ -51,11 +43,16 @@ export default function FileUploader({ onUpload, loading }: FileUploaderProps) {
 
   function handleSubmit() {
     if (!selectedFile) return;
-    onUpload(selectedFile, tipo);
+    onUpload(selectedFile);
   }
 
   return (
     <div className="space-y-4">
+      <div className="rounded-lg border border-brand/20 bg-brand-soft px-4 py-3">
+        <p className="text-sm font-medium text-ink">Non devi scegliere il tipo di documento.</p>
+        <p className="text-xs text-muted mt-1">Veredoc riconosce automaticamente bollette luce, gas, internet/telefonia e buste paga.</p>
+      </div>
+
       <div
         role="button"
         tabIndex={0}
@@ -109,20 +106,6 @@ export default function FileUploader({ onUpload, loading }: FileUploaderProps) {
       )}
 
       {error && <p className="text-sm text-danger" role="alert">{error}</p>}
-
-      <div>
-        <label htmlFor="tipo-documento" className="block text-sm font-medium text-ink mb-1">Tipo documento</label>
-        <select
-          id="tipo-documento"
-          value={tipo}
-          onChange={(e) => setTipo(e.target.value)}
-          className="w-full rounded-lg border border-line px-3 py-2 text-sm text-ink bg-white focus:outline-none focus:ring-2 focus:ring-brand"
-        >
-          {TIPI.map((t) => (
-            <option key={t.value} value={t.value}>{t.label}</option>
-          ))}
-        </select>
-      </div>
 
       <Button
         onClick={handleSubmit}
