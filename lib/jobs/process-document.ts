@@ -3,10 +3,12 @@ import { AnalysisStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { analyzeDocument } from "@/lib/ai";
 import { arricchisciConFrontoMercato } from "@/lib/parsers/bolletta";
+import { verificaBustaPaga } from "@/lib/parsers/bustapaga";
 import { validateBollettaOutput, validateBustaPagaOutput } from "@/lib/ai/validate";
 import { validateDocumentBuffer, type AcceptedMimeType } from "@/lib/documents/upload-validation";
 import { elapsedMs, logOperationalEvent, toSafeErrorMessage } from "@/lib/observability/operations";
 import type { BollettaRaw } from "@/types/bolletta";
+import type { BustaPagaData } from "@/types/bustapaga";
 import {
   createDocumentAnalysisProcessor,
   MAX_ANALYSIS_ATTEMPTS,
@@ -149,13 +151,13 @@ export const processDocumentAnalysis = createDocumentAnalysisProcessor({
       });
       logOperationalEvent("ai.analysis_completed", {
         provider: result.provider,
-        documentType: input.documentType,
+        documentTypeHint: input.documentType,
         durationMs: elapsedMs(startedAt),
       });
       return result;
     } catch (error) {
       logOperationalEvent("ai.analysis_failed", {
-        documentType: input.documentType,
+        documentTypeHint: input.documentType,
         durationMs: elapsedMs(startedAt),
         error: toSafeErrorMessage(error),
       }, "error");
@@ -165,6 +167,7 @@ export const processDocumentAnalysis = createDocumentAnalysisProcessor({
   validateBill: (raw) => validateBollettaOutput(raw),
   validatePayroll: (raw) => validateBustaPagaOutput(raw),
   enrichBill: (validated) => arricchisciConFrontoMercato(validated as unknown as BollettaRaw),
+  verifyPayroll: (validated) => verificaBustaPaga(validated as unknown as BustaPagaData),
 });
 
 export {
