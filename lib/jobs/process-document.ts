@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { analyzeDocument } from "@/lib/ai";
 import { arricchisciConFrontoMercato } from "@/lib/parsers/bolletta";
 import { validateBollettaOutput, validateBustaPagaOutput } from "@/lib/ai/validate";
-import { validateDocumentBuffer } from "@/lib/documents/upload-validation";
+import { validateDocumentBuffer, type AcceptedMimeType } from "@/lib/documents/upload-validation";
 import { elapsedMs, logOperationalEvent, toSafeErrorMessage } from "@/lib/observability/operations";
 import type { BollettaRaw } from "@/types/bolletta";
 import {
@@ -143,7 +143,10 @@ export const processDocumentAnalysis = createDocumentAnalysisProcessor({
   async analyze(input) {
     const startedAt = Date.now();
     try {
-      const result = await analyzeDocument(input);
+      const result = await analyzeDocument({
+        ...input,
+        mimeType: input.mimeType as AcceptedMimeType,
+      });
       logOperationalEvent("ai.analysis_completed", {
         provider: result.provider,
         documentType: input.documentType,
