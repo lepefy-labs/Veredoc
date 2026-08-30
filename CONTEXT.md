@@ -1,6 +1,6 @@
 # CONTEXT.md — Veredoc
 
-> Aggiornato: 2026-08-30 — production hardening, scheduler n8n, CI globale, worker integration test e authorization hardening
+> Aggiornato: 2026-08-30 — production hardening, scheduler n8n, CI globale, worker integration test, authorization hardening e observability operativa
 
 ---
 
@@ -58,6 +58,7 @@ lib/
   documents/upload-validation.ts
   jobs/process-document-core.ts
   jobs/process-document.ts
+  observability/operations.ts       logging strutturato e timing operativi
   security/access.ts                guardie centralizzate job/ownership
   parsers/
   config/
@@ -73,6 +74,7 @@ tests/
   validation.test.ts
   worker-integration.test.ts
   authorization.test.ts
+  observability.test.ts
 .github/workflows/ci.yml
 ```
 
@@ -199,6 +201,25 @@ Altre misure attive:
 
 ---
 
+## Observability operativa
+
+`lib/observability/operations.ts` produce eventi JSON strutturati nei log server/Vercel senza introdurre servizi esterni o nuove variabili d'ambiente.
+
+Sono tracciati:
+- claim worker, tentativo e stato precedente;
+- completamento, documento non supportato e failure/retry fino all'esaurimento;
+- durata download da Supabase Storage e relativi errori;
+- durata chiamata AI, provider e tipo documento;
+- summary del job `process-analysis`: candidati, `PENDING`, `PROCESSING` stale, recuperabili, tentati, claimed e durata;
+- summary del refresh mercato: documenti considerati, aggiornati, senza `rawExtracted`, errori e durata;
+- summary dello scraping ARERA: offerte estratte, inserite, aggiornate, errori e durata.
+
+Gli endpoint job mantengono il comportamento esistente e aggiungono ai payload di risposta metriche operative additive (`durationMs` e conteggi) utili anche nei log n8n.
+
+Non è ancora presente un backend esterno di error tracking/metriche. I costi monetari AI non sono calcolati: il passo successivo, se utile, è catturare token usage/provider model e collegare un sistema esterno come Sentry o un servizio metriche.
+
+---
+
 ## Piani
 
 | Piano | Analisi/mese | Redazione PDF client-side |
@@ -250,6 +271,12 @@ Copertura test corrente:
 - secret errato/corretto;
 - ownership documento proprietario/non proprietario/sessione assente.
 
+### Observability
+- formato stabile degli eventi strutturati;
+- rimozione campi `undefined`;
+- timing non negativo;
+- normalizzazione e truncation sicura dei messaggi di errore.
+
 ---
 
 ## Funzionalità completate
@@ -273,12 +300,13 @@ Copertura test corrente:
 - CI globale con lint, typecheck, test e build.
 - Integration test worker.
 - Guardie centralizzate fail-closed per job e ownership documenti con regression test.
+- Observability operativa strutturata per worker, AI, Storage e job schedulati.
 
 ## Prossimi passi consigliati
 
 1. Pubblicare il workflow n8n `Analysis Recovery` quando si decide di attivare il recovery automatico ogni 5 minuti.
-2. Aggiungere observability: error tracking, metriche durata AI, tentativi, documenti stale e costi provider.
-3. Espandere test dei parser e del confronto mercato con fixture reali anonimizzate.
+2. Espandere test dei parser e del confronto mercato con fixture reali anonimizzate.
+3. Valutare error tracking esterno e token/cost telemetry AI quando serve una dashboard operativa dedicata.
 4. Implementare billing reale e subscription lifecycle per PRO, previa approvazione esplicita perché modulo pagamento/critico.
 
 ---
