@@ -48,7 +48,6 @@ export interface DocumentAnalysisStore {
 
 interface ValidatedDocument {
   tipo_rilevato: unknown;
-  [key: string]: unknown;
 }
 
 export interface DocumentAnalysisDependencies {
