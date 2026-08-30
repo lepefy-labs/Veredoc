@@ -63,7 +63,6 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
   const unitaConsumi = data.consumi?.unita?.toUpperCase() ?? 'KWH';
   const unitaLabel = unitaConsumi === 'SMC' ? '€/Smc' : '€/kWh';
 
-  // Calcola percentuale negoziabile
   const materiaEur = data.materia_energia?.totale_eur ?? 0;
   const totale = data.importo_totale ?? 0;
   const canoRai = data.altro?.canone_rai_eur ?? 0;
@@ -84,7 +83,6 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
         </div>
       )}
 
-      {/* Riepilogo principale */}
       <Card>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <Stat label="Fornitore" value={data.fornitore} />
@@ -104,12 +102,9 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
         </div>
       </Card>
 
-      {/* Breakdown cosa puoi negoziare */}
       {haBreakdown && (
         <div className="rounded-xl border border-line bg-page p-5">
           <h3 className="font-semibold text-ink mb-4">Cosa puoi negoziare cambiando fornitore</h3>
-
-          {/* Materia energia */}
           {materiaEur > 0 && (
             <div className="mb-3">
               <div className="flex justify-between items-baseline">
@@ -141,7 +136,6 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
             </div>
           )}
 
-          {/* Costi fissi di sistema */}
           {(data.rete_e_oneri?.totale_eur ?? 0) + (data.imposte?.totale_eur ?? 0) > 0 && (
             <div className="mb-3">
               <div className="flex justify-between items-baseline">
@@ -154,7 +148,6 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
             </div>
           )}
 
-          {/* Altro */}
           {canoRai > 0 && (
             <div className="mb-3">
               <div className="flex justify-between items-baseline">
@@ -174,7 +167,6 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
         </div>
       )}
 
-      {/* Voci in dettaglio */}
       <Card>
         <h3 className="font-semibold text-ink mb-4">Voci in dettaglio</h3>
         <div className="space-y-3">
@@ -192,12 +184,9 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
         </div>
       </Card>
 
-      {/* Confronto mercato */}
       {confronto && confronto.prezzo_kwh_attuale !== null && (
         <Card>
           <h3 className="font-semibold text-ink mb-4">Confronto con il mercato</h3>
-
-          {/* Metriche sommario */}
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 mb-4">
             {confronto.costo_materia_mensile_attuale !== null && (
               <Stat label="Materia energia/mese" value={fmt(confronto.costo_materia_mensile_attuale)} mono />
@@ -213,7 +202,6 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
             )}
           </div>
 
-          {/* Indicatore */}
           {confronto.percentuale_sopra_media !== null && (() => {
             const pct = confronto.percentuale_sopra_media;
             if (pct > 5) {
@@ -243,7 +231,6 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
             );
           })()}
 
-          {/* Break-even insight */}
           {confronto.offerte.length >= 2 && (() => {
             const migliore = confronto.offerte[0];
             const minKwh = [...confronto.offerte].sort((a, b) => a.prezzo_kwh - b.prezzo_kwh)[0];
@@ -266,7 +253,6 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
             return null;
           })()}
 
-          {/* Tabella offerte */}
           {confronto.offerte.length > 0 && (
             <OfferteSection
               offerte={confronto.offerte}
@@ -279,7 +265,6 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
         </Card>
       )}
 
-      {/* Nessun confronto disponibile */}
       {(!confronto || confronto.prezzo_kwh_attuale === null) && (
         <Card>
           <p className="text-sm text-muted">{TEXTS.analysis.noMarketData}</p>
@@ -318,12 +303,11 @@ function OfferteSection({ offerte, unitaLabel, stimaAffidabile, percentualeSopra
     ? offerte
     : offerte.filter((o) => o.tipo_offerta === filtroTipo);
 
-  // Reset scroll quando cambia il filtro
-  useEffect(() => {
+  const handleFilterChange = (tipo: FiltroTipo) => {
+    setFiltroTipo(tipo);
     setVisibleCount(5);
-  }, [filtroTipo]);
+  };
 
-  // IntersectionObserver per infinite scroll mobile
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -354,13 +338,12 @@ function OfferteSection({ offerte, unitaLabel, stimaAffidabile, percentualeSopra
         </p>
       )}
 
-      {/* Filtro tipo offerta */}
       {hasTutti && (
         <div className="flex gap-2 mb-4 flex-wrap">
           {(["tutte", "fisso", "variabile"] as FiltroTipo[]).map((tipo) => (
             <button
               key={tipo}
-              onClick={() => setFiltroTipo(tipo)}
+              onClick={() => handleFilterChange(tipo)}
               className={`text-xs px-3 py-1 rounded-full border font-medium capitalize transition-colors ${
                 filtroTipo === tipo
                   ? "bg-brand border-brand text-white"
@@ -377,7 +360,6 @@ function OfferteSection({ offerte, unitaLabel, stimaAffidabile, percentualeSopra
         <p className="text-sm text-faint mb-4">Nessuna offerta disponibile per questo filtro.</p>
       )}
 
-      {/* Griglia card unica — mobile colonna singola, desktop 2 colonne */}
       {offerteFiltrate.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
           {offerteVisibili.map((offerta, i) => {
@@ -488,7 +470,6 @@ function OfferteSection({ offerte, unitaLabel, stimaAffidabile, percentualeSopra
         </div>
       )}
 
-      {/* Sentinella infinite scroll */}
       {offerteFiltrate.length > 0 && visibleCount < offerteFiltrate.length && (
         <div ref={sentinelRef} className="h-4 mt-1" />
       )}

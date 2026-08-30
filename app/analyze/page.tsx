@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useCallback, useEffect } from "react";
+import { Suspense, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
 import FileUploader from "@/components/FileUploader";
@@ -12,32 +12,23 @@ import { TEXTS } from "@/lib/config/texts";
 
 type FlowState = "idle" | "redacting" | "uploading" | "done";
 
-function AnalyzeContent() {
+function AnalyzeFlow({ initialDocumentId }: { initialDocumentId: string | null }) {
   const { data: session, status } = useSession();
-  const searchParams = useSearchParams();
   const router = useRouter();
-  const urlId = searchParams.get("id");
-
-  const [documentId, setDocumentId] = useState<string | null>(urlId);
-
-  useEffect(() => {
-    setDocumentId(urlId);
-    if (!urlId) setDocMeta(null);
-  }, [urlId]);
-
+  const [documentId, setDocumentId] = useState<string | null>(initialDocumentId);
   const [flowState, setFlowState] = useState<FlowState>("idle");
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [pendingTipo, setPendingTipo] = useState<string>("luce");
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [docMeta, setDocMeta] = useState<DocMeta | null>(null);
 
-  const resetToForm = useCallback(() => {
+  function resetToForm() {
     setDocumentId(null);
     setDocMeta(null);
     setFlowState("idle");
     setPendingFile(null);
     router.replace("/analyze");
-  }, [router]);
+  }
 
   async function handleUpload(file: File, tipo: string) {
     setUploadError(null);
@@ -50,7 +41,6 @@ function AnalyzeContent() {
       return;
     }
 
-    // FREE: direct FormData upload, skip redactor
     setPendingFile(file);
     setPendingTipo(tipo);
     setFlowState("uploading");
@@ -188,6 +178,13 @@ function AnalyzeContent() {
       </div>
     </main>
   );
+}
+
+function AnalyzeContent() {
+  const searchParams = useSearchParams();
+  const urlId = searchParams.get("id");
+
+  return <AnalyzeFlow key={urlId ?? "new"} initialDocumentId={urlId} />;
 }
 
 export default function AnalyzePage() {

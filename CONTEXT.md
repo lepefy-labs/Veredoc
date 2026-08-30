@@ -1,6 +1,6 @@
 # CONTEXT.md — Veredoc
 
-> Aggiornato: 2026-08-30 — production hardening + scheduler recovery n8n configurato/testato
+> Aggiornato: 2026-08-30 — production hardening + scheduler n8n + CI/lint globale
 
 ---
 
@@ -231,12 +231,12 @@ pnpm build
 
 GitHub Actions esegue su PR e push a `main`:
 1. install frozen lockfile;
-2. lint dei file introdotti/modificati dal production hardening;
+2. lint globale (`pnpm lint`);
 3. typecheck globale;
 4. unit test;
 5. build produzione globale.
 
-Il lint globale del repository presenta ancora debito preesistente in alcuni componenti/route precedenti a questo hardening; per non mescolare refactoring non richiesti nello stesso intervento, la CI blocca sul lint dei file hardenizzati mentre `typecheck`, test e build rimangono globali.
+Il debito ESLint preesistente emerso durante il production hardening è stato eliminato. La CI blocca ora sul lint dell'intero repository, oltre a typecheck, test e build globali.
 
 ---
 
@@ -258,16 +258,15 @@ Il lint globale del repository presenta ancora debito preesistente in alcuni com
 - Upload con magic-byte validation, quota anticipata e cleanup compensativo.
 - Scraping tariffe e refresh mercato.
 - Scheduler n8n Nightly Market Rates esistente.
-- CI, typecheck e unit test iniziali.
+- CI globale con lint, typecheck, unit test e build.
 
 ## Prossimi passi consigliati
 
 1. Pubblicare il workflow n8n `Analysis Recovery` quando si decide di rendere attivo il recovery automatico ogni 5 minuti.
-2. Eliminare il debito ESLint preesistente e riportare il lint CI all'intero repository.
-3. Aggiungere integration test con DB/Storage fittizi per concorrenza worker, retry e ownership.
-4. Implementare billing reale e subscription lifecycle per PRO.
-5. Aggiungere observability: error tracking, metriche durata AI, tentativi, documenti stale e costi provider.
-6. Espandere test dei parser e del confronto mercato con fixture reali anonimizzate.
+2. Aggiungere integration test con DB/Storage fittizi per concorrenza worker, retry e ownership.
+3. Implementare billing reale e subscription lifecycle per PRO.
+4. Aggiungere observability: error tracking, metriche durata AI, tentativi, documenti stale e costi provider.
+5. Espandere test dei parser e del confronto mercato con fixture reali anonimizzate.
 
 ---
 

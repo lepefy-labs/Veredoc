@@ -46,8 +46,7 @@ export interface BollettaRaw {
   voci_dettaglio: VoceDettaglio[];
 }
 
-// BollettaData kept for backwards compatibility with existing stored documents
-export interface BollettaData extends BollettaRaw {}
+export type BollettaData = BollettaRaw;
 
 export interface OffertaMercato {
   provider: string;

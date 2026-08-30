@@ -22,7 +22,6 @@ interface DocumentRedactorProps {
 
 export default function DocumentRedactor({ file, onReady, onCancel }: DocumentRedactorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const overlayRef = useRef<HTMLDivElement>(null);
 
   const [pages, setPages] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
