@@ -14,7 +14,7 @@ interface DocumentItem {
   type: DocumentType;
   fileName: string;
   status: AnalysisStatus;
-  createdAt: Date;
+  createdAt: Date | string;
   analysis: unknown;
 }
 

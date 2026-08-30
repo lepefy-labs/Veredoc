@@ -3,10 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import Button from "@/components/ui/Button";
-import DocumentList from "@/components/DocumentList";
-import HistoricalInsights from "@/components/HistoricalInsights";
 import ProfileManager from "@/components/ProfileManager";
-import { buildLongitudinalInsights } from "@/lib/insights/history";
+import ProfileDashboard from "@/components/ProfileDashboard";
 import { TEXTS } from "@/lib/config/texts";
 import { ANALYSIS_LIMITS } from "@/lib/config/constants";
 import { AnalysisStatus, UserPlan } from "@prisma/client";
@@ -40,6 +38,22 @@ export default async function DashboardPage() {
   const monthlyLimit = ANALYSIS_LIMITS[plan];
   const quotaPct = Math.min(100, Math.round((usedThisMonth / monthlyLimit) * 100));
   const profileOptions = profiles.map(({ id, label, kind, isDefault }) => ({ id, label, kind, isDefault }));
+  const dashboardProfiles = profiles.map((profile) => ({
+    id: profile.id,
+    label: profile.label,
+    kind: profile.kind,
+    isDefault: profile.isDefault,
+    documents: profile.documents.map((document) => ({
+      id: document.id,
+      profileId: document.profileId,
+      type: document.type,
+      fileName: document.fileName,
+      status: document.status,
+      createdAt: document.createdAt.toISOString(),
+      analysis: document.analysis,
+    })),
+  }));
+  const defaultProfile = profiles.find((profile) => profile.isDefault) ?? profiles[0];
 
   return (
     <main className="min-h-screen px-4 py-10">
@@ -51,7 +65,9 @@ export default async function DashboardPage() {
               {documentsCount === 0 ? "Carica il tuo primo documento per iniziare" : documentsCount === 1 ? "1 documento" : `${documentsCount} documenti`}
             </p>
           </div>
-          <Link href="/analyze"><Button size="md">{TEXTS.dashboard.newAnalysis}</Button></Link>
+          <Link href={defaultProfile ? `/analyze?profile=${encodeURIComponent(defaultProfile.id)}` : "/analyze"}>
+            <Button size="md">{TEXTS.dashboard.newAnalysis}</Button>
+          </Link>
         </div>
 
         <ProfileManager profiles={profileOptions} />
@@ -78,30 +94,11 @@ export default async function DashboardPage() {
 
         {profiles.length === 0 ? (
           <div className="rounded-xl border border-line bg-white p-8 text-center">
-            <p className="text-sm text-muted">Nessun profilo disponibile. Applica la migrazione AnalysisProfile prima di usare questa versione.</p>
+            <p className="text-sm text-muted">Nessun profilo disponibile.</p>
           </div>
-        ) : profiles.map((profile) => {
-          const insights = buildLongitudinalInsights(profile.documents);
-          return (
-            <section key={profile.id} className="rounded-2xl border border-line bg-white p-5 sm:p-6 space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-lg font-semibold text-ink">{profile.label}</h2>
-                    {profile.isDefault && <span className="text-[11px] rounded-full bg-brand-soft text-brand px-2 py-0.5 font-semibold">predefinito</span>}
-                  </div>
-                  <p className="text-xs text-muted mt-1">{profile.documents.length === 1 ? "1 documento" : `${profile.documents.length} documenti`} · confronti storici isolati in questo profilo</p>
-                </div>
-                <Link href={`/analyze?profile=${encodeURIComponent(profile.id)}`} className="inline-flex items-center justify-center rounded-lg bg-brand text-white px-4 py-2 text-sm font-semibold hover:bg-brand-dark">
-                  Carica per {profile.label}
-                </Link>
-              </div>
-
-              <HistoricalInsights insights={insights} />
-              <DocumentList initialDocuments={profile.documents} profiles={profileOptions} currentProfileId={profile.id} />
-            </section>
-          );
-        })}
+        ) : (
+          <ProfileDashboard profiles={dashboardProfiles} profileOptions={profileOptions} />
+        )}
       </div>
     </main>
   );

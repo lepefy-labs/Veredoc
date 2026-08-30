@@ -1,6 +1,6 @@
 # CONTEXT.md — Veredoc
 
-> Aggiornato: 2026-08-30 — profili di analisi, storico isolato per soggetto e spostamento documenti tra profili
+> Aggiornato: 2026-08-30 — profili di analisi, dashboard filtrabile e trend longitudinali multi-periodo
 
 ---
 
@@ -12,6 +12,7 @@ Veredoc è un SaaS italiano che analizza bollette (luce, gas, internet) e buste 
 - **Buste paga:** lettura strutturata, controlli deterministici di coerenza/anomalia e spiegazione delle voci.
 - **Profili di analisi:** uno stesso account può separare i documenti di persone, case/nuclei e attività diverse.
 - **Storico intelligente:** i confronti longitudinali vengono calcolati esclusivamente tra documenti dello stesso profilo e dello stesso tipo.
+- **Trend multi-periodo:** da 3 documenti comparabili in poi Veredoc aggiunge una lettura del periodo usando fino alle 4 analisi più recenti.
 
 I controlli payroll e longitudinali sono segnali di coerenza e variazione. Non costituiscono certificazione fiscale, consulenza del lavoro o verifica legale.
 
@@ -35,8 +36,6 @@ I controlli payroll e longitudinali sono segnali di coerenza e variazione. Non c
 
 ## Modello profili
 
-Relazione principale:
-
 ```text
 User
   └── AnalysisProfile
@@ -49,15 +48,15 @@ User
 Ogni `Document` conserva sia `userId` sia `profileId`.
 
 Regole:
-- ogni nuovo account nasce con il profilo default `Io`;
-- la migrazione `002_analysis_profiles.sql` crea `Io` per ogni account esistente e vi assegna tutti i documenti preesistenti;
+- ogni account ha un profilo default `Io`;
+- la migrazione `002_analysis_profiles.sql` ha creato `Io` per gli account esistenti e assegnato i documenti preesistenti;
 - un account può creare ulteriori profili senza raccogliere dati personali non necessari;
 - un documento può essere spostato tra profili dello stesso account;
 - una route di spostamento rifiuta profili appartenenti ad altri account;
-- il profilo default viene usato per gli upload generici senza `profileId`;
-- dalla dashboard ogni profilo espone una CTA `Carica per <profilo>` che passa esplicitamente il profilo al flusso upload.
+- il profilo default viene usato per upload generici senza `profileId`;
+- dalla dashboard ogni profilo espone una CTA `Carica per <profilo>`.
 
-La relazione `Document.profile` è `RESTRICT` in cancellazione: eliminare un profilo non deve cancellare implicitamente documenti. La UI attuale non espone ancora la cancellazione dei profili.
+La relazione `Document.profile` usa `RESTRICT` in cancellazione: eliminare un profilo non deve cancellare implicitamente documenti. La UI non espone ancora la cancellazione dei profili.
 
 ---
 
@@ -66,7 +65,7 @@ La relazione `Document.profile` è `RESTRICT` in cancellazione: eliminare un pro
 ```text
 app/
   analyze/                          upload auto-detect, profile-aware
-  dashboard/                        profili, quota, storico e documenti
+  dashboard/                        profili, quota, filtro profilo, storico e documenti
   api/
     profiles/                       lista/creazione profili
     documents/upload/               upload associato a profilo
@@ -76,15 +75,17 @@ app/
     jobs/process-analysis/           recovery batch
 components/
   ProfileManager.tsx                creazione e riepilogo profili
+  ProfileDashboard.tsx              filtro dashboard per profilo
   DocumentList.tsx                  documenti + cambio profilo
-  HistoricalInsights.tsx            confronto longitudinale
+  HistoricalInsights.tsx            ultimo-vs-precedente + trend periodo
   FileUploader.tsx
   AnalysisResult.tsx
   BollettaDecisionSummary.tsx
   BollettaReport.tsx
   BustaPagaReport.tsx
 lib/
-  insights/history.ts               confronto deterministico con isolamento profilo
+  insights/history.ts               confronto ultimo-vs-precedente
+  insights/trends.ts                trend deterministico su 3-4 analisi, profile-scoped
   ai/
   jobs/
   parsers/
@@ -107,19 +108,32 @@ supabase/rls.sql
 7. Claude esegue auto-detection one-pass di luce/gas/internet/busta paga.
 8. Worker, validazione runtime, retry e recovery restano invariati.
 
+Il CTA principale della dashboard punta al profilo default; le CTA dentro ogni sezione puntano esplicitamente al profilo selezionato.
+
 ---
 
 ## Storico longitudinale
 
-`lib/insights/history.ts` non confronta mai documenti appartenenti a profili differenti.
+### Ultimo vs precedente
 
-Per ogni profilo:
-- bollette: confronta solo stesso tipo (luce con luce, gas con gas, internet con internet);
-- buste paga: confronta solo cedolini dello stesso profilo;
-- usa esclusivamente documenti `DONE` con analisi valida;
-- l'ultima analisi viene confrontata con la precedente.
+`lib/insights/history.ts` lavora sui documenti `DONE` con analisi valida e confronta l'ultima analisi con la precedente dello stesso tipo all'interno del profilo visualizzato.
 
-Questo evita confronti errati, per esempio tra la busta paga dell'utente e quella di un familiare o tra bollette di abitazioni diverse.
+### Trend multi-periodo
+
+`lib/insights/trends.ts` entra in gioco quando esistono almeno 3 documenti comparabili dello stesso tipo. Usa fino alle 4 analisi più recenti e confronta il documento più recente con l'inizio della finestra osservata.
+
+Per le bollette considera quando disponibili:
+- spesa totale;
+- prezzo unitario della materia energia;
+- consumi.
+
+Per le buste paga considera:
+- netto;
+- lordo.
+
+Il motore trend applica anche un filtro `profileId` interno: anche se un chiamante gli passasse per errore documenti misti, non costruirebbe un trend usando profili diversi.
+
+La dashboard può essere filtrata con chip `Tutti` / singolo profilo. Il filtro nasconde insieme documenti e storico degli altri profili, mantenendo visibile il contesto corretto.
 
 ---
 
@@ -139,7 +153,7 @@ Questo evita confronti errati, per esempio tra la busta paga dell'utente e quell
 
 - ownership documento centralizzata;
 - spostamento documento consentito solo se documento e profilo appartengono alla sessione corrente;
-- RLS aggiunta a `AnalysisProfile` oltre a `User`, `Document` e `MarketRate`;
+- RLS su `AnalysisProfile`, `User`, `Document` e `MarketRate`;
 - job protetti da `JOBS_SECRET` fail-closed;
 - Supabase Service Role solo server-side;
 - upload PRO verificato server-side;
@@ -147,9 +161,9 @@ Questo evita confronti errati, per esempio tra la busta paga dell'utente e quell
 
 ---
 
-## Migrazione database
+## Database
 
-File: `supabase/migrations/002_analysis_profiles.sql`.
+La migrazione `supabase/migrations/002_analysis_profiles.sql` è stata applicata il 2026-08-30.
 
 La migrazione:
 1. crea enum `ProfileKind`;
@@ -161,8 +175,6 @@ La migrazione:
 7. rende `profileId` non nullable;
 8. aggiunge FK e indice;
 9. abilita RLS sulla nuova tabella.
-
-È una migrazione strutturale approvata esplicitamente il 2026-08-30.
 
 ---
 
@@ -177,7 +189,7 @@ pnpm test
 pnpm build
 ```
 
-Per lavoro ordinario destinato a `main` non si apre una PR di staging per default, per evitare preview deploy Vercel inutili. Pattern preferito:
+Per lavoro ordinario destinato a `main` non si apre una PR di staging per default, per evitare preview deploy Vercel inutili.
 
 ```text
 INSPECT → PREPARE FULL CHANGE → ONE ATOMIC COMMIT → ONE MAIN UPDATE → CI → PRODUCTION DEPLOY
@@ -193,8 +205,9 @@ PR solo se richiesta, imposta da policy o realmente necessaria per validare in s
 - worker concurrency/lease/retry;
 - auto-detection cross-type;
 - payroll coherence;
-- storico longitudinale bollette/payroll;
-- isolamento longitudinale tra profili differenti;
+- storico ultimo-vs-precedente;
+- trend multi-periodo bollette/payroll;
+- isolamento trend tra profili differenti;
 - authorization job/ownership;
 - observability.
 
@@ -202,10 +215,10 @@ PR solo se richiesta, imposta da policy o realmente necessaria per validare in s
 
 ## Prossimi passi consigliati
 
-1. Applicare la migrazione `002_analysis_profiles.sql` in Supabase prima del deploy applicativo corrispondente.
-2. Validare profili/spostamento documenti con dati reali di prova.
-3. Evolvere lo storico da 1-vs-1 a trend multi-periodo all'interno dello stesso profilo.
-4. Aggiungere rename/archive profilo solo quando emerge il bisogno reale, mantenendo la cancellazione documenti separata.
+1. Validare profili, spostamento documenti e trend con dati reali di prova.
+2. Rendere la selezione profilo ancora più esplicita nel flusso `/analyze` quando l'utente entra direttamente senza provenire dalla dashboard.
+3. Per payroll, aggiungere dati strutturati su ferie/permessi/TFR solo dopo aver verificato affidabilità di estrazione su cedolini reali eterogenei.
+4. Valutare rename/archive profilo mantenendo la cancellazione documenti separata.
 5. Billing reale PRO solo previa approvazione esplicita.
 6. Pubblicare n8n Analysis Recovery quando si decide di attivare il recovery automatico.
 
