@@ -58,7 +58,7 @@ export default function ProfileManager({ profiles }: { profiles: ProfileOption[]
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-ink">Profili di analisi</p>
-          <p className="text-sm text-muted mt-1">Separa i documenti tuoi, dei familiari, delle case o di un'attività. I confronti storici restano dentro lo stesso profilo.</p>
+          <p className="text-sm text-muted mt-1">Separa i documenti tuoi, dei familiari, delle case o di un&apos;attività. I confronti storici restano dentro lo stesso profilo.</p>
         </div>
         <button
           type="button"
