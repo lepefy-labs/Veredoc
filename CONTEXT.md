@@ -1,6 +1,6 @@
 # CONTEXT.md — Veredoc
 
-> Aggiornato: 2026-08-30 — profili di analisi, dashboard filtrabile e trend longitudinali multi-periodo
+> Aggiornato: 2026-08-30 — profili di analisi, selezione esplicita in upload, dashboard filtrabile e trend longitudinali multi-periodo
 
 ---
 
@@ -53,7 +53,8 @@ Regole:
 - un account può creare ulteriori profili senza raccogliere dati personali non necessari;
 - un documento può essere spostato tra profili dello stesso account;
 - una route di spostamento rifiuta profili appartenenti ad altri account;
-- il profilo default viene usato per upload generici senza `profileId`;
+- il profilo default viene usato come fallback backend se un upload non specifica `profileId`;
+- il flusso `/analyze` carica i profili dell'account e richiede una scelta esplicita prima dell'upload, pre-selezionando il profilo richiesto dalla dashboard o, in assenza, il default `Io`;
 - dalla dashboard ogni profilo espone una CTA `Carica per <profilo>`.
 
 La relazione `Document.profile` usa `RESTRICT` in cancellazione: eliminare un profilo non deve cancellare implicitamente documenti. La UI non espone ancora la cancellazione dei profili.
@@ -64,7 +65,7 @@ La relazione `Document.profile` usa `RESTRICT` in cancellazione: eliminare un pr
 
 ```text
 app/
-  analyze/                          upload auto-detect, profile-aware
+  analyze/                          upload auto-detect, selezione profilo esplicita
   dashboard/                        profili, quota, filtro profilo, storico e documenti
   api/
     profiles/                       lista/creazione profili
@@ -75,6 +76,7 @@ app/
     jobs/process-analysis/           recovery batch
 components/
   ProfileManager.tsx                creazione e riepilogo profili
+  ProfileSelector.tsx               selezione profilo prima dell'upload
   ProfileDashboard.tsx              filtro dashboard per profilo
   DocumentList.tsx                  documenti + cambio profilo
   HistoricalInsights.tsx            ultimo-vs-precedente + trend periodo
@@ -84,6 +86,7 @@ components/
   BollettaReport.tsx
   BustaPagaReport.tsx
 lib/
+  profiles/selection.ts             risoluzione profilo richiesto/default
   insights/history.ts               confronto ultimo-vs-precedente
   insights/trends.ts                trend deterministico su 3-4 analisi, profile-scoped
   ai/
@@ -100,15 +103,17 @@ supabase/rls.sql
 ## Flusso upload
 
 1. Utente autenticato.
-2. Piano e quota verificati prima dello Storage.
-3. File validato tramite magic bytes/MIME e limite 10 MB.
-4. Se il chiamante passa `profileId`, il backend accetta solo un profilo appartenente allo stesso `userId`.
-5. Senza `profileId` viene usato il profilo default `Io`.
-6. Il documento nasce `PENDING` con `userId + profileId`.
-7. Claude esegue auto-detection one-pass di luce/gas/internet/busta paga.
-8. Worker, validazione runtime, retry e recovery restano invariati.
+2. `/analyze` carica `GET /api/profiles` e mostra `Per chi è questo documento?` prima del file uploader.
+3. Se l'URL contiene `?profile=<id>` e il profilo appartiene all'account, viene mantenuto; altrimenti viene selezionato il profilo default, oppure il primo disponibile come fallback UI.
+4. La scelta profilo viene mantenuta anche nel flusso di redazione PRO e inviata esplicitamente al backend.
+5. Piano e quota vengono verificati server-side prima dello Storage.
+6. File validato tramite magic bytes/MIME e limite 10 MB.
+7. Il backend accetta `profileId` solo se appartiene allo stesso `userId`; senza `profileId` conserva il fallback al profilo default.
+8. Il documento nasce `PENDING` con `userId + profileId`.
+9. Claude esegue auto-detection one-pass di luce/gas/internet/busta paga.
+10. Worker, validazione runtime, retry e recovery restano invariati.
 
-Il CTA principale della dashboard punta al profilo default; le CTA dentro ogni sezione puntano esplicitamente al profilo selezionato.
+Il CTA principale della dashboard punta al profilo default; le CTA dentro ogni sezione puntano esplicitamente al profilo selezionato. L'utente può comunque cambiare profilo direttamente in `/analyze` prima di scegliere il file.
 
 ---
 
@@ -153,6 +158,8 @@ La dashboard può essere filtrata con chip `Tutti` / singolo profilo. Il filtro 
 
 - ownership documento centralizzata;
 - spostamento documento consentito solo se documento e profilo appartengono alla sessione corrente;
+- selettore `/analyze` mostra solo profili restituiti dall'API autenticata dell'account;
+- il backend continua a validare ownership del `profileId` indipendentemente dalla UI;
 - RLS su `AnalysisProfile`, `User`, `Document` e `MarketRate`;
 - job protetti da `JOBS_SECRET` fail-closed;
 - Supabase Service Role solo server-side;
@@ -205,6 +212,7 @@ PR solo se richiesta, imposta da policy o realmente necessaria per validare in s
 - worker concurrency/lease/retry;
 - auto-detection cross-type;
 - payroll coherence;
+- risoluzione profilo richiesto/default nel flusso upload;
 - storico ultimo-vs-precedente;
 - trend multi-periodo bollette/payroll;
 - isolamento trend tra profili differenti;
@@ -215,12 +223,11 @@ PR solo se richiesta, imposta da policy o realmente necessaria per validare in s
 
 ## Prossimi passi consigliati
 
-1. Validare profili, spostamento documenti e trend con dati reali di prova.
-2. Rendere la selezione profilo ancora più esplicita nel flusso `/analyze` quando l'utente entra direttamente senza provenire dalla dashboard.
-3. Per payroll, aggiungere dati strutturati su ferie/permessi/TFR solo dopo aver verificato affidabilità di estrazione su cedolini reali eterogenei.
-4. Valutare rename/archive profilo mantenendo la cancellazione documenti separata.
-5. Billing reale PRO solo previa approvazione esplicita.
-6. Pubblicare n8n Analysis Recovery quando si decide di attivare il recovery automatico.
+1. Validare profili, spostamento documenti, selezione upload e trend con dati reali di prova.
+2. Per payroll, aggiungere dati strutturati su ferie/permessi/TFR solo dopo aver verificato affidabilità di estrazione su cedolini reali eterogenei.
+3. Valutare rename/archive profilo mantenendo la cancellazione documenti separata.
+4. Billing reale PRO solo previa approvazione esplicita.
+5. Pubblicare n8n Analysis Recovery quando si decide di attivare il recovery automatico.
 
 ---
 

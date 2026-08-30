@@ -1,11 +1,12 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useCallback, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
 import FileUploader from "@/components/FileUploader";
 import AnalysisResult, { type DocMeta } from "@/components/AnalysisResult";
 import DocumentRedactor from "@/components/DocumentRedactor";
+import ProfileSelector from "@/components/ProfileSelector";
 import Card from "@/components/ui/Card";
 import Link from "next/link";
 import { TEXTS } from "@/lib/config/texts";
@@ -16,21 +17,36 @@ function AnalyzeFlow({ initialDocumentId, profileId }: { initialDocumentId: stri
   const { data: session, status } = useSession();
   const router = useRouter();
   const [documentId, setDocumentId] = useState<string | null>(initialDocumentId);
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(profileId);
   const [flowState, setFlowState] = useState<FlowState>("idle");
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [docMeta, setDocMeta] = useState<DocMeta | null>(null);
+
+  const handleProfileSelect = useCallback((nextProfileId: string) => {
+    setSelectedProfileId(nextProfileId);
+    setUploadError(null);
+    if (profileId !== nextProfileId) {
+      router.replace(`/analyze?profile=${encodeURIComponent(nextProfileId)}`, { scroll: false });
+    }
+  }, [profileId, router]);
 
   function resetToForm() {
     setDocumentId(null);
     setDocMeta(null);
     setFlowState("idle");
     setPendingFile(null);
-    router.replace(profileId ? `/analyze?profile=${encodeURIComponent(profileId)}` : "/analyze");
+    setUploadError(null);
+    router.replace(selectedProfileId ? `/analyze?profile=${encodeURIComponent(selectedProfileId)}` : "/analyze");
   }
 
   async function handleUpload(file: File) {
     setUploadError(null);
+    if (!selectedProfileId) {
+      setUploadError("Seleziona il profilo a cui appartiene il documento prima di continuare.");
+      return;
+    }
+
     const isPro = session?.user?.plan === "PRO";
 
     if (isPro) {
@@ -44,7 +60,7 @@ function AnalyzeFlow({ initialDocumentId, profileId }: { initialDocumentId: stri
 
     const formData = new FormData();
     formData.append("file", file);
-    if (profileId) formData.append("profileId", profileId);
+    formData.append("profileId", selectedProfileId);
     const res = await fetch("/api/documents/upload", {
       method: "POST",
       body: formData,
@@ -64,7 +80,12 @@ function AnalyzeFlow({ initialDocumentId, profileId }: { initialDocumentId: stri
   }
 
   async function handleRedacted(redactedPdfBase64: string) {
-    if (!pendingFile) return;
+    if (!pendingFile || !selectedProfileId) {
+      setUploadError("Profilo del documento non disponibile. Torna al caricamento e selezionalo di nuovo.");
+      setFlowState("idle");
+      return;
+    }
+
     setFlowState("uploading");
     setUploadError(null);
 
@@ -75,7 +96,7 @@ function AnalyzeFlow({ initialDocumentId, profileId }: { initialDocumentId: stri
         fileBase64: redactedPdfBase64,
         mimeType: "application/pdf",
         fileName: pendingFile.name,
-        profileId,
+        profileId: selectedProfileId,
       }),
     });
 
@@ -129,6 +150,9 @@ function AnalyzeFlow({ initialDocumentId, profileId }: { initialDocumentId: stri
           <AnalysisResult documentId={documentId} onReset={resetToForm} onDocLoaded={setDocMeta} />
         ) : flowState === "redacting" && pendingFile ? (
           <Card>
+            <div className="mb-4 rounded-lg border border-line bg-page px-3 py-2">
+              <p className="text-xs text-muted">Il documento resterà associato al profilo scelto prima dell'upload.</p>
+            </div>
             <p className="text-sm font-medium text-ink mb-4">Oscura i dati personali prima di inviare il documento</p>
             <DocumentRedactor file={pendingFile} onReady={handleRedacted} onCancel={resetToForm} />
           </Card>
@@ -136,9 +160,17 @@ function AnalyzeFlow({ initialDocumentId, profileId }: { initialDocumentId: stri
           <Card><div className="flex items-center justify-center py-12"><p className="text-sm text-muted">Invio documento in corso...</p></div></Card>
         ) : (
           <Card>
-            <FileUploader onUpload={handleUpload} loading={false} />
-            {profileId && <p className="mt-3 text-xs text-muted">Il documento verrà assegnato al profilo selezionato dalla dashboard.</p>}
-            {uploadError && <p className="mt-3 text-sm text-danger">{uploadError}</p>}
+            <div className="space-y-5">
+              <ProfileSelector
+                initialProfileId={profileId}
+                selectedProfileId={selectedProfileId}
+                onSelect={handleProfileSelect}
+              />
+              <div className="border-t border-line pt-5">
+                <FileUploader onUpload={handleUpload} loading={false} />
+              </div>
+            </div>
+            {uploadError && <p className="mt-3 text-sm text-danger" role="alert">{uploadError}</p>}
           </Card>
         )}
       </div>
@@ -151,7 +183,7 @@ function AnalyzeContent() {
   const urlId = searchParams.get("id");
   const profileId = searchParams.get("profile");
 
-  return <AnalyzeFlow key={`${urlId ?? "new"}:${profileId ?? "default"}`} initialDocumentId={urlId} profileId={profileId} />;
+  return <AnalyzeFlow key={urlId ?? "new"} initialDocumentId={urlId} profileId={profileId} />;
 }
 
 export default function AnalyzePage() {
