@@ -151,7 +151,7 @@ function AnalyzeFlow({ initialDocumentId, profileId }: { initialDocumentId: stri
         ) : flowState === "redacting" && pendingFile ? (
           <Card>
             <div className="mb-4 rounded-lg border border-line bg-page px-3 py-2">
-              <p className="text-xs text-muted">Il documento resterà associato al profilo scelto prima dell'upload.</p>
+              <p className="text-xs text-muted">Il documento resterà associato al profilo scelto prima dell&apos;upload.</p>
             </div>
             <p className="text-sm font-medium text-ink mb-4">Oscura i dati personali prima di inviare il documento</p>
             <DocumentRedactor file={pendingFile} onReady={handleRedacted} onCancel={resetToForm} />
