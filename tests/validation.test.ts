@@ -72,7 +72,44 @@ test("validateBollettaOutput rejects malformed numeric data", () => {
   assert.throws(() => validateBollettaOutput({ tipo_rilevato: "luce", tipo: "luce" }));
 });
 
-test("validateBustaPagaOutput validates payroll payloads", () => {
+test("validateBustaPagaOutput accepts a realistic anonymized payroll shape", () => {
+  const result = validateBustaPagaOutput({
+    tipo_rilevato: "busta_paga",
+    datore_lavoro: "Datore Test",
+    competenza: "08/2026",
+    stipendio_lordo: 2450,
+    stipendio_netto: 1768.42,
+    competenze_totali: 2545,
+    trattenute_totali: 776.58,
+    imponibile_previdenziale: 2450,
+    imponibile_fiscale: 2228.75,
+    contributi_inps: 224.91,
+    irpef: 381.67,
+    irpef_lorda: 512.3,
+    detrazioni: 130.63,
+    addizionali: 39.2,
+    tfr_maturato: 181.48,
+    tfr_progressivo: 3629.6,
+    saldi_assenze: [
+      { tipo: "ferie", maturato: 14.4, goduto: 8, residuo: 52.5, unita: "ore" },
+      { tipo: "rol", maturato: 5.8, goduto: 0, residuo: 21.8, unita: "ore" },
+    ],
+    eventi_periodo: [
+      { tipo: "straordinario", descrizione: "Straordinario 25%", quantita: 6, unita: "ore", importo: 95 },
+      { tipo: "premio", descrizione: "Premio presenza", quantita: null, unita: null, importo: 120 },
+    ],
+    voci: [
+      { nome: "Paga base", importo: 2330, tipo: "competenza", spiegazione: "Retribuzione ordinaria" },
+      { nome: "Premio presenza", importo: 120, tipo: "competenza", spiegazione: "Premio indicato nel periodo" },
+    ],
+  });
+  assert.equal(result.stipendio_netto, 1768.42);
+  assert.equal(result.saldi_assenze?.length, 2);
+  assert.equal(result.eventi_periodo?.[0].tipo, "straordinario");
+  assert.equal(result.tfr_progressivo, 3629.6);
+});
+
+test("validateBustaPagaOutput keeps v1-compatible payroll payloads valid", () => {
   const result = validateBustaPagaOutput({
     tipo_rilevato: "busta_paga",
     datore_lavoro: "Datore Test",
@@ -84,5 +121,22 @@ test("validateBustaPagaOutput validates payroll payloads", () => {
     irpef: 340,
     tfr_maturato: 150,
   });
-  assert.equal(result.stipendio_netto, 1650);
+  assert.deepEqual(result.saldi_assenze, []);
+  assert.deepEqual(result.eventi_periodo, []);
+  assert.equal(result.tfr_progressivo, null);
+});
+
+test("validateBustaPagaOutput rejects unsupported payroll event categories", () => {
+  assert.throws(() => validateBustaPagaOutput({
+    tipo_rilevato: "busta_paga",
+    datore_lavoro: "Datore Test",
+    competenza: "08/2026",
+    stipendio_lordo: 2200,
+    stipendio_netto: 1650,
+    voci: [],
+    contributi_inps: 210,
+    irpef: 340,
+    tfr_maturato: null,
+    eventi_periodo: [{ tipo: "inventato", descrizione: "x", quantita: null, unita: null, importo: null }],
+  }), /non supportato/);
 });

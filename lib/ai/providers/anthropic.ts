@@ -79,6 +79,21 @@ SE È UNA BUSTA PAGA restituisci:
   "detrazioni": number | null,
   "addizionali": number | null,
   "tfr_maturato": number | null,
+  "tfr_progressivo": number | null,
+  "saldi_assenze": [{
+    "tipo": "ferie"|"permessi"|"rol"|"ex_festivita"|"altro",
+    "maturato": number | null,
+    "goduto": number | null,
+    "residuo": number | null,
+    "unita": string | null
+  }],
+  "eventi_periodo": [{
+    "tipo": "straordinario"|"premio"|"assenza"|"malattia"|"ferie"|"permesso"|"altro",
+    "descrizione": string,
+    "quantita": number | null,
+    "unita": string | null,
+    "importo": number | null
+  }],
   "voci": [{ "nome": string, "importo": number, "tipo": "competenza"|"trattenuta", "spiegazione": string }]
 }
 
@@ -89,7 +104,10 @@ Regole busta paga:
 - irpef è l'IRPEF effettivamente trattenuta nel periodo, al netto delle detrazioni quando il cedolino la espone così.
 - imponibile_previdenziale e imponibile_fiscale devono essere quelli riportati nel documento, non stimati.
 - competenze_totali e trattenute_totali devono essere i totali del cedolino quando presenti.
-- se un campo non è determinabile, usa null. Non inventare valori.
+- tfr_maturato è il rateo/maturazione del periodo solo quando esplicitamente indicato; tfr_progressivo è il totale/progressivo riportato nel documento. Non stimare nessuno dei due.
+- saldi_assenze contiene solo contatori chiaramente stampati per ferie, permessi, ROL, ex festività o equivalenti. Mantieni l'unità originale (ore/giorni) e non convertire.
+- eventi_periodo contiene solo eventi chiaramente riferiti al mese: straordinari, premi, assenze, malattia, ferie, permessi o altre competenze/assenze variabili. Se quantità o importo non sono stampati, usa null.
+- se non trovi saldi o eventi, restituisci array vuoti. Se un campo non è determinabile, usa null. Non inventare valori.
 - ogni spiegazione deve essere in italiano semplice e descrittiva, senza affermare che una voce è legalmente corretta se il documento da solo non lo dimostra.
 
 SE NON È UN DOCUMENTO SUPPORTATO restituisci esattamente:
@@ -130,7 +148,7 @@ export class AnthropicProvider implements AIProvider {
 
     const response = await this.client.messages.create({
       model: MODEL,
-      max_tokens: 3072,
+      max_tokens: 4096,
       messages: [
         {
           role: 'user',

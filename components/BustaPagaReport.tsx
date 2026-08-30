@@ -1,5 +1,5 @@
 import Card from "@/components/ui/Card";
-import { BustaPagaData, PayrollCheck } from "@/types/bustapaga";
+import { BustaPagaData, PayrollBalance, PayrollCheck, PayrollPeriodEvent } from "@/types/bustapaga";
 import { calcolaAliquotaEffettiva } from "@/lib/parsers/bustapaga";
 
 interface BustaPagaReportProps {
@@ -24,9 +24,40 @@ function checkIcon(level: PayrollCheck["level"]) {
   return "i";
 }
 
+const BALANCE_LABELS: Record<PayrollBalance["tipo"], string> = {
+  ferie: "Ferie",
+  permessi: "Permessi",
+  rol: "ROL",
+  ex_festivita: "Ex festività",
+  altro: "Altro saldo",
+};
+
+const EVENT_LABELS: Record<PayrollPeriodEvent["tipo"], string> = {
+  straordinario: "Straordinario",
+  premio: "Premio",
+  assenza: "Assenza",
+  malattia: "Malattia",
+  ferie: "Ferie",
+  permesso: "Permesso",
+  altro: "Altra voce",
+};
+
+function numberValue(value: number | null, unit: string | null): string {
+  if (value == null) return "—";
+  return `${value.toLocaleString("it-IT", { maximumFractionDigits: 2 })}${unit ? ` ${unit}` : ""}`;
+}
+
+function moneyValue(value: number | null): string {
+  if (value == null) return "—";
+  return value.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
+}
+
 export default function BustaPagaReport({ data }: BustaPagaReportProps) {
   const aliquota = calcolaAliquotaEffettiva(data);
   const verifica = data.verifica;
+  const balances = data.saldi_assenze ?? [];
+  const events = data.eventi_periodo ?? [];
+  const hasOperationalData = balances.length > 0 || events.length > 0 || data.tfr_progressivo != null;
 
   return (
     <div className="space-y-6">
@@ -53,7 +84,7 @@ export default function BustaPagaReport({ data }: BustaPagaReportProps) {
           </div>
 
           <p className="text-xs mt-5 opacity-70">
-            Veredoc controlla coerenza matematica e valori anomali visibili nel singolo cedolino. Contratto, conguagli e situazione fiscale annuale possono richiedere una verifica professionale.
+            Veredoc controlla coerenza matematica e valori anomali visibili nel cedolino. Contratto, conguagli e situazione fiscale annuale possono richiedere una verifica professionale.
           </p>
         </section>
       )}
@@ -76,27 +107,72 @@ export default function BustaPagaReport({ data }: BustaPagaReportProps) {
         </div>
       </Card>
 
+      {hasOperationalData && (
+        <Card>
+          <div className="mb-5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand">Cosa è successo questo mese</p>
+            <h3 className="font-semibold text-ink mt-1">Ferie, permessi, TFR e voci variabili</h3>
+            <p className="text-sm text-muted mt-1">Mostriamo solo dati esplicitamente letti dal cedolino, senza ricostruire valori mancanti.</p>
+          </div>
+
+          {balances.length > 0 && (
+            <div className="space-y-3 mb-5">
+              <p className="text-sm font-semibold text-ink">Saldi tempo</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {balances.map((balance, index) => (
+                  <div key={`${balance.tipo}-${index}`} className="rounded-xl border border-line bg-page p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-semibold text-ink">{BALANCE_LABELS[balance.tipo]}</p>
+                      <span className={`text-xs font-semibold ${balance.residuo != null && balance.residuo < 0 ? "text-danger" : "text-brand"}`}>
+                        Residuo {numberValue(balance.residuo, balance.unita)}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 mt-3 text-xs">
+                      <div><p className="text-muted">Maturato</p><p className="font-mono font-semibold text-ink">{numberValue(balance.maturato, balance.unita)}</p></div>
+                      <div><p className="text-muted">Goduto</p><p className="font-mono font-semibold text-ink">{numberValue(balance.goduto, balance.unita)}</p></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {data.tfr_progressivo != null && (
+            <div className="rounded-xl border border-line p-4 mb-5 flex items-center justify-between gap-4">
+              <div><p className="text-sm font-semibold text-ink">TFR progressivo</p><p className="text-xs text-muted mt-0.5">Valore riportato nel cedolino</p></div>
+              <p className="font-mono text-lg font-bold text-ink">{moneyValue(data.tfr_progressivo)}</p>
+            </div>
+          )}
+
+          {events.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-sm font-semibold text-ink">Voci variabili del periodo</p>
+              {events.map((event, index) => (
+                <div key={`${event.tipo}-${event.descrizione}-${index}`} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 rounded-lg border border-line px-3 py-3">
+                  <div className="flex-1 min-w-0">
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-brand">{EVENT_LABELS[event.tipo]}</span>
+                    <p className="text-sm font-medium text-ink truncate">{event.descrizione}</p>
+                  </div>
+                  {event.quantita != null && <p className="text-xs font-mono text-muted">{numberValue(event.quantita, event.unita)}</p>}
+                  {event.importo != null && <p className="text-sm font-mono font-semibold text-ink">{moneyValue(event.importo)}</p>}
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
+
       <Card>
         <h3 className="font-semibold text-ink mb-4">Trattenute e imponibili</h3>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <Stat label="Contributi INPS" value={data.contributi_inps.toLocaleString("it-IT", { style: "currency", currency: "EUR" })} mono />
           <Stat label="IRPEF" value={data.irpef.toLocaleString("it-IT", { style: "currency", currency: "EUR" })} mono />
           <Stat label="Incidenza trattenute principali" value={`${aliquota}%`} mono />
-          {data.tfr_maturato !== null && data.tfr_maturato !== undefined && (
-            <Stat label="TFR maturato" value={data.tfr_maturato.toLocaleString("it-IT", { style: "currency", currency: "EUR" })} mono />
-          )}
-          {data.imponibile_previdenziale != null && (
-            <Stat label="Imponibile previdenziale" value={data.imponibile_previdenziale.toLocaleString("it-IT", { style: "currency", currency: "EUR" })} mono />
-          )}
-          {data.imponibile_fiscale != null && (
-            <Stat label="Imponibile fiscale" value={data.imponibile_fiscale.toLocaleString("it-IT", { style: "currency", currency: "EUR" })} mono />
-          )}
-          {data.detrazioni != null && (
-            <Stat label="Detrazioni" value={data.detrazioni.toLocaleString("it-IT", { style: "currency", currency: "EUR" })} mono />
-          )}
-          {data.addizionali != null && (
-            <Stat label="Addizionali" value={data.addizionali.toLocaleString("it-IT", { style: "currency", currency: "EUR" })} mono />
-          )}
+          {data.tfr_maturato != null && <Stat label="TFR maturato nel periodo" value={moneyValue(data.tfr_maturato)} mono />}
+          {data.imponibile_previdenziale != null && <Stat label="Imponibile previdenziale" value={moneyValue(data.imponibile_previdenziale)} mono />}
+          {data.imponibile_fiscale != null && <Stat label="Imponibile fiscale" value={moneyValue(data.imponibile_fiscale)} mono />}
+          {data.detrazioni != null && <Stat label="Detrazioni" value={moneyValue(data.detrazioni)} mono />}
+          {data.addizionali != null && <Stat label="Addizionali" value={moneyValue(data.addizionali)} mono />}
         </div>
       </Card>
 

@@ -1,8 +1,10 @@
 import type { BollettaRaw } from "@/types/bolletta";
-import type { BustaPagaData } from "@/types/bustapaga";
+import type { BustaPagaData, PayrollBalance, PayrollPeriodEvent } from "@/types/bustapaga";
 
 const BILL_TYPES = new Set(["luce", "gas", "internet", "telefonia"]);
 const DETECTED_BILL_TYPES = new Set(["luce", "gas", "internet"]);
+const PAYROLL_BALANCE_TYPES = new Set(["ferie", "permessi", "rol", "ex_festivita", "altro"]);
+const PAYROLL_EVENT_TYPES = new Set(["straordinario", "premio", "assenza", "malattia", "ferie", "permesso", "altro"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -133,6 +135,42 @@ export function validateBollettaOutput(raw: unknown): BollettaRaw & { tipo_rilev
   };
 }
 
+function validatePayrollBalances(value: unknown): PayrollBalance[] {
+  if (value === undefined || value === null) return [];
+  return requireArray(value, "saldi_assenze").map((item, index) => {
+    const balance = requireRecord(item, `saldi_assenze[${index}]`);
+    const tipo = requireString(balance.tipo, `saldi_assenze[${index}].tipo`);
+    if (!PAYROLL_BALANCE_TYPES.has(tipo)) {
+      throw new Error(`Output AI non valido: saldi_assenze[${index}].tipo non supportato.`);
+    }
+    return {
+      tipo: tipo as PayrollBalance["tipo"],
+      maturato: requireNullableNumber(balance.maturato ?? null, `saldi_assenze[${index}].maturato`),
+      goduto: requireNullableNumber(balance.goduto ?? null, `saldi_assenze[${index}].goduto`),
+      residuo: requireNullableNumber(balance.residuo ?? null, `saldi_assenze[${index}].residuo`),
+      unita: requireNullableString(balance.unita ?? null, `saldi_assenze[${index}].unita`),
+    };
+  });
+}
+
+function validatePayrollEvents(value: unknown): PayrollPeriodEvent[] {
+  if (value === undefined || value === null) return [];
+  return requireArray(value, "eventi_periodo").map((item, index) => {
+    const event = requireRecord(item, `eventi_periodo[${index}]`);
+    const tipo = requireString(event.tipo, `eventi_periodo[${index}].tipo`);
+    if (!PAYROLL_EVENT_TYPES.has(tipo)) {
+      throw new Error(`Output AI non valido: eventi_periodo[${index}].tipo non supportato.`);
+    }
+    return {
+      tipo: tipo as PayrollPeriodEvent["tipo"],
+      descrizione: requireString(event.descrizione, `eventi_periodo[${index}].descrizione`),
+      quantita: requireNullableNumber(event.quantita ?? null, `eventi_periodo[${index}].quantita`),
+      unita: requireNullableString(event.unita ?? null, `eventi_periodo[${index}].unita`),
+      importo: requireNullableNumber(event.importo ?? null, `eventi_periodo[${index}].importo`),
+    };
+  });
+}
+
 export function validateBustaPagaOutput(raw: unknown): BustaPagaData & { tipo_rilevato: "busta_paga" } {
   const root = requireRecord(raw, "root");
   if (root.tipo_rilevato !== "busta_paga") {
@@ -163,6 +201,9 @@ export function validateBustaPagaOutput(raw: unknown): BustaPagaData & { tipo_ri
     contributi_inps: requireNumber(root.contributi_inps, "contributi_inps"),
     irpef: requireNumber(root.irpef, "irpef"),
     tfr_maturato: requireNullableNumber(root.tfr_maturato, "tfr_maturato"),
+    tfr_progressivo: requireNullableNumber(root.tfr_progressivo ?? null, "tfr_progressivo"),
+    saldi_assenze: validatePayrollBalances(root.saldi_assenze),
+    eventi_periodo: validatePayrollEvents(root.eventi_periodo),
     competenze_totali: requireNullableNumber(root.competenze_totali ?? null, "competenze_totali"),
     trattenute_totali: requireNullableNumber(root.trattenute_totali ?? null, "trattenute_totali"),
     imponibile_previdenziale: requireNullableNumber(root.imponibile_previdenziale ?? null, "imponibile_previdenziale"),
