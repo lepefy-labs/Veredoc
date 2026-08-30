@@ -3,11 +3,11 @@ export const TEXTS = {
   app: {
     name: "Veredoc",
     tagline: "I tuoi documenti, spiegati in chiaro.",
-    description: "Carica una bolletta per scoprire se stai pagando troppo, o una busta paga per capire ogni voce. Nessun inserimento manuale — basta il PDF.",
+    description: "Carica una bolletta per scoprire se stai pagando troppo, o una busta paga per capire le voci e individuare anomalie da verificare. Nessun inserimento manuale — basta il PDF.",
   },
   upload: {
     title: "Analizza un documento",
-    subtitle: "Carica una bolletta o una busta paga. L'analisi richiede circa 30 secondi.",
+    subtitle: "Carica una bolletta o una busta paga: Veredoc riconosce automaticamente il tipo e prepara il controllo più utile.",
     dragDrop: "Trascina il file qui oppure",
     browse: "sfoglia",
     fileTypes: "PDF, JPG, PNG — max 10MB",
@@ -81,7 +81,7 @@ export const TEXTS = {
       period: "sempre",
       features: [
         "Analisi di bollette luce, gas e internet",
-        "Analisi buste paga",
+        "Analisi e controlli di coerenza sulle buste paga",
         "Confronto con le offerte di mercato aggiornate",
         "10 analisi al mese",
       ],
