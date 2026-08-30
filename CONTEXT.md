@@ -1,6 +1,6 @@
 # CONTEXT.md — Veredoc
 
-> Aggiornato: 2026-08-30 — production hardening + scheduler n8n + CI/lint globale + integration test worker
+> Aggiornato: 2026-08-30 — production hardening, scheduler n8n, CI globale, worker integration test e authorization hardening
 
 ---
 
@@ -33,19 +33,17 @@ Veredoc è un SaaS italiano che analizza bollette (luce, gas, internet) e buste 
 ```text
 app/
   api/
-    auth/                         autenticazione, registrazione, reset password
-    documents/upload/             validazione, quota, upload e creazione job
-    documents/[id]/               lettura, recovery analisi e cancellazione
-    documents/[id]/refresh-market refresh confronto senza nuova analisi AI
-    jobs/process-analysis/         recovery batch protetto da JOBS_SECRET
-    jobs/refresh-market-rates/     refresh confronto sui documenti DONE
-    jobs/scrape-market-rates/      scraping tariffe
-    market-rates/                  lettura tariffe
-    admin/set-plan/                gestione piano amministrativa
-  analyze/                         upload + polling risultato
-  dashboard/                       storico documenti
-  (auth)/                          login/register/reset
-  (pages)/                         privacy/termini
+    auth/                           autenticazione, registrazione, reset password
+    documents/upload/              validazione, quota, upload e creazione job
+    documents/[id]/                lettura, recovery analisi e cancellazione
+    documents/[id]/refresh-market  refresh confronto senza nuova analisi AI
+    jobs/process-analysis/          recovery batch protetto da JOBS_SECRET
+    jobs/refresh-market-rates/      refresh confronto sui documenti DONE
+    jobs/scrape-market-rates/       scraping tariffe
+    market-rates/                   lettura tariffe
+    admin/set-plan/                 gestione piano amministrativa
+  analyze/                          upload + polling risultato
+  dashboard/                        storico documenti
 components/
   FileUploader.tsx
   AnalysisResult.tsx
@@ -54,14 +52,15 @@ components/
   BustaPagaReport.tsx
 lib/
   ai/
-    analyze.ts                     selezione provider
-    validate.ts                    validazione runtime output AI
+    analyze.ts
+    validate.ts
     providers/anthropic.ts
-  documents/upload-validation.ts   magic bytes, MIME e limiti file
-  jobs/process-document-core.ts    state machine worker testabile con dipendenze iniettate
-  jobs/process-document.ts         wiring Prisma/Supabase/AI del worker
-  parsers/                         arricchimento bollette/buste paga
-  config/                          costanti e testi
+  documents/upload-validation.ts
+  jobs/process-document-core.ts
+  jobs/process-document.ts
+  security/access.ts                guardie centralizzate job/ownership
+  parsers/
+  config/
   auth.ts
   email.ts
   prisma.ts
@@ -73,6 +72,7 @@ supabase/
 tests/
   validation.test.ts
   worker-integration.test.ts
+  authorization.test.ts
 .github/workflows/ci.yml
 ```
 
@@ -81,52 +81,47 @@ tests/
 ## Flusso upload hardenizzato
 
 1. L'utente deve essere autenticato.
-2. Il server legge il piano reale dal DB e verifica la quota mensile **prima** di salvare il file.
+2. Il server legge il piano reale dal DB e verifica la quota mensile prima di salvare il file.
 3. Il flusso JSON/base64 del redattore è consentito esclusivamente agli utenti PRO.
 4. Il contenuto viene validato server-side tramite magic bytes; PDF/JPEG/PNG devono corrispondere al MIME dichiarato quando presente.
 5. Limite server-side: 10 MB.
 6. Il file viene salvato in Supabase Storage usando un'estensione derivata dal MIME realmente rilevato.
 7. Viene creato il record `Document` in stato `PENDING`.
-8. Se la creazione DB fallisce dopo l'upload, il file appena creato viene rimosso dallo Storage per evitare oggetti orfani.
-9. L'analisi viene avviata con `after()` di Next.js, ma il lavoro non dipende più da una singola esecuzione: stato e retry sono persistenti sul record `Document`.
+8. Se la creazione DB fallisce dopo l'upload, il file appena creato viene rimosso dallo Storage.
+9. L'analisi viene avviata con `after()` di Next.js; stato e retry restano persistenti sul record `Document`.
 
-La policy di retention dei file **non è stata modificata in questo hardening**: il documento resta nello Storage finché l'utente non lo elimina tramite il flusso esistente.
+La policy di retention dei file non è stata modificata in questo hardening: il documento resta nello Storage finché l'utente non lo elimina tramite il flusso esistente.
 
 ---
 
 ## Worker analisi, lease e retry
 
-La state machine del worker vive in `lib/jobs/process-document-core.ts`; `lib/jobs/process-document.ts` collega la logica al database Prisma, Supabase Storage, validazione file, AI e parser reali.
-
-Questa separazione consente di testare il comportamento operativo con store/Storage/AI fittizi senza cambiare la semantica di produzione.
+La state machine del worker vive in `lib/jobs/process-document-core.ts`; `lib/jobs/process-document.ts` collega la logica a Prisma, Supabase Storage, AI e parser reali.
 
 - Accetta documenti `PENDING` o `PROCESSING` con lease scaduta.
-- Usa `status + updatedAt` come lock ottimistico per impedire doppie elaborazioni concorrenti.
-- Scrive temporaneamente in `analysis._job`:
-  - numero tentativi;
-  - ultimo errore.
-- Massimo tentativi: **3**.
-- Lease considerata scaduta dopo **2 minuti**.
-- Il worker riscarica il file da Supabase Storage: il retry non dipende quindi dai byte rimasti in memoria nella request originale.
-- A errore recuperabile il documento torna `PENDING`; dopo il terzo tentativo passa a `ERROR`.
-- `GET /api/documents/[id]`, già usato dal polling UI, prova a rianimare automaticamente documenti `PENDING` o `PROCESSING` stale.
-- `POST /api/jobs/process-analysis` consente anche un recupero batch esterno ed è protetto con `Authorization: Bearer JOBS_SECRET`.
-
-Questo approccio non richiede una nuova migrazione DB e mantiene compatibilità con lo schema attuale.
+- Usa `status + updatedAt` come lock ottimistico.
+- Scrive in `analysis._job` numero tentativi e ultimo errore.
+- Massimo tentativi: 3.
+- Lease scaduta dopo 2 minuti.
+- Ogni retry riscarica il file da Supabase Storage.
+- Errore recuperabile: ritorno a `PENDING`.
+- Terzo errore: passaggio a `ERROR`.
+- Il polling di `GET /api/documents/[id]` può rianimare analisi recuperabili.
+- `POST /api/jobs/process-analysis` consente recovery batch esterno.
 
 ---
 
 ## Scheduler n8n
 
-I job operativi Veredoc sono schedulati esternamente tramite n8n, mantenendo Vercel come hosting applicativo e Supabase come persistenza dello stato.
+I job operativi Veredoc sono schedulati esternamente tramite n8n.
 
 ### Market rates
 
-Il workflow n8n esistente `Veredoc — Nightly Market Rates` esegue ogni notte il flusso di aggiornamento tariffe e richiama gli endpoint Veredoc protetti da `JOBS_SECRET`, incluso `POST /api/jobs/refresh-market-rates` per ricalcolare il confronto mercato sui documenti `DONE` di tipo bolletta.
+Il workflow `Veredoc — Nightly Market Rates` aggiorna le tariffe e richiama gli endpoint protetti da `JOBS_SECRET`, incluso `POST /api/jobs/refresh-market-rates`.
 
 ### Analysis recovery
 
-È stato creato un workflow n8n separato per il recovery delle analisi:
+Workflow separato predisposto:
 
 ```text
 Schedule Trigger (ogni 5 minuti)
@@ -135,72 +130,72 @@ Schedule Trigger (ogni 5 minuti)
 ```
 
 Stato al 2026-08-30:
-- workflow creato clonando il pattern del job Market Rates;
+- workflow creato;
 - endpoint e autenticazione configurati;
-- esecuzione manuale di test completata con successo;
-- workflow lasciato intenzionalmente **Unpublished** per il momento;
-- il recovery tramite polling utente rimane comunque operativo anche con lo scheduler non pubblicato.
-
-Quando il workflow verrà pubblicato, il recovery batch funzionerà indipendentemente dal fatto che l'utente mantenga aperta la pagina Veredoc.
+- test manuale riuscito;
+- workflow lasciato intenzionalmente Unpublished;
+- recovery tramite polling utente ancora operativo.
 
 ---
 
 ## Validazione output AI
 
-L'output Claude non viene più considerato valido solo perché è JSON parseabile.
-
-`lib/ai/validate.ts` valida a runtime:
+`lib/ai/validate.ts` valida a runtime i payload Claude prima del salvataggio definitivo.
 
 ### Bollette
-- `tipo_rilevato` e `tipo` supportati;
-- fornitore e periodo;
-- importi numerici finiti;
+- tipo rilevato/supportato;
+- fornitore, periodo e importi;
 - consumi e unità;
-- struttura `materia_energia`;
-- rete/oneri, imposte e altro, incluse sezioni nullable per internet;
+- sezioni energia/rete/imposte;
+- sezioni nullable internet;
 - dettaglio voci e categorie ammesse.
 
 ### Buste paga
 - tipo rilevato;
 - datore e competenza;
 - lordo/netto;
-- contributi, IRPEF, TFR;
-- voci con tipo limitato a `competenza | trattenuta`.
-
-Solo un payload validato può essere salvato come risultato definitivo o passato al parser di confronto mercato.
-
----
-
-## Stato e recupero documento
-
-```text
-PENDING
-  ↓ claim worker
-PROCESSING
-  ├─ successo → DONE
-  ├─ documento non supportato → ERROR
-  └─ errore tecnico
-       ├─ tentativi < 3 → PENDING
-       └─ tentativi = 3 → ERROR
-
-PROCESSING stale (>2 min)
-  → recuperabile da polling utente o endpoint job batch
-```
-
-Gli stati `AWAITING_CONFIRMATION` e `DELETED` rimangono nello schema per compatibilità con il prodotto esistente.
+- contributi, IRPEF e TFR;
+- voci `competenza | trattenuta`.
 
 ---
 
 ## Sicurezza e autorizzazione
 
-- Accesso ai documenti verificato per ownership utente.
-- Password con bcryptjs.
-- Reset password con token monouso hashato e scadenza.
-- Supabase Service Role utilizzata solo server-side.
-- Endpoint admin protetto da `ADMIN_SECRET`.
-- Endpoint job protetti da `JOBS_SECRET`.
-- Upload PRO verificato server-side, non solo tramite UI.
-- MIME sniffing server-side contro file con estensione/content-type falsificati.
+`lib/security/access.ts` centralizza le guardie di accesso condivise.
+
+### Endpoint job
+
+Gli endpoint:
+- `POST /api/jobs/process-analysis`
+- `POST /api/jobs/refresh-market-rates`
+- `POST /api/jobs/scrape-market-rates`
+
+usano tutti la stessa validazione `Authorization: Bearer JOBS_SECRET`.
+
+La validazione è fail-closed:
+- `JOBS_SECRET` assente o vuoto → richiesta rifiutata;
+- header assente/malformato → richiesta rifiutata;
+- secret errato → richiesta rifiutata;
+- confronto del token tramite `timingSafeEqual` a lunghezza compatibile.
+
+Questo elimina il precedente edge case in cui una configurazione mancante poteva rendere confrontabile il valore letterale `Bearer undefined` in due route legacy.
+
+### Ownership documenti
+
+Le route di lettura, cancellazione e refresh mercato usano la stessa guardia `isDocumentOwner` dopo autenticazione e lookup del documento.
+
+- sessione assente → 401;
+- documento inesistente → 404;
+- utente diverso dal proprietario → 403;
+- proprietario autenticato → flusso autorizzato.
+
+Altre misure attive:
+- password bcryptjs;
+- reset password con token monouso hashato e scadenza;
+- Supabase Service Role solo server-side;
+- endpoint admin protetto da `ADMIN_SECRET`;
+- upload PRO verificato server-side;
+- MIME sniffing server-side.
 
 ---
 
@@ -211,13 +206,13 @@ Gli stati `AWAITING_CONFIRMATION` e `DELETED` rimangono nello schema per compati
 | FREE | 10 | No |
 | PRO | 30 | Sì |
 
-La quota viene controllata prima dello Storage. I documenti creati nel mese contano verso la quota indipendentemente dall'esito finale, impedendo di aggirare il limite generando continuamente job falliti o pendenti.
+La quota viene controllata prima dello Storage. I documenti creati nel mese contano verso la quota indipendentemente dall'esito finale.
 
 ---
 
 ## CI e qualità
 
-Script disponibili:
+Script:
 
 ```bash
 pnpm lint
@@ -226,32 +221,34 @@ pnpm test
 pnpm build
 ```
 
-`pnpm test` usa il test runner nativo Node e copre:
-
-### Validazione documenti/output AI
-- magic bytes PDF/JPEG/PNG;
-- rifiuto MIME spoofing;
-- validazione payload bolletta;
-- sezioni nullable internet;
-- rifiuto output AI malformato;
-- validazione busta paga.
-
-### Worker integration
-- due worker concorrenti sullo stesso documento: un solo claim/elaborazione;
-- retry tecnico fino a 3 tentativi e passaggio finale a `ERROR`;
-- lease `PROCESSING` ancora valido non rubabile;
-- lease scaduto recuperabile;
-- documenti cancellati o privi di file non toccano Storage/AI;
-- errore Storage: ritorno a `PENDING` con tentativo persistito.
-
 GitHub Actions esegue su PR e push a `main`:
 1. install frozen lockfile;
-2. lint globale (`pnpm lint`);
+2. lint globale;
 3. typecheck globale;
 4. unit/integration test;
 5. build produzione globale.
 
-Il debito ESLint preesistente emerso durante il production hardening è stato eliminato. La CI blocca ora sul lint dell'intero repository, oltre a typecheck, test e build globali.
+Copertura test corrente:
+
+### Validazione documenti/output AI
+- magic bytes PDF/JPEG/PNG;
+- MIME spoofing;
+- payload bolletta/busta paga;
+- sezioni nullable internet;
+- output AI malformato.
+
+### Worker integration
+- concorrenza e singolo claim;
+- retry fino a 3 tentativi;
+- lease attiva/scaduta;
+- documenti cancellati o senza file;
+- failure Storage.
+
+### Authorization
+- `JOBS_SECRET` assente;
+- header assente/malformato;
+- secret errato/corretto;
+- ownership documento proprietario/non proprietario/sessione assente.
 
 ---
 
@@ -269,20 +266,20 @@ Il debito ESLint preesistente emerso durante il production hardening è stato el
 - Soft delete con cancellazione file Storage e azzeramento dati sensibili.
 - Retry/recovery analisi con lease persistente.
 - Recovery batch protetto.
-- Workflow n8n di recovery analisi creato e testato manualmente; attualmente Unpublished.
+- Workflow n8n Analysis Recovery creato/testato e attualmente Unpublished.
 - Upload con magic-byte validation, quota anticipata e cleanup compensativo.
 - Scraping tariffe e refresh mercato.
-- Scheduler n8n Nightly Market Rates esistente.
+- Scheduler n8n Nightly Market Rates.
 - CI globale con lint, typecheck, test e build.
-- Integration test del worker con dipendenze fittizie per concorrenza, lease, retry e failure Storage.
+- Integration test worker.
+- Guardie centralizzate fail-closed per job e ownership documenti con regression test.
 
 ## Prossimi passi consigliati
 
-1. Pubblicare il workflow n8n `Analysis Recovery` quando si decide di rendere attivo il recovery automatico ogni 5 minuti.
-2. Aggiungere test di ownership/autorizzazione sugli endpoint documento e job.
-3. Implementare billing reale e subscription lifecycle per PRO.
-4. Aggiungere observability: error tracking, metriche durata AI, tentativi, documenti stale e costi provider.
-5. Espandere test dei parser e del confronto mercato con fixture reali anonimizzate.
+1. Pubblicare il workflow n8n `Analysis Recovery` quando si decide di attivare il recovery automatico ogni 5 minuti.
+2. Aggiungere observability: error tracking, metriche durata AI, tentativi, documenti stale e costi provider.
+3. Espandere test dei parser e del confronto mercato con fixture reali anonimizzate.
+4. Implementare billing reale e subscription lifecycle per PRO, previa approvazione esplicita perché modulo pagamento/critico.
 
 ---
 
