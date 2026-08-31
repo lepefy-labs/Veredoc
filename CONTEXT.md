@@ -1,6 +1,6 @@
 # CONTEXT.md — Veredoc
 
-> Aggiornato: 2026-08-30 — profili, trend longitudinali e payroll intelligence v2
+> Aggiornato: 2026-08-31 — PWA installabile, profili, trend longitudinali e payroll intelligence v2
 
 ---
 
@@ -13,6 +13,7 @@ Veredoc è un SaaS italiano che analizza bollette (luce, gas, internet) e buste 
 - **Profili di analisi:** uno stesso account può separare i documenti di persone, case/nuclei e attività diverse.
 - **Storico intelligente:** i confronti longitudinali vengono calcolati esclusivamente tra documenti dello stesso profilo e dello stesso tipo.
 - **Trend multi-periodo:** da 3 documenti comparabili in poi Veredoc aggiunge una lettura del periodo usando fino alle 4 analisi più recenti.
+- **PWA:** il frontend è installabile su dispositivi compatibili con manifest, icone dedicate e service worker.
 
 I controlli payroll e longitudinali sono segnali di coerenza e variazione. Non costituiscono certificazione fiscale, consulenza del lavoro o verifica legale.
 
@@ -65,6 +66,7 @@ La relazione `Document.profile` usa `RESTRICT` in cancellazione: eliminare un pr
 
 ```text
 app/
+  manifest.ts                       manifest PWA
   analyze/                          upload auto-detect, selezione profilo esplicita
   dashboard/                        profili, quota, filtro profilo, storico e documenti
   api/
@@ -75,6 +77,7 @@ app/
     documents/[id]/refresh-market/  refresh confronto mercato
     jobs/process-analysis/           recovery batch
 components/
+  pwa/PwaRegistration.tsx           registrazione service worker client-side
   ProfileManager.tsx
   ProfileSelector.tsx               selezione profilo prima dell'upload
   ProfileDashboard.tsx
@@ -89,6 +92,10 @@ lib/
   ai/
   jobs/
   security/
+public/
+  sw.js                             service worker PWA
+  offline.html                      fallback offline statico e senza dati account
+  pwa/                              icone installazione
 prisma/schema.prisma
 supabase/migrations/002_analysis_profiles.sql
 supabase/rls.sql
@@ -191,6 +198,21 @@ La migrazione `supabase/migrations/002_analysis_profiles.sql` è stata applicata
 
 ---
 
+## PWA e comportamento offline
+
+Veredoc espone un Web App Manifest tramite `app/manifest.ts`, usa icone 192/512 px e registra `public/sw.js` lato client.
+
+Regole di sicurezza del service worker:
+- non mette mai in cache API, documenti, analisi, dashboard HTML o altre risposte contenenti dati account;
+- le navigazioni restano network-first;
+- offline viene mostrato solo `public/offline.html`, pagina statica priva di dati utente;
+- vengono memorizzati esclusivamente asset statici `_next/static`, favicon e icone PWA;
+- l'installazione usa `start_url: /`; l'autenticazione e i redirect esistenti restano invariati.
+
+La PWA non introduce notifiche push in questa fase. L'infrastruttura push richiederà una valutazione separata di consenso, UX e gestione subscription.
+
+---
+
 ## CI e delivery
 
 Script:
@@ -236,6 +258,7 @@ PR solo se richiesta, imposta da policy o realmente necessaria per validare in s
 4. Valutare rename/archive profilo mantenendo la cancellazione documenti separata.
 5. Billing reale PRO solo previa approvazione esplicita.
 6. Pubblicare n8n Analysis Recovery quando si decide di attivare il recovery automatico.
+7. Misurare installazione e ritorno della PWA prima di valutare wrapper o app native.
 
 ---
 
