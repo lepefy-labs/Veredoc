@@ -136,14 +136,15 @@ function AnalyzeFlow({ initialDocumentId, profileId }: { initialDocumentId: stri
   }
 
   return (
-    <main className="min-h-screen px-4 py-10">
-      <div className="max-w-2xl mx-auto space-y-8">
-        <div className="flex items-center justify-between">
+    <main className="min-h-screen px-4 pb-28 pt-6 sm:py-10">
+      <div className="max-w-2xl mx-auto space-y-6 sm:space-y-8">
+        <div className="flex items-start justify-between gap-4">
           <div>
+            {!documentId && <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-brand sm:hidden">Nuova analisi</p>}
             <h1 className="text-2xl font-bold text-ink">{pageTitle}</h1>
             {pageSubtitle && <p className="text-sm text-muted mt-1">{pageSubtitle}</p>}
           </div>
-          <Link href="/dashboard" className="text-sm text-brand hover:underline">Dashboard →</Link>
+          <Link href="/dashboard" className="hidden text-sm text-brand hover:underline sm:block">Dashboard →</Link>
         </div>
 
         {documentId ? (
