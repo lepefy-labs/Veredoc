@@ -33,12 +33,12 @@ interface DocumentListProps {
 
 function ConfirmDialog({ onConfirm, onCancel, loading }: { onConfirm: () => void; onCancel: () => void; loading: boolean }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onCancel}>
-      <div role="dialog" aria-modal="true" aria-labelledby="confirm-delete-title" onClick={(e) => e.stopPropagation()} className="bg-white rounded-xl shadow-lg p-6 max-w-sm w-full mx-4 space-y-4">
-        <p id="confirm-delete-title" className="text-sm text-ink">Sei sicuro di voler eliminare questo documento? I dati analizzati verranno rimossi definitivamente.</p>
-        <div className="flex gap-3 justify-end">
-          <button onClick={onCancel} disabled={loading} autoFocus className="px-4 py-2 text-sm text-muted border border-line rounded-lg hover:bg-page disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-brand">Annulla</button>
-          <button onClick={onConfirm} disabled={loading} className="px-4 py-2 text-sm text-white bg-danger rounded-lg hover:bg-red-600 disabled:opacity-60">{loading ? "Eliminazione…" : "Elimina"}</button>
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 p-4 sm:items-center" onClick={onCancel}>
+      <div role="dialog" aria-modal="true" aria-labelledby="confirm-delete-title" onClick={(e) => e.stopPropagation()} className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-5 shadow-lg sm:p-6">
+        <p id="confirm-delete-title" className="text-sm leading-6 text-ink">Sei sicuro di voler eliminare questo documento? I dati analizzati verranno rimossi definitivamente.</p>
+        <div className="grid grid-cols-2 gap-3 sm:flex sm:justify-end">
+          <button onClick={onCancel} disabled={loading} autoFocus className="min-h-11 rounded-xl border border-line px-4 text-sm text-muted hover:bg-page disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-brand">Annulla</button>
+          <button onClick={onConfirm} disabled={loading} className="min-h-11 rounded-xl bg-danger px-4 text-sm text-white hover:bg-red-600 disabled:opacity-60">{loading ? "Eliminazione…" : "Elimina"}</button>
         </div>
       </div>
     </div>
@@ -97,7 +97,7 @@ export default function DocumentList({ initialDocuments, profiles, currentProfil
   }
 
   if (documents.length === 0) {
-    return <p className="text-sm text-muted py-4">Nessun documento in questo profilo.</p>;
+    return <p className="py-4 text-sm text-muted">Nessun documento in questo profilo.</p>;
   }
 
   return (
@@ -111,33 +111,37 @@ export default function DocumentList({ initialDocuments, profiles, currentProfil
 
           return (
             <Card key={doc.id} padding="sm" className="space-y-3">
-              <div className="flex items-start gap-4">
-                <Link href={`/analyze?id=${doc.id}`} className="flex-1 min-w-0 hover:opacity-80">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold text-ink truncate">{DOCUMENTO_LABEL[doc.type] ?? doc.type}</p>
-                    <Badge status={doc.status as AnalysisStatus} />
+              <Link href={`/analyze?id=${doc.id}`} className="block rounded-lg transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+                  <div className="min-w-0">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <p className="truncate text-sm font-semibold text-ink">{DOCUMENTO_LABEL[doc.type] ?? doc.type}</p>
+                      <Badge status={doc.status as AnalysisStatus} />
+                    </div>
+                    <p className="mt-0.5 truncate text-xs text-muted">{doc.fileName}</p>
+                    {fornitore != null && <p className="mt-0.5 truncate text-xs text-muted">{String(fornitore)}</p>}
                   </div>
-                  <p className="text-xs text-muted mt-0.5 truncate">{doc.fileName}</p>
-                  {fornitore != null && <p className="text-xs text-muted">{String(fornitore)}</p>}
-                </Link>
-                <div className="text-right shrink-0">
-                  {importo !== undefined && importo !== null && <p className="font-mono text-sm font-bold text-ink">{Number(importo).toLocaleString("it-IT", { style: "currency", currency: "EUR" })}</p>}
-                  <p className="text-xs text-muted">{new Date(doc.createdAt).toLocaleDateString("it-IT")}</p>
+                  <div className="shrink-0 text-right">
+                    {importo !== undefined && importo !== null && <p className="font-mono text-sm font-bold text-ink">{Number(importo).toLocaleString("it-IT", { style: "currency", currency: "EUR" })}</p>}
+                    <p className="mt-0.5 text-xs text-muted">{new Date(doc.createdAt).toLocaleDateString("it-IT")}</p>
+                  </div>
                 </div>
-              </div>
+              </Link>
 
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-2 border-t border-line">
-                <label className="text-xs text-muted" htmlFor={`move-${doc.id}`}>Profilo</label>
-                <select
-                  id={`move-${doc.id}`}
-                  value={doc.profileId}
-                  disabled={movingId === doc.id}
-                  onChange={(e) => handleMove(doc.id, e.target.value)}
-                  className="rounded-md border border-line bg-white px-2 py-1.5 text-xs text-ink disabled:opacity-50"
-                >
-                  {profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.label}</option>)}
-                </select>
-                <button type="button" onClick={() => setConfirmDeleteId(doc.id)} className="sm:ml-auto text-xs text-danger hover:underline">Elimina</button>
+              <div className="border-t border-line pt-3">
+                <div className="grid gap-2 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
+                  <label className="text-xs font-medium text-muted" htmlFor={`move-${doc.id}`}>Profilo</label>
+                  <select
+                    id={`move-${doc.id}`}
+                    value={doc.profileId}
+                    disabled={movingId === doc.id}
+                    onChange={(e) => handleMove(doc.id, e.target.value)}
+                    className="min-h-11 w-full rounded-xl border border-line bg-white px-3 text-sm text-ink disabled:opacity-50 sm:min-h-0 sm:w-auto sm:py-1.5 sm:text-xs"
+                  >
+                    {profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.label}</option>)}
+                  </select>
+                  <button type="button" onClick={() => setConfirmDeleteId(doc.id)} className="min-h-11 justify-self-start rounded-lg px-1 text-sm font-medium text-danger hover:underline sm:min-h-0 sm:justify-self-end sm:text-xs">Elimina documento</button>
+                </div>
               </div>
               {rowError[doc.id] && <p className="text-xs text-danger">{rowError[doc.id]}</p>}
             </Card>

@@ -7,7 +7,8 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
 }
 
-const DISMISS_KEY = "veredoc:pwa-install-dismissed";
+const DISMISS_KEY = "veredoc:pwa-install-dismissed-at";
+const DISMISS_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 
 export default function PwaInstallCard() {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
@@ -24,6 +25,7 @@ export default function PwaInstallCard() {
     function handleInstalled() {
       setIsStandalone(true);
       setInstallPrompt(null);
+      window.localStorage.removeItem(DISMISS_KEY);
     }
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
@@ -33,9 +35,15 @@ export default function PwaInstallCard() {
       const standalone = window.matchMedia("(display-mode: standalone)").matches
         || ("standalone" in navigator && Boolean((navigator as Navigator & { standalone?: boolean }).standalone));
       const ios = /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase());
+      const dismissedAt = Number(window.localStorage.getItem(DISMISS_KEY) ?? "0");
+      const recentlyDismissed = Number.isFinite(dismissedAt) && dismissedAt > 0 && Date.now() - dismissedAt < DISMISS_TTL_MS;
+
+      if (!recentlyDismissed) {
+        window.localStorage.removeItem(DISMISS_KEY);
+      }
 
       setIsStandalone(standalone);
-      setDismissed(window.localStorage.getItem(DISMISS_KEY) === "1");
+      setDismissed(recentlyDismissed);
       setIsIos(ios);
     });
 
@@ -60,7 +68,7 @@ export default function PwaInstallCard() {
   }
 
   function dismiss() {
-    window.localStorage.setItem(DISMISS_KEY, "1");
+    window.localStorage.setItem(DISMISS_KEY, String(Date.now()));
     setDismissed(true);
   }
 
@@ -76,7 +84,7 @@ export default function PwaInstallCard() {
           <p className="font-semibold text-ink">Porta Veredoc sul telefono</p>
           <p className="mt-1 text-sm leading-6 text-muted">
             {isIos
-              ? "Su iPhone: apri Condividi in Safari e scegli “Aggiungi alla schermata Home”."
+              ? "Apri il menu Condividi del browser e scegli “Aggiungi alla schermata Home”."
               : "Installalo come app per aprirlo dalla schermata Home e arrivare più velocemente ai tuoi documenti."}
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">

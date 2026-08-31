@@ -206,22 +206,25 @@ La migrazione `supabase/migrations/002_analysis_profiles.sql` è stata applicata
 
 ## PWA e comportamento mobile/offline
 
-Veredoc espone un Web App Manifest tramite `app/manifest.ts`, usa icone 192/512 px e registra `public/sw.js` lato client.
+Veredoc espone un Web App Manifest tramite `app/manifest.ts`, usa icone 192/512 px e registra `public/sw.js` lato client. Il manifest usa un'identità stabile `id: /`, lingua italiana e shortcut installabili verso `Analizza documento` e `I miei documenti`.
 
 Esperienza mobile autenticata:
 - header semplificato con logo e piano;
-- bottom navigation persistente `Documenti / Analizza` con safe-area;
+- bottom navigation persistente `Documenti / Analizza` con safe-area, icone e touch target mobili;
 - dashboard con CTA primaria `Analizza un documento`;
-- install card mostrata solo quando l'app non è già standalone e non è stata esclusa dall'utente;
+- install card mostrata solo quando l'app non è già standalone e quando il browser espone un percorso d'installazione;
+- `Non ora` sospende il suggerimento per 14 giorni anziché nasconderlo permanentemente;
 - Android/Chromium usa `beforeinstallprompt` quando disponibile;
-- iOS mostra istruzioni Safari `Condividi → Aggiungi alla schermata Home`;
-- `/analyze` privilegia fotocamera e file picker su mobile, mantenendo drag & drop su desktop.
+- iOS mostra istruzioni tramite il menu Condividi del browser;
+- `/analyze` privilegia fotocamera e file picker su mobile, mantenendo drag & drop su desktop;
+- gestione documento mobile mantiene importo/data leggibili e rende cambio profilo/eliminazione touch-friendly.
 
 Regole di sicurezza del service worker:
 - non mette mai in cache API, documenti, analisi, dashboard HTML o altre risposte contenenti dati account;
 - le navigazioni restano network-first;
 - offline viene mostrato solo `public/offline.html`, pagina statica priva di dati utente;
-- vengono memorizzati esclusivamente asset statici `_next/static`, favicon e icone PWA;
+- il precache contiene soltanto fallback offline, favicon e icone PWA;
+- gli asset Next.js non vengono duplicati in Cache Storage: restano affidati alla normale cache HTTP del browser;
 - l'installazione usa `start_url: /`; l'autenticazione e i redirect esistenti restano invariati.
 
 La PWA non introduce notifiche push in questa fase. L'infrastruttura push richiederà una valutazione separata di consenso, UX e gestione subscription.

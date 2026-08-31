@@ -1,4 +1,4 @@
-const CACHE_NAME = "veredoc-pwa-v1";
+const CACHE_NAME = "veredoc-shell-v2";
 const OFFLINE_URL = "/offline.html";
 const PRECACHE_URLS = [
   OFFLINE_URL,
@@ -31,7 +31,7 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const { request } = event;
 
-  if (request.method !== "GET") {
+  if (request.method !== "GET" || request.mode !== "navigate") {
     return;
   }
 
@@ -40,34 +40,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (request.mode === "navigate") {
-    event.respondWith(
-      fetch(request).catch(() => caches.match(OFFLINE_URL))
-    );
-    return;
-  }
-
-  if (
-    url.pathname.startsWith("/_next/static/") ||
-    url.pathname.startsWith("/pwa/") ||
-    url.pathname === "/favicon.svg"
-  ) {
-    event.respondWith(
-      caches.match(request).then((cached) => {
-        if (cached) {
-          return cached;
-        }
-
-        return fetch(request).then((response) => {
-          if (!response || response.status !== 200) {
-            return response;
-          }
-
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-          return response;
-        });
-      })
-    );
-  }
+  event.respondWith(
+    fetch(request).catch(() => caches.match(OFFLINE_URL))
+  );
 });
