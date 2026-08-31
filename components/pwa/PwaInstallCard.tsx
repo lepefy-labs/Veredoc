@@ -16,14 +16,6 @@ export default function PwaInstallCard() {
   const [dismissed, setDismissed] = useState(true);
 
   useEffect(() => {
-    const standalone = window.matchMedia("(display-mode: standalone)").matches || ("standalone" in navigator && Boolean((navigator as Navigator & { standalone?: boolean }).standalone));
-    setIsStandalone(standalone);
-    setDismissed(window.localStorage.getItem(DISMISS_KEY) === "1");
-
-    const ua = navigator.userAgent.toLowerCase();
-    const ios = /iphone|ipad|ipod/.test(ua);
-    setIsIos(ios);
-
     function handleBeforeInstallPrompt(event: Event) {
       event.preventDefault();
       setInstallPrompt(event as BeforeInstallPromptEvent);
@@ -37,7 +29,18 @@ export default function PwaInstallCard() {
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
     window.addEventListener("appinstalled", handleInstalled);
 
+    const frame = window.requestAnimationFrame(() => {
+      const standalone = window.matchMedia("(display-mode: standalone)").matches
+        || ("standalone" in navigator && Boolean((navigator as Navigator & { standalone?: boolean }).standalone));
+      const ios = /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase());
+
+      setIsStandalone(standalone);
+      setDismissed(window.localStorage.getItem(DISMISS_KEY) === "1");
+      setIsIos(ios);
+    });
+
     return () => {
+      window.cancelAnimationFrame(frame);
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
       window.removeEventListener("appinstalled", handleInstalled);
     };
