@@ -1,6 +1,6 @@
 # CONTEXT.md — Veredoc
 
-> Aggiornato: 2026-08-31 — PWA installabile, profili, trend longitudinali e payroll intelligence v2
+> Aggiornato: 2026-08-31 — PWA mobile experience, profili, trend longitudinali e payroll intelligence v2
 
 ---
 
@@ -13,7 +13,7 @@ Veredoc è un SaaS italiano che analizza bollette (luce, gas, internet) e buste 
 - **Profili di analisi:** uno stesso account può separare i documenti di persone, case/nuclei e attività diverse.
 - **Storico intelligente:** i confronti longitudinali vengono calcolati esclusivamente tra documenti dello stesso profilo e dello stesso tipo.
 - **Trend multi-periodo:** da 3 documenti comparabili in poi Veredoc aggiunge una lettura del periodo usando fino alle 4 analisi più recenti.
-- **PWA:** il frontend è installabile su dispositivi compatibili con manifest, icone dedicate e service worker.
+- **PWA:** il frontend è installabile su dispositivi compatibili con manifest, icone dedicate, service worker e una UX mobile dedicata.
 
 I controlli payroll e longitudinali sono segnali di coerenza e variazione. Non costituiscono certificazione fiscale, consulenza del lavoro o verifica legale.
 
@@ -77,7 +77,10 @@ app/
     documents/[id]/refresh-market/  refresh confronto mercato
     jobs/process-analysis/           recovery batch
 components/
+  layout/MobileBottomNav.tsx        navigazione mobile autenticata
   pwa/PwaRegistration.tsx           registrazione service worker client-side
+  pwa/PwaInstallCard.tsx            install prompt Android + istruzioni iOS
+  FileUploader.tsx                  desktop drag/drop + mobile fotocamera/file picker
   ProfileManager.tsx
   ProfileSelector.tsx               selezione profilo prima dell'upload
   ProfileDashboard.tsx
@@ -108,12 +111,15 @@ supabase/rls.sql
 1. Utente autenticato.
 2. `/analyze` carica i profili e risolve il profilo richiesto; un id assente o non valido ricade sul profilo default lato UI.
 3. L'utente vede `Per chi è questo documento?` e può cambiare profilo prima dell'upload.
-4. Piano e quota sono verificati prima dello Storage.
-5. File validato tramite magic bytes/MIME e limite 10 MB.
-6. Il backend accetta `profileId` solo se appartiene allo stesso `userId`; senza id usa il profilo default.
-7. Il documento nasce `PENDING` con `userId + profileId`.
-8. Claude esegue auto-detection one-pass di luce/gas/internet/busta paga.
-9. Worker, validazione runtime, retry e recovery restano invariati.
+4. Su mobile l'utente può scegliere `Scatta foto` (fotocamera posteriore quando supportata) oppure `Scegli file`; su desktop resta disponibile drag & drop/file picker.
+5. Piano e quota sono verificati prima dello Storage.
+6. File validato tramite magic bytes/MIME e limite 10 MB.
+7. Il backend accetta `profileId` solo se appartiene allo stesso `userId`; senza id usa il profilo default.
+8. Il documento nasce `PENDING` con `userId + profileId`.
+9. Claude esegue auto-detection one-pass di luce/gas/internet/busta paga.
+10. Worker, validazione runtime, retry e recovery restano invariati.
+
+La cattura da fotocamera usa il normale input file del browser con `capture="environment"`: non richiede permessi persistenti, API native o nuova business logic. La validazione server-side esistente resta la fonte di verità.
 
 ---
 
@@ -194,13 +200,22 @@ I test includono payload payroll sintetici ma realistici e anonimizzati per vali
 
 ## Database
 
-La migrazione `supabase/migrations/002_analysis_profiles.sql` è stata applicata il 2026-08-30. Non sono richieste nuove migrazioni per payroll intelligence v2: i nuovi campi vivono nel JSON di analisi già esistente.
+La migrazione `supabase/migrations/002_analysis_profiles.sql` è stata applicata il 2026-08-30. Non sono richieste nuove migrazioni per payroll intelligence v2 o PWA/mobile UX.
 
 ---
 
-## PWA e comportamento offline
+## PWA e comportamento mobile/offline
 
 Veredoc espone un Web App Manifest tramite `app/manifest.ts`, usa icone 192/512 px e registra `public/sw.js` lato client.
+
+Esperienza mobile autenticata:
+- header semplificato con logo e piano;
+- bottom navigation persistente `Documenti / Analizza` con safe-area;
+- dashboard con CTA primaria `Analizza un documento`;
+- install card mostrata solo quando l'app non è già standalone e non è stata esclusa dall'utente;
+- Android/Chromium usa `beforeinstallprompt` quando disponibile;
+- iOS mostra istruzioni Safari `Condividi → Aggiungi alla schermata Home`;
+- `/analyze` privilegia fotocamera e file picker su mobile, mantenendo drag & drop su desktop.
 
 Regole di sicurezza del service worker:
 - non mette mai in cache API, documenti, analisi, dashboard HTML o altre risposte contenenti dati account;
@@ -259,6 +274,7 @@ PR solo se richiesta, imposta da policy o realmente necessaria per validare in s
 5. Billing reale PRO solo previa approvazione esplicita.
 6. Pubblicare n8n Analysis Recovery quando si decide di attivare il recovery automatico.
 7. Misurare installazione e ritorno della PWA prima di valutare wrapper o app native.
+8. Valutare notifiche push solo quando esistono alert longitudinali realmente utili e con consenso esplicito.
 
 ---
 
