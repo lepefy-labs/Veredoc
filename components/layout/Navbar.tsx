@@ -1,56 +1,60 @@
 "use client";
+
 import Link from "next/link";
-import { useSession, signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
+import MobileBottomNav from "@/components/layout/MobileBottomNav";
 import VeredocLogo from "@/components/ui/VeredocLogo";
 
 export default function Navbar() {
   const { data: session } = useSession();
+
   return (
-    <nav aria-label="Principale" className="bg-white border-b border-line px-4 sm:px-6 py-3 flex items-center justify-between gap-3 sticky top-0 z-50">
-      <Link href={session ? "/dashboard" : "/"} onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
-        <VeredocLogo variant="full" size="sm" />
-      </Link>
-      <div className="flex items-center gap-4 text-sm font-medium">
+    <>
+      <nav aria-label="Principale" className="sticky top-0 z-50 flex items-center justify-between gap-3 border-b border-line bg-white/95 px-4 py-3 backdrop-blur sm:px-6">
+        <Link href={session ? "/dashboard" : "/"} onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
+          <VeredocLogo variant="full" size="sm" />
+        </Link>
+
         {session ? (
           <>
-            <Link
-              href="/dashboard"
-              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-              className="text-ink hover:text-brand transition-colors"
-            >
-              Dashboard
-            </Link>
-            <Link href="/analyze" className="text-ink hover:text-brand transition-colors">
-              Nuova analisi
-            </Link>
-            <span className={`hidden sm:inline-flex text-xs font-semibold px-2 py-0.5 rounded-full ${
-              session.user?.plan === "PRO"
-                ? "bg-success text-white"
-                : "bg-line text-muted"
-            }`}>
+            <div className="hidden items-center gap-4 text-sm font-medium sm:flex">
+              <Link
+                href="/dashboard"
+                onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+                className="text-ink transition-colors hover:text-brand"
+              >
+                Dashboard
+              </Link>
+              <Link href="/analyze" className="text-ink transition-colors hover:text-brand">
+                Nuova analisi
+              </Link>
+              <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${session.user?.plan === "PRO" ? "bg-success text-white" : "bg-line text-muted"}`}>
+                {session.user?.plan ?? "FREE"}
+              </span>
+              <button
+                onClick={() => signOut({ callbackUrl: "/" })}
+                className="cursor-pointer text-muted transition-colors hover:text-ink"
+              >
+                Esci
+              </button>
+            </div>
+            <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold sm:hidden ${session.user?.plan === "PRO" ? "bg-success text-white" : "bg-line text-muted"}`}>
               {session.user?.plan ?? "FREE"}
             </span>
-            <button
-              onClick={() => signOut({ callbackUrl: "/" })}
-              className="text-muted hover:text-ink transition-colors cursor-pointer"
-            >
-              Esci
-            </button>
           </>
         ) : (
-          <>
-            <Link href="/login" className="text-ink hover:text-brand transition-colors">
+          <div className="flex items-center gap-2 text-sm font-medium sm:gap-4">
+            <Link href="/login" className="text-ink transition-colors hover:text-brand">
               Accedi
             </Link>
-            <Link
-              href="/register"
-              className="px-4 py-1.5 bg-brand text-white rounded-lg hover:bg-brand-dark transition-colors"
-            >
+            <Link href="/register" className="rounded-lg bg-brand px-3 py-1.5 text-white transition-colors hover:bg-brand-dark sm:px-4">
               Registrati
             </Link>
-          </>
+          </div>
         )}
-      </div>
-    </nav>
+      </nav>
+
+      {session && <MobileBottomNav />}
+    </>
   );
 }
