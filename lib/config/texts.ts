@@ -100,9 +100,10 @@ export const TEXTS = {
         { text: "Export report in PDF", soon: true },
         { text: "Supporto prioritario", soon: true },
       ],
-      cta: "Prova PRO",
-      ctaNote: "Pagamento sicuro — cancella quando vuoi",
+      cta: "Inizia gratis",
+      ctaLoggedIn: "Come passare a PRO",
+      ctaNote: "Il pagamento online di PRO sarà disponibile a breve. Per attivarlo ora scrivi a ciao@veredoc.it.",
     },
-    dataNote: "Non usiamo i tuoi documenti per addestrare modelli AI. I PDF vengono eliminati automaticamente dopo l'analisi.",
+    dataNote: "Non usiamo i tuoi documenti per addestrare modelli AI. Puoi eliminare in qualsiasi momento ogni documento insieme ai dati estratti.",
   },
 };

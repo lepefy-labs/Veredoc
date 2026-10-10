@@ -3,6 +3,10 @@ import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { sendPasswordResetEmail } from "@/lib/email";
 import { TEXTS } from "@/lib/config/texts";
+import { isValidEmail, normalizeEmail } from "@/lib/account/credentials";
+import { findUserIdByEmail } from "@/lib/account/users";
+import { clientIpFrom, RATE_LIMITS } from "@/lib/security/rate-limit";
+import { enforceRateLimits } from "@/lib/security/rate-limit-server";
 
 const TOKEN_TTL_MS = 60 * 60 * 1000;
 const MAX_ACTIVE_TOKENS = 3;
@@ -12,10 +16,19 @@ export async function POST(req: NextRequest) {
     NextResponse.json({ message: TEXTS.forgotPassword.confirmation }, { status: 200 });
 
   try {
-    const { email } = await req.json();
-    if (!email) return genericResponse();
+    const body = await req.json() as { email?: unknown };
+    const email = normalizeEmail(body.email);
+    if (!isValidEmail(email)) return genericResponse();
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    // Risposta sempre generica: un limite superato non rivela se l'account esiste.
+    const limit = await enforceRateLimits("forgot_password", [
+      { rule: RATE_LIMITS.forgotEmail, subject: email },
+      { rule: RATE_LIMITS.forgotIp, subject: clientIpFrom(req.headers) },
+    ]);
+    if (!limit.allowed) return genericResponse();
+
+    const userId = await findUserIdByEmail(email);
+    const user = userId ? await prisma.user.findUnique({ where: { id: userId } }) : null;
     if (!user) return genericResponse();
 
     const now = new Date();

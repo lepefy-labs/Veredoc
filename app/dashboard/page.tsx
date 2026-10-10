@@ -6,15 +6,17 @@ import Button from "@/components/ui/Button";
 import ProfileManager from "@/components/ProfileManager";
 import ProfileDashboard from "@/components/ProfileDashboard";
 import PwaInstallCard from "@/components/pwa/PwaInstallCard";
+import PlanUsage from "@/components/account/PlanUsage";
 import { TEXTS } from "@/lib/config/texts";
 import { ANALYSIS_LIMITS } from "@/lib/config/constants";
+import { startOfCurrentMonthUtc } from "@/lib/account/usage";
 import { AnalysisStatus, UserPlan } from "@prisma/client";
 
 export default async function DashboardPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const startOfMonth = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1));
+  const startOfMonth = startOfCurrentMonthUtc();
   const [profiles, usedThisMonth] = await Promise.all([
     prisma.analysisProfile.findMany({
       where: { userId: session.user.id },
@@ -37,7 +39,6 @@ export default async function DashboardPage() {
   const documentsCount = profiles.reduce((total, profile) => total + profile.documents.length, 0);
   const plan = session.user.plan === "PRO" ? UserPlan.PRO : UserPlan.FREE;
   const monthlyLimit = ANALYSIS_LIMITS[plan];
-  const quotaPct = Math.min(100, Math.round((usedThisMonth / monthlyLimit) * 100));
   const profileOptions = profiles.map(({ id, label, kind, isDefault }) => ({ id, label, kind, isDefault }));
   const dashboardProfiles = profiles.map((profile) => ({
     id: profile.id,
@@ -88,24 +89,8 @@ export default async function DashboardPage() {
 
         <ProfileManager profiles={profileOptions} />
 
-        <div className="space-y-4 rounded-xl border border-line bg-white p-5">
-          <div className="flex items-center justify-between gap-4">
-            <div className="space-y-1">
-              <p className="text-sm font-semibold text-ink">Il tuo piano</p>
-              <p className="text-sm text-muted">{session.user.plan === "PRO" ? "Sei su piano PRO. Hai accesso a tutte le funzionalità." : "Vuoi più analisi e l'anonimizzatore dei documenti? Passa a PRO."}</p>
-            </div>
-            <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${session.user.plan === "PRO" ? "bg-success text-white" : "bg-line text-muted"}`}>{session.user.plan ?? "FREE"}</span>
-          </div>
-          <div>
-            <div className="mb-1.5 flex items-baseline justify-between">
-              <p className="text-xs text-muted">Analisi utilizzate questo mese</p>
-              <p className="font-mono text-xs font-semibold text-ink">{usedThisMonth} / {monthlyLimit}</p>
-            </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-line" role="progressbar" aria-valuenow={usedThisMonth} aria-valuemin={0} aria-valuemax={monthlyLimit} aria-label="Analisi utilizzate questo mese">
-              <div className={`h-full rounded-full transition-all ${quotaPct >= 100 ? "bg-danger" : quotaPct >= 80 ? "bg-[#F59E0B]" : "bg-brand"}`} style={{ width: `${quotaPct}%` }} />
-            </div>
-            {quotaPct >= 100 && <p className="mt-1.5 text-xs text-danger">Hai esaurito le analisi del mese. Il contatore si azzera il 1° del mese prossimo.</p>}
-          </div>
+        <div className="rounded-xl border border-line bg-white p-5">
+          <PlanUsage plan={plan} used={usedThisMonth} limit={monthlyLimit} compact />
         </div>
 
         {profiles.length === 0 ? (

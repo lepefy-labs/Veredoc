@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ProfileKind } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { validateProfileLabel } from "@/lib/profiles/validation";
 
 const PROFILE_KINDS = new Set<string>(Object.values(ProfileKind));
 
@@ -27,12 +28,12 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json() as { label?: unknown; kind?: unknown };
-  const label = typeof body.label === "string" ? body.label.trim() : "";
+  const label = validateProfileLabel(body.label);
   const kind = typeof body.kind === "string" && PROFILE_KINDS.has(body.kind)
     ? body.kind as ProfileKind
     : ProfileKind.PERSON;
 
-  if (!label || label.length > 60) {
+  if (!label) {
     return NextResponse.json({ error: "Inserisci un nome profilo valido (massimo 60 caratteri)." }, { status: 400 });
   }
 

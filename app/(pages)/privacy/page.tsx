@@ -144,6 +144,26 @@ export default function PrivacyPage() {
             </p>
           </section>
 
+          <section id="cookie" className="scroll-mt-20">
+            <h2 className="font-semibold text-base mb-2">Cookie e archiviazione locale</h2>
+            <ul className="list-disc list-inside space-y-1">
+              <li>
+                <strong>Cookie tecnici di sessione:</strong> necessari per l&apos;accesso
+                all&apos;account e la protezione dei moduli. Non richiedono consenso.
+              </li>
+              <li>
+                <strong>Statistiche di utilizzo:</strong> raccolte in forma aggregata con
+                Vercel Analytics, senza cookie e senza profilazione.
+              </li>
+              <li>
+                <strong>Archiviazione locale del browser:</strong> usata solo per ricordare
+                preferenze dell&apos;interfaccia (ad esempio se hai chiuso il suggerimento di
+                installazione dell&apos;app).
+              </li>
+            </ul>
+            <p className="mt-2 text-muted">Non utilizziamo cookie di marketing o di profilazione.</p>
+          </section>
+
           <section>
             <h2 className="font-semibold text-base mb-2">Aggiornamenti</h2>
             <p>
@@ -154,7 +174,7 @@ export default function PrivacyPage() {
         </div>
 
         <footer className="mt-12 pt-6 border-t border-line text-xs text-muted">
-          Ultimo aggiornamento: giugno 2025
+          Ultimo aggiornamento: ottobre 2026
         </footer>
       </div>
     </main>

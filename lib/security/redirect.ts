@@ -1,7 +1,7 @@
 // Destinazioni post-login: solo percorsi interni dell'applicazione.
 // Impedisce open redirect (URL assoluti, "//host", backslash, schemi).
 
-const ALLOWED_PREFIXES = ["/analyze", "/dashboard"];
+const ALLOWED_PREFIXES = ["/analyze", "/dashboard", "/account"];
 
 // `sameOrigin`: origine corrente; consente callbackUrl assoluti generati da NextAuth
 // solo se puntano alla stessa origine.

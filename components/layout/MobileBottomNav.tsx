@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import AccountIcon from "@/components/layout/AccountIcon";
 
 export default function MobileBottomNav() {
   const pathname = usePathname();
   const dashboardActive = pathname.startsWith("/dashboard");
   const analyzeActive = pathname.startsWith("/analyze");
+  const accountActive = pathname.startsWith("/account");
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-50 border-t border-line bg-white/95 px-3 pb-[max(env(safe-area-inset-bottom),0.65rem)] pt-2 backdrop-blur sm:hidden">
-      <nav aria-label="Navigazione app" className="mx-auto grid max-w-sm grid-cols-2 gap-2">
+      <nav aria-label="Navigazione app" className="mx-auto grid max-w-md grid-cols-3 gap-2">
         <Link
           href="/dashboard"
           aria-current={dashboardActive ? "page" : undefined}
@@ -30,6 +32,14 @@ export default function MobileBottomNav() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
           </svg>
           Analizza
+        </Link>
+        <Link
+          href="/account"
+          aria-current={accountActive ? "page" : undefined}
+          className={`flex min-h-13 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${accountActive ? "bg-brand-soft text-brand" : "text-muted hover:bg-page hover:text-ink"}`}
+        >
+          <AccountIcon />
+          Account
         </Link>
       </nav>
     </div>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { signOut, useSession } from "next-auth/react";
 import MobileBottomNav from "@/components/layout/MobileBottomNav";
 import VeredocLogo from "@/components/ui/VeredocLogo";
+import AccountIcon from "@/components/layout/AccountIcon";
 
 export default function Navbar() {
   const { data: session } = useSession();
@@ -27,6 +28,14 @@ export default function Navbar() {
               </Link>
               <Link href="/analyze" className="text-ink transition-colors hover:text-brand">
                 Nuova analisi
+              </Link>
+              <Link
+                href="/account"
+                title={session.user?.email ? `Account: ${session.user.email}` : "Account"}
+                className="inline-flex max-w-[220px] items-center gap-2 text-ink transition-colors hover:text-brand"
+              >
+                <AccountIcon />
+                <span className="truncate">{session.user?.email ?? "Account"}</span>
               </Link>
               <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${session.user?.plan === "PRO" ? "bg-success text-white" : "bg-line text-muted"}`}>
                 {session.user?.plan ?? "FREE"}

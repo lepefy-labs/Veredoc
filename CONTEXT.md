@@ -1,6 +1,6 @@
 # CONTEXT.md — Veredoc
 
-> Aggiornato: 2026-10-10 — notifiche email transazionali dell'analisi (outbox), lifecycle analisi affidabile (lease con token, checkpoint estrazione, recovery), PWA, profili, trend e payroll intelligence v2
+> Aggiornato: 2026-10-11 — spazio account e sicurezza credenziali, notifiche email transazionali dell'analisi (outbox), lifecycle analisi affidabile (lease con token, checkpoint estrazione, recovery), PWA, profili, trend e payroll intelligence v2
 
 ---
 
@@ -56,9 +56,10 @@ Regole:
 - una route di spostamento rifiuta profili appartenenti ad altri account;
 - il profilo default viene usato per upload generici senza `profileId`;
 - `/analyze` carica i profili dell'account, pre-seleziona il default e consente di scegliere esplicitamente per chi è il documento prima dell'upload;
-- dalla dashboard ogni profilo espone una CTA `Carica per <profilo>`.
+- dalla dashboard ogni profilo espone una CTA `Carica per <profilo>`;
+- da `/account` un profilo si rinomina; si elimina solo se non è il default e non ha documenti attivi (i documenti già eliminati, righe anonime, passano al profilo default).
 
-La relazione `Document.profile` usa `RESTRICT` in cancellazione: eliminare un profilo non deve cancellare implicitamente documenti. La UI non espone ancora la cancellazione dei profili.
+La relazione `Document.profile` usa `RESTRICT` in cancellazione: eliminare un profilo non deve cancellare implicitamente documenti.
 
 ---
 
@@ -67,10 +68,13 @@ La relazione `Document.profile` usa `RESTRICT` in cancellazione: eliminare un pr
 ```text
 app/
   manifest.ts                       manifest PWA
+  account/                          spazio account: email, password, piano, profili, notifiche, privacy
   analyze/                          upload auto-detect, selezione profilo esplicita
   dashboard/                        profili, quota, filtro profilo, storico e documenti
   api/
+    account/password/               cambio password (richiede la password attuale)
     profiles/                       lista/creazione profili
+    profiles/[id]/                  rinomina/eliminazione profilo
     documents/upload/               upload associato a profilo
     documents/[id]/profile/         spostamento documento tra profili
     documents/[id]/                 lettura/recovery/cancellazione
@@ -341,7 +345,20 @@ I test includono payload payroll sintetici ma realistici e anonimizzati per vali
 
 ---
 
+## Account
+
+`/account` (protetta come `/analyze` e `/dashboard`, con ritorno dopo il login): email e data di registrazione, cambio password, uscita, piano e analisi del mese (`components/account/PlanUsage.tsx`, condiviso con la dashboard in versione compatta), gestione profili, stato delle notifiche email, contatti privacy. Navigazione: link con l'email nella barra desktop, voce `Account` nella barra in basso su mobile (prima il logout non era raggiungibile da mobile).
+
+Non ancora disponibili in self-service (rimandano a `privacy@veredoc.it`): esportazione dati, chiusura account, cambio email. Il pagamento PRO non esiste: i testi dicono di scrivere a `ciao@veredoc.it` e il piano si imposta con `POST /api/admin/set-plan`.
+
 ## Sicurezza e autorizzazione
+
+- **Email normalizzate** (`lib/account/credentials.ts`): salvate in minuscolo alla registrazione; login, reset e admin cercano con `lower(email) = …` (`lib/account/users.ts`, niente `ILIKE`), così funzionano anche gli account creati prima. Eventuali doppioni storici che differiscono solo per maiuscole: vince il più vecchio.
+- **Regole password lato server**: minimo 8 caratteri, massimo 72 byte (limite bcrypt), in registrazione, reset e cambio password.
+- **Rate limit persistente** (`lib/security/rate-limit.ts`, tabella `RateLimitBucket`): UPSERT atomico a finestra fissa, chiavi SHA-256 (nessuna email/IP in chiaro). Login 10/15 min per email e 50/15 min per IP; registrazione 5/h per IP; password dimenticata 3/h per email e 10/h per IP (risposta sempre generica); reset 10/h per IP; cambio password 5/15 min per utente. Fail-open se la tabella non esiste o il DB non risponde (evento `security.rate_limit_unavailable`). Il login bloccato restituisce `code = rate_limited` e la pagina mostra un messaggio dedicato. IP da `x-forwarded-for` (impostato da Vercel). Pulizia dei contatori > 24 h nel job di recovery.
+- **Consenso registrato**: la registrazione richiede `acceptTerms: true` lato server e salva `UserConsent` (`TERMS_PRIVACY`, versione `LEGAL_DOCUMENTS_VERSION`). Se la tabella non esiste ancora la registrazione prosegue e registra `account.consent_not_recorded`.
+- **Cambio password**: richiede la password attuale e invalida i link di reset attivi. Le sessioni JWT già aperte su altri dispositivi restano valide fino alla scadenza (manca una versione di sessione su `User`).
+- `POST /api/admin/set-plan` confronta `ADMIN_SECRET` a tempo costante.
 
 - ownership documento centralizzata;
 - spostamento documento consentito solo se documento e profilo appartengono alla sessione corrente;
@@ -350,12 +367,15 @@ I test includono payload payroll sintetici ma realistici e anonimizzati per vali
 - Supabase Service Role solo server-side;
 - upload PRO verificato server-side;
 - MIME sniffing server-side.
+- la registrazione risponde ancora `Email già registrata` (rivela l'esistenza dell'account); da rivedere con la verifica email.
 
 ---
 
 ## Database
 
 La migrazione `supabase/migrations/002_analysis_profiles.sql` è stata applicata il 2026-08-30. Non sono richieste nuove migrazioni per payroll intelligence v2, PWA/mobile UX o lifecycle analisi (stato del job in `analysis._job`). Il trigger `Document_updatedAt_trigger` resta attivo: `updatedAt` non è affidabile per confronti di uguaglianza.
+
+`supabase/migrations/004_account_security.sql` (additiva: tabelle `RateLimitBucket` e `UserConsent`, indice `User_email_lower_idx` su `lower(email)`) è predisposta ma **non ancora applicata** al 2026-10-11. Finché non lo è: rate limit non attivo (fail-open) e consensi non registrati; nessun errore per gli utenti.
 
 `supabase/migrations/003_notification_outbox.sql` (additiva: enum `NotificationEventType`/`NotificationStatus`, tabella `NotificationOutbox`, indice parziale `Document_analysis_in_flight_idx`) è predisposta ma **non ancora applicata** al 2026-10-10: finché non lo è, `NOTIFICATIONS_ENABLED` deve restare spento. Le migrazioni si applicano manualmente dal Supabase SQL Editor (nessuna migrazione al deploy).
 
@@ -422,6 +442,7 @@ PR solo se richiesta, imposta da policy o realmente necessaria per validare in s
 - trend payroll v2 su TFR progressivo, saldi con unità compatibili e nuove/scomparse voci;
 - isolamento trend tra profili differenti;
 - authorization job/ownership;
+- account e sicurezza: normalizzazione email e ricerca `lower()` senza jolly, regole password, rate limit su PGlite con la migrazione reale (finestra, chiavi hash, pulizia, fail-open), consenso con cascade, validazione nome profilo, ritorno a `/account` dopo il login;
 - notifiche: outbox atomica con DONE/ERROR su PGlite con la migrazione reale, eventKey per ciclo, avviso di attesa (soglia, ciclo, documenti chiusi/eliminati/storici), claim concorrente, lease scaduto, retry/backoff, rate limit, esiti ambigui e deduplica Brevo, destinatario non valido, template senza dati sensibili, reset password invariato, redirect post-login sicuro;
 - observability.
 
@@ -432,12 +453,14 @@ PR solo se richiesta, imposta da policy o realmente necessaria per validare in s
 1. Validare l'estrazione payroll v2 su un corpus di cedolini reali eterogenei e anonimizzati prima di attribuire affidabilità ai nuovi campi.
 2. Trasformare gli errori osservati sui cedolini reali in fixture/regressioni permanenti, mantenendo separata la validazione dell'AI dai test deterministici.
 3. Evolvere le bollette da trend a monitoraggio tariffa/consumo con spiegazione della causa dominante.
-4. Valutare rename/archive profilo mantenendo la cancellazione documenti separata.
+4. Valutare l'archiviazione dei profili (rinomina ed eliminazione dei profili vuoti sono disponibili da `/account`).
 5. Billing reale PRO solo previa approvazione esplicita.
 6. Importare e attivare in n8n `scripts/n8n/analysis-recovery.workflow.json` (non ancora verificato come attivo).
-7. Attivare le notifiche email: applicare `003_notification_outbox.sql`, impostare `NOTIFICATIONS_ENABLED=true`, verificare un invio reale end-to-end (il recupero dei retry dipende dal workflow di recovery del punto 6).
-8. Misurare installazione e ritorno della PWA prima di valutare wrapper o app native.
-9. Valutare notifiche push solo quando esistono alert longitudinali realmente utili e con consenso esplicito.
+7. Applicare `004_account_security.sql` (rate limit e consensi).
+8. Spazio account, fase 2: verifica email, cambio email, esportazione dati ed eliminazione account self-service; invalidazione delle sessioni dopo il cambio password.
+9. Attivare le notifiche email: applicare `003_notification_outbox.sql`, impostare `NOTIFICATIONS_ENABLED=true`, verificare un invio reale end-to-end (il recupero dei retry dipende dal workflow di recovery del punto 6).
+10. Misurare installazione e ritorno della PWA prima di valutare wrapper o app native.
+11. Valutare notifiche push solo quando esistono alert longitudinali realmente utili e con consenso esplicito.
 
 ---
 
