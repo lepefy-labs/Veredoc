@@ -5,6 +5,9 @@ import bcrypt from "bcryptjs";
 import { authConfig } from "@/lib/auth.config";
 import { normalizeEmail } from "@/lib/account/credentials";
 import { findUserIdByEmail } from "@/lib/account/users";
+import { getAccountSessionState, type AccountSessionState } from "@/lib/account/state";
+
+type EmailStatus = AccountSessionState["emailStatus"];
 import { clientIpFrom, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { enforceRateLimits } from "@/lib/security/rate-limit-server";
 
@@ -53,19 +56,26 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user) {
         token.id = user.id;
       }
-      // Rileggi sempre il plan dal DB — evita token stale dopo upgrade/downgrade
-      if (token.id) {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: token.id as string },
-          select: { plan: true },
-        });
-        token.plan = dbUser?.plan ?? "FREE";
+      if (!token.id) return token;
+
+      // Riletto a ogni richiesta: piano ed email aggiornati, account eliminato e
+      // sessioni emesse prima di un cambio/reset password non più valide.
+      const state = await getAccountSessionState(token.id as string);
+      if (!state) return null;
+      if (user) {
+        token.sv = state.sessionVersion ?? 0;
+      } else if (state.sessionVersion !== null && state.sessionVersion !== ((token.sv as number | undefined) ?? 0)) {
+        return null;
       }
+      token.plan = state.plan === "PRO" ? "PRO" : "FREE";
+      token.email = state.email;
+      token.emailStatus = state.emailStatus;
       return token;
     },
     session({ session, token }) {
       if (token.id) session.user.id = token.id as string;
       if (token.plan) session.user.plan = token.plan as import("@prisma/client").UserPlan;
+      session.user.emailStatus = (token.emailStatus as EmailStatus | undefined) ?? "unknown";
       return session;
     },
   },

@@ -16,10 +16,17 @@ export const RATE_LIMITS = {
   loginEmail: { name: "login:email", limit: 10, windowSeconds: 15 * 60 },
   loginIp: { name: "login:ip", limit: 50, windowSeconds: 15 * 60 },
   registerIp: { name: "register:ip", limit: 5, windowSeconds: 60 * 60 },
+  // Avvisi "hai già un account" verso lo stesso indirizzo.
+  registerEmail: { name: "register:email", limit: 2, windowSeconds: 60 * 60 },
   forgotEmail: { name: "forgot:email", limit: 3, windowSeconds: 60 * 60 },
   forgotIp: { name: "forgot:ip", limit: 10, windowSeconds: 60 * 60 },
   resetIp: { name: "reset:ip", limit: 10, windowSeconds: 60 * 60 },
   passwordChangeUser: { name: "password:user", limit: 5, windowSeconds: 15 * 60 },
+  verifyTokenIp: { name: "verify:ip", limit: 20, windowSeconds: 60 * 60 },
+  verifySendUser: { name: "verify-send:user", limit: 3, windowSeconds: 60 * 60 },
+  emailChangeUser: { name: "email-change:user", limit: 5, windowSeconds: 60 * 60 },
+  exportUser: { name: "export:user", limit: 5, windowSeconds: 60 * 60 },
+  deleteUser: { name: "delete:user", limit: 5, windowSeconds: 15 * 60 },
 } satisfies Record<string, RateLimitRule>;
 
 export function rateLimitKey(rule: RateLimitRule, subject: string): string {

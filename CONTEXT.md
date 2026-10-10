@@ -1,6 +1,6 @@
 # CONTEXT.md — Veredoc
 
-> Aggiornato: 2026-10-11 — spazio account e sicurezza credenziali, notifiche email transazionali dell'analisi (outbox), lifecycle analisi affidabile (lease con token, checkpoint estrazione, recovery), PWA, profili, trend e payroll intelligence v2
+> Aggiornato: 2026-10-11 — ciclo di vita account (verifica e cambio email, esportazione, eliminazione, sessioni), spazio account e sicurezza credenziali, notifiche email transazionali dell'analisi (outbox), lifecycle analisi affidabile (lease con token, checkpoint estrazione, recovery), PWA, profili, trend e payroll intelligence v2
 
 ---
 
@@ -69,10 +69,16 @@ La relazione `Document.profile` usa `RESTRICT` in cancellazione: eliminare un pr
 app/
   manifest.ts                       manifest PWA
   account/                          spazio account: email, password, piano, profili, notifiche, privacy
+  verify-email/                     conferma email da link (verifica o cambio)
+  arrivederci/                      conferma dopo l'eliminazione dell'account
   analyze/                          upload auto-detect, selezione profilo esplicita
   dashboard/                        profili, quota, filtro profilo, storico e documenti
   api/
-    account/password/               cambio password (richiede la password attuale)
+    account/password/               cambio password (richiede la password attuale, chiude le sessioni)
+    account/email/                  richiesta cambio email (conferma dal nuovo indirizzo)
+    account/verify-email/           conferma token (verifica/cambio) e reinvio verifica
+    account/export/                 esportazione dati JSON
+    account/delete/                 eliminazione account
     profiles/                       lista/creazione profili
     profiles/[id]/                  rinomina/eliminazione profilo
     documents/upload/               upload associato a profilo
@@ -347,9 +353,22 @@ I test includono payload payroll sintetici ma realistici e anonimizzati per vali
 
 ## Account
 
-`/account` (protetta come `/analyze` e `/dashboard`, con ritorno dopo il login): email e data di registrazione, cambio password, uscita, piano e analisi del mese (`components/account/PlanUsage.tsx`, condiviso con la dashboard in versione compatta), gestione profili, stato delle notifiche email, contatti privacy. Navigazione: link con l'email nella barra desktop, voce `Account` nella barra in basso su mobile (prima il logout non era raggiungibile da mobile).
+`/account` (protetta come `/analyze` e `/dashboard`, con ritorno dopo il login): email con stato di conferma, cambio email, cambio password, uscita, piano e analisi del mese (`components/account/PlanUsage.tsx`, condiviso con la dashboard in versione compatta), gestione profili, stato delle notifiche email, esportazione dati ed eliminazione account. Navigazione: link con l'email nella barra desktop, voce `Account` nella barra in basso su mobile.
 
-Non ancora disponibili in self-service (rimandano a `privacy@veredoc.it`): esportazione dati, chiusura account, cambio email. Il pagamento PRO non esiste: i testi dicono di scrivere a `ciao@veredoc.it` e il piano si imposta con `POST /api/admin/set-plan`.
+### Ciclo di vita (migrazione 005)
+
+Tabelle separate da `User` per non toccarne le colonne: `AccountState` (`emailVerifiedAt`, `sessionVersion`) ed `EmailToken` (token monouso, solo hash SHA-256, 24 h, uno valido per scopo). Senza riga in `AccountState` l'account è **legacy** (creato prima della verifica email): continua a ricevere le notifiche come prima.
+
+- **Registrazione**: stessa risposta `201 { ok: true }` (e stesso costo bcrypt) che l'email sia nuova o già registrata; al titolare esistente arriva "Hai già un account" (max 2/h per indirizzo). I nuovi account nascono con email **da confermare** e ricevono il link `/verify-email?token=…`. La login non è bloccata dalla mancata conferma.
+- **Notifiche analisi**: inviate solo a indirizzi confermati o legacy (`email_unverified` → `CANCELLED`); la UI promette l'email solo in quel caso (`session.user.emailStatus`).
+- **Cambio email**: richiede la password; link al nuovo indirizzo (`type=change`), avviso al vecchio senza indicare il nuovo; applicato solo se nessun altro account usa l'indirizzo (`lower()`); la risposta non rivela se il nuovo indirizzo è già usato.
+- **Sessioni**: il JWT contiene `sv`; il callback `jwt` (`lib/auth.ts`) rilegge a ogni richiesta piano, email, stato email e versione. Cambio o reset password incrementano `sessionVersion` → tutte le sessioni, compresa quella corrente, vengono chiuse (login con `?passwordChanged=1`). Utente eliminato → sessione nulla. Il middleware non conosce queste invalidazioni: per evitare loop `/login` e `/register` non reindirizzano più lato middleware, lo fanno lato client con `useSession` (che passa dal server).
+- **Esportazione** (`GET /api/account/export`, 5/h): JSON con account, consensi, profili, documenti non eliminati (dati estratti e analisi senza `_job`), notifiche e link firmati 24 h ai file originali. Esclusi hash password e token.
+- **Eliminazione** (`POST /api/account/delete`, password + parola `ELIMINA`, 5/15 min): prima i file in Storage (riferiti dai documenti e residui in `uploads/<userId>/`; se fallisce non si cancella nulla dal DB), poi in transazione documenti e utente (profili, token, consensi, stato, notifiche in cascata), email di conferma e pagina `/arrivederci`. Le copie nei backup Supabase decadono secondo la loro retention (informativa: entro 30 giorni).
+
+Prima della migrazione 005 tutto degrada senza errori (`lib/account/state.ts`, assenza della tabella ricordata per 5 minuti): nessuna verifica né cambio email (la UI li nasconde), nessuna invalidazione delle sessioni, esportazione ed eliminazione funzionanti.
+
+Il pagamento PRO non esiste: i testi dicono di scrivere a `ciao@veredoc.it` e il piano si imposta con `POST /api/admin/set-plan`.
 
 ## Sicurezza e autorizzazione
 
@@ -357,7 +376,7 @@ Non ancora disponibili in self-service (rimandano a `privacy@veredoc.it`): espor
 - **Regole password lato server**: minimo 8 caratteri, massimo 72 byte (limite bcrypt), in registrazione, reset e cambio password.
 - **Rate limit persistente** (`lib/security/rate-limit.ts`, tabella `RateLimitBucket`): UPSERT atomico a finestra fissa, chiavi SHA-256 (nessuna email/IP in chiaro). Login 10/15 min per email e 50/15 min per IP; registrazione 5/h per IP; password dimenticata 3/h per email e 10/h per IP (risposta sempre generica); reset 10/h per IP; cambio password 5/15 min per utente. Fail-open se la tabella non esiste o il DB non risponde (evento `security.rate_limit_unavailable`). Il login bloccato restituisce `code = rate_limited` e la pagina mostra un messaggio dedicato. IP da `x-forwarded-for` (impostato da Vercel). Pulizia dei contatori > 24 h nel job di recovery.
 - **Consenso registrato**: la registrazione richiede `acceptTerms: true` lato server e salva `UserConsent` (`TERMS_PRIVACY`, versione `LEGAL_DOCUMENTS_VERSION`). Se la tabella non esiste ancora la registrazione prosegue e registra `account.consent_not_recorded`.
-- **Cambio password**: richiede la password attuale e invalida i link di reset attivi. Le sessioni JWT già aperte su altri dispositivi restano valide fino alla scadenza (manca una versione di sessione su `User`).
+- **Cambio password**: richiede la password attuale, invalida i link di reset attivi e (dopo la migrazione 005) chiude tutte le sessioni.
 - `POST /api/admin/set-plan` confronta `ADMIN_SECRET` a tempo costante.
 
 - ownership documento centralizzata;
@@ -367,13 +386,15 @@ Non ancora disponibili in self-service (rimandano a `privacy@veredoc.it`): espor
 - Supabase Service Role solo server-side;
 - upload PRO verificato server-side;
 - MIME sniffing server-side.
-- la registrazione risponde ancora `Email già registrata` (rivela l'esistenza dell'account); da rivedere con la verifica email.
+- la registrazione non rivela più se un'email ha già un account.
 
 ---
 
 ## Database
 
 La migrazione `supabase/migrations/002_analysis_profiles.sql` è stata applicata il 2026-08-30. Non sono richieste nuove migrazioni per payroll intelligence v2, PWA/mobile UX o lifecycle analisi (stato del job in `analysis._job`). Il trigger `Document_updatedAt_trigger` resta attivo: `updatedAt` non è affidabile per confronti di uguaglianza.
+
+`supabase/migrations/005_account_lifecycle.sql` (additiva: tabelle `AccountState` ed `EmailToken`) è predisposta ma **non ancora applicata** al 2026-10-11. Va applicata dopo la 004.
 
 `supabase/migrations/004_account_security.sql` (additiva: tabelle `RateLimitBucket` e `UserConsent`, indice `User_email_lower_idx` su `lower(email)`) è predisposta ma **non ancora applicata** al 2026-10-11. Finché non lo è: rate limit non attivo (fail-open) e consensi non registrati; nessun errore per gli utenti.
 
@@ -442,6 +463,7 @@ PR solo se richiesta, imposta da policy o realmente necessaria per validare in s
 - trend payroll v2 su TFR progressivo, saldi con unità compatibili e nuove/scomparse voci;
 - isolamento trend tra profili differenti;
 - authorization job/ownership;
+- ciclo di vita account su PGlite con la migrazione reale: stato legacy/da confermare/confermato, versione sessione, token monouso (scadenza, scopo, revoca), cambio email con conflitto su `lower()`, cascade; template email account; notifiche bloccate per indirizzi non confermati;
 - account e sicurezza: normalizzazione email e ricerca `lower()` senza jolly, regole password, rate limit su PGlite con la migrazione reale (finestra, chiavi hash, pulizia, fail-open), consenso con cascade, validazione nome profilo, ritorno a `/account` dopo il login;
 - notifiche: outbox atomica con DONE/ERROR su PGlite con la migrazione reale, eventKey per ciclo, avviso di attesa (soglia, ciclo, documenti chiusi/eliminati/storici), claim concorrente, lease scaduto, retry/backoff, rate limit, esiti ambigui e deduplica Brevo, destinatario non valido, template senza dati sensibili, reset password invariato, redirect post-login sicuro;
 - observability.
@@ -457,7 +479,7 @@ PR solo se richiesta, imposta da policy o realmente necessaria per validare in s
 5. Billing reale PRO solo previa approvazione esplicita.
 6. Importare e attivare in n8n `scripts/n8n/analysis-recovery.workflow.json` (non ancora verificato come attivo).
 7. Applicare `004_account_security.sql` (rate limit e consensi).
-8. Spazio account, fase 2: verifica email, cambio email, esportazione dati ed eliminazione account self-service; invalidazione delle sessioni dopo il cambio password.
+8. Applicare `005_account_lifecycle.sql` (verifica/cambio email, chiusura sessioni).
 9. Attivare le notifiche email: applicare `003_notification_outbox.sql`, impostare `NOTIFICATIONS_ENABLED=true`, verificare un invio reale end-to-end (il recupero dei retry dipende dal workflow di recovery del punto 6).
 10. Misurare installazione e ritorno della PWA prima di valutare wrapper o app native.
 11. Valutare notifiche push solo quando esistono alert longitudinali realmente utili e con consenso esplicito.
@@ -479,4 +501,5 @@ PR solo se richiesta, imposta da policy o realmente necessaria per validare in s
 - `JOBS_SECRET`
 - `SCRAPERAPI_KEY`
 - `BREVO_API_KEY`
+- `APP_BASE_URL` (opzionale) è usato anche per i link delle email account
 - `NOTIFICATIONS_ENABLED`, `NOTIFICATION_DELAYED_ENABLED`, `NOTIFICATION_DELAYED_THRESHOLD_SECONDS`, `APP_BASE_URL` (opzionali, vedi "Notifiche email transazionali")

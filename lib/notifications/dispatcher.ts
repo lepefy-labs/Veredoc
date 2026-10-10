@@ -12,6 +12,7 @@ import {
   isNotificationOutboxEnabled,
 } from "@/lib/notifications/config";
 import { getAnalysisCycle } from "@/lib/notifications/events";
+import { emailAllowsNotifications, getAccountSessionState } from "@/lib/account/state";
 import { renderAnalysisEmail } from "@/lib/notifications/templates";
 import {
   claimNotificationsSql,
@@ -35,18 +36,19 @@ const store: NotificationStore = {
   enqueueDelayed: (input) => prisma.$executeRaw(enqueueDelayedNoticesSql(input)),
   claim: (input) => prisma.$queryRaw<ClaimedNotificationRow[]>(claimNotificationsSql(input)),
   async loadContext(row) {
-    const [document, user] = await Promise.all([
+    const [document, account] = await Promise.all([
       prisma.document.findUnique({
         where: { id: row.documentId },
         select: { status: true, deletedAt: true, type: true, analysis: true },
       }),
-      prisma.user.findUnique({ where: { id: row.userId }, select: { email: true } }),
+      getAccountSessionState(row.userId),
     ]);
     return {
       document: document
         ? { status: document.status, deletedAt: document.deletedAt, type: document.type, cycle: getAnalysisCycle(document.analysis) }
         : null,
-      recipientEmail: user?.email ?? null,
+      recipientEmail: account?.email ?? null,
+      recipientVerified: account ? emailAllowsNotifications(account.emailStatus) : undefined,
     };
   },
   markSendStarted: (input) => prisma.$executeRaw(markSendStartedSql(input)),

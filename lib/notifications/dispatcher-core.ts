@@ -41,6 +41,8 @@ export interface NotificationContext {
     cycle: number;
   } | null;
   recipientEmail: string | null;
+  // false = l'utente non ha ancora confermato l'indirizzo (account creati dopo la verifica email).
+  recipientVerified?: boolean;
 }
 
 export interface NotificationStore {
@@ -169,6 +171,7 @@ export function createNotificationDispatcher(deps: NotificationDispatcherDepende
     if (!relevance.relevant) return finish("CANCELLED", relevance.reason);
     if (row.eventType === "ANALYSIS_DELAYED" && !deps.delayedNotice.enabled) return finish("CANCELLED", "delayed_notice_disabled");
     if (!deps.isDeliverableEmail(context.recipientEmail)) return finish("CANCELLED", "invalid_recipient");
+    if (context.recipientVerified === false) return finish("CANCELLED", "email_unverified");
 
     // Il worker precedente è morto dopo aver avviato l'invio: esito ambiguo.
     const recoveredAmbiguous = row.previousStatus === "SENDING" && row.lastSendStartedAt ? row.lastSendStartedAt : null;

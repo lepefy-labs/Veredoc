@@ -60,6 +60,11 @@ export function isDeliverableEmail(value: string | null | undefined): value is s
 }
 
 // La UI promette l'email solo se l'intera catena è attiva per questo utente.
-export function canNotifyByEmail(email: string | null | undefined, env: Env = process.env): boolean {
-  return isNotificationOutboxEnabled(env) && isEmailProviderConfigured(env) && isDeliverableEmail(email);
+// emailStatus "unverified": account che non ha ancora confermato l'indirizzo.
+export function canNotifyByEmail(
+  email: string | null | undefined,
+  env: Env = process.env,
+  emailStatus?: string
+): boolean {
+  return isNotificationOutboxEnabled(env) && isEmailProviderConfigured(env) && isDeliverableEmail(email) && emailStatus !== "unverified";
 }

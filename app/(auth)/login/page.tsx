@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useState, FormEvent } from "react";
-import { signIn } from "next-auth/react";
+import { Suspense, useEffect, useState, FormEvent } from "react";
+import { signIn, useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Button from "@/components/ui/Button";
@@ -14,7 +14,16 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const justRegistered = searchParams.get("registered") === "1";
+  const passwordChanged = searchParams.get("passwordChanged") === "1";
+  const { status } = useSession();
   const callbackUrl = searchParams.get("callbackUrl");
+
+  // Sessione già valida (verificata dal server): niente form di accesso.
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.replace(safeCallbackPath(callbackUrl, "/dashboard", window.location.origin));
+    }
+  }, [status, callbackUrl, router]);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -60,7 +69,15 @@ function LoginContent() {
         {justRegistered && (
           <div className="mb-4 rounded-lg border border-[#86EFAC] bg-[#F0FDF4] px-4 py-3" role="status">
             <p className="text-sm font-medium text-[#166534]">
-              Account creato! Accedi con le credenziali appena scelte.
+              Registrazione ricevuta! Accedi con le credenziali appena scelte e conferma l&apos;indirizzo dall&apos;email che ti abbiamo inviato.
+            </p>
+          </div>
+        )}
+
+        {passwordChanged && (
+          <div className="mb-4 rounded-lg border border-[#86EFAC] bg-[#F0FDF4] px-4 py-3" role="status">
+            <p className="text-sm font-medium text-[#166534]">
+              Password aggiornata. Per sicurezza abbiamo chiuso le sessioni aperte: accedi di nuovo con la nuova password.
             </p>
           </div>
         )}

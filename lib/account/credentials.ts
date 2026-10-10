@@ -34,3 +34,6 @@ export const PASSWORD_PROBLEM_MESSAGES: Record<PasswordProblem, string> = {
 // Versione di Privacy Policy e Termini accettata alla registrazione.
 // Aggiornarla quando cambia il testo di uno dei due documenti.
 export const LEGAL_DOCUMENTS_VERSION = "2026-10";
+
+// Parola da digitare per confermare l'eliminazione dell'account.
+export const DELETE_CONFIRMATION = "ELIMINA";

@@ -5,11 +5,15 @@ import { AnalysisStatus } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getMonthlyUsage } from "@/lib/account/usage";
-import { canNotifyByEmail } from "@/lib/notifications/config";
+import { canNotifyByEmail, isEmailProviderConfigured } from "@/lib/notifications/config";
+import { getAccountSessionState, isLifecycleAvailable } from "@/lib/account/state";
 import PlanUsage from "@/components/account/PlanUsage";
 import PasswordChangeForm from "@/components/account/PasswordChangeForm";
 import ProfileSettings from "@/components/account/ProfileSettings";
 import SignOutButton from "@/components/account/SignOutButton";
+import EmailVerification from "@/components/account/EmailVerification";
+import EmailChangeForm from "@/components/account/EmailChangeForm";
+import DeleteAccount from "@/components/account/DeleteAccount";
 import ProfileManager from "@/components/ProfileManager";
 
 export const metadata: Metadata = {
@@ -52,8 +56,13 @@ export default async function AccountPage() {
   ]);
   if (!user) redirect("/login");
 
-  const usage = await getMonthlyUsage(session.user.id, user.plan);
-  const emailNotifications = canNotifyByEmail(user.email);
+  const [usage, accountState] = await Promise.all([
+    getMonthlyUsage(session.user.id, user.plan),
+    getAccountSessionState(session.user.id),
+  ]);
+  const emailStatus = accountState?.emailStatus ?? "unknown";
+  const lifecycle = isLifecycleAvailable() && emailStatus !== "unknown" && isEmailProviderConfigured();
+  const emailNotifications = canNotifyByEmail(user.email, process.env, emailStatus);
   const memberSince = user.createdAt.toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" });
 
   return (
@@ -67,12 +76,18 @@ export default async function AccountPage() {
         <Section id="accesso" title="Accesso">
           <dl className="grid gap-3 text-sm sm:grid-cols-[160px_1fr]">
             <dt className="text-muted">Email</dt>
-            <dd className="break-all font-medium text-ink">{user.email}</dd>
+            <dd className="space-y-2">
+              <p className="break-all font-medium text-ink">{user.email}</p>
+              <EmailVerification status={emailStatus} canSend={lifecycle} />
+            </dd>
             <dt className="text-muted">Cliente dal</dt>
             <dd className="text-ink">{memberSince}</dd>
           </dl>
-          <div className="flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:flex-wrap sm:items-start">
+            {lifecycle && <div className="sm:flex-1"><EmailChangeForm /></div>}
             <div className="sm:flex-1"><PasswordChangeForm /></div>
+          </div>
+          <div className="border-t border-line pt-4">
             <SignOutButton />
           </div>
         </Section>
@@ -105,14 +120,33 @@ export default async function AccountPage() {
           <p className="text-sm text-ink">
             {emailNotifications
               ? `Ti scriviamo a ${user.email} quando un'analisi è pronta, se non riusciamo a completarla o se richiede più tempo del previsto.`
-              : "Le notifiche email sull'esito delle analisi non sono attive al momento: trovi sempre il risultato nella dashboard."}
+              : emailStatus === "unverified"
+                ? "Conferma il tuo indirizzo email per ricevere gli avvisi sull'esito delle analisi. Nel frattempo trovi sempre il risultato nella dashboard."
+                : "Le notifiche email sull'esito delle analisi non sono attive al momento: trovi sempre il risultato nella dashboard."}
           </p>
           <p className="text-xs text-muted">Sono comunicazioni di servizio legate alle tue analisi: non contengono dati dei documenti e non sono messaggi promozionali.</p>
         </Section>
 
         <Section id="privacy" title="Privacy e dati">
-          <p className="text-sm text-ink">
-            Puoi eliminare i singoli documenti dalla dashboard. Per ricevere una copia dei tuoi dati o chiudere l&apos;account scrivi a{" "}
+          <div className="space-y-2">
+            <p className="text-sm text-ink">
+              Scarica una copia dei tuoi dati in formato JSON: account, profili, documenti con dati estratti e analisi,
+              consensi e notifiche, con link validi 24 ore ai file originali.
+            </p>
+            <a
+              href="/api/account/export"
+              download
+              className="inline-flex w-full items-center justify-center rounded-lg border border-line bg-white px-4 py-2 text-sm font-medium text-ink hover:bg-page sm:w-auto"
+            >
+              Scarica i miei dati
+            </a>
+          </div>
+          <div className="space-y-2 border-t border-line pt-4">
+            <p className="text-sm text-ink">Puoi eliminare i singoli documenti dalla dashboard oppure l&apos;intero account.</p>
+            <DeleteAccount />
+          </div>
+          <p className="text-xs text-muted">
+            Per altre richieste sui tuoi dati scrivi a{" "}
             <a href="mailto:privacy@veredoc.it" className="font-medium text-brand hover:underline">privacy@veredoc.it</a>.
           </p>
           <p className="text-sm">

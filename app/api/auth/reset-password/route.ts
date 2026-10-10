@@ -6,6 +6,7 @@ import { TEXTS } from "@/lib/config/texts";
 import { PASSWORD_PROBLEM_MESSAGES, passwordProblem } from "@/lib/account/credentials";
 import { clientIpFrom, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { enforceRateLimits } from "@/lib/security/rate-limit-server";
+import { bumpSessionVersion } from "@/lib/account/state";
 
 export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get("token");
@@ -54,6 +55,7 @@ export async function POST(req: NextRequest) {
       prisma.passwordResetToken.update({ where: { id: resetToken.id }, data: { usedAt: new Date() } }),
     ]);
 
+    await bumpSessionVersion(resetToken.userId);
     return NextResponse.json({ success: true }, { status: 200 });
   } catch {
     return NextResponse.json({ error: TEXTS.resetPassword.errors.generic }, { status: 500 });

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useEffect, useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -16,6 +17,11 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [consenso, setConsenso] = useState(false);
   const [consensoError, setConsensoError] = useState(false);
+  const { status } = useSession();
+
+  useEffect(() => {
+    if (status === "authenticated") router.replace("/dashboard");
+  }, [status, router]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();

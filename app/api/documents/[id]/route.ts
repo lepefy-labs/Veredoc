@@ -70,7 +70,7 @@ export async function GET(
       canRetry: canRetryAnalysisManually(document),
     },
     // true solo se notifiche, provider email e indirizzo dell'account sono utilizzabili.
-    emailNotification: canNotifyByEmail(session.user.email),
+    emailNotification: canNotifyByEmail(session.user.email, process.env, session.user.emailStatus),
   });
 }
 

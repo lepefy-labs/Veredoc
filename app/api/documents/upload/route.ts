@@ -177,7 +177,7 @@ export async function POST(req: NextRequest) {
       id: document.id,
       status: "PENDING",
       profileId: profile.id,
-      emailNotification: canNotifyByEmail(session.user.email),
+      emailNotification: canNotifyByEmail(session.user.email, process.env, session.user.emailStatus),
     }, { status: 202 });
   } catch (error) {
     await supabase.storage.from("documents").remove([storagePath]);
