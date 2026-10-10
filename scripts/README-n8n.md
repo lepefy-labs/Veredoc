@@ -55,3 +55,46 @@ In questo modo ogni notte:
 ```
 
 Se `errors` non è vuoto, controllare i log Vercel per dettagli.
+
+---
+
+# Workflow n8n — Analysis Recovery
+
+## Obiettivo
+
+Riprendere automaticamente i documenti rimasti in coda (`PENDING`) o con lease scaduto (`PROCESSING` da oltre 6 minuti) e chiudere in `ERROR` quelli con tentativi esauriti. Senza questo workflow un documento viene recuperato solo quando il proprietario lo apre (`GET /api/documents/[id]`).
+
+## Import
+
+1. In n8n crea una credenziale **Header Auth** chiamata `Veredoc JOBS_SECRET`:
+   - Name: `Authorization`
+   - Value: `Bearer <JOBS_SECRET>` (valore della variabile d'ambiente Vercel; non salvarlo nel repository)
+2. Importa `scripts/n8n/analysis-recovery.workflow.json` (*Workflows → Import from file*).
+3. Apri il nodo **Recovery analisi** e seleziona la credenziale creata al punto 1.
+4. Esegui manualmente una volta (*Execute workflow*) e verifica la risposta.
+5. Attiva il workflow.
+
+Frequenza: ogni 5 minuti. Il lease dura 6 minuti e ogni esecuzione non avvia nuove analisi dopo 60 s, quindi le esecuzioni non si sovrappongono in modo utile; anche se accadesse, il claim atomico impedisce doppie elaborazioni.
+
+## Risposta attesa
+
+```json
+{
+  "success": true,
+  "candidates": 0,
+  "pending": 0,
+  "staleProcessing": 0,
+  "attempted": 0,
+  "deferred": 0,
+  "completed": 0,
+  "retryScheduled": 0,
+  "failed": 0,
+  "exhausted": 0,
+  "leaseLost": 0,
+  "skipped": 0,
+  "unconfirmed": 0,
+  "durationMs": 120
+}
+```
+
+`401` indica una credenziale errata. `unconfirmed > 0` richiede di controllare nei log Vercel gli eventi `analysis.persistence_unconfirmed` / `analysis.worker_crashed`.

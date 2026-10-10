@@ -1,0 +1,61 @@
+{
+  "name": "Veredoc — Analysis Recovery",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "5b0a5a0e-0f7e-4a52-9a43-7d1d6b0c0001",
+      "name": "Ogni 5 minuti",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.veredoc.it/api/jobs/process-analysis",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 310000
+        }
+      },
+      "id": "5b0a5a0e-0f7e-4a52-9a43-7d1d6b0c0002",
+      "name": "Recovery analisi",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [260, 0],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "Veredoc JOBS_SECRET"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Ogni 5 minuti": {
+      "main": [
+        [
+          {
+            "node": "Recovery analisi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

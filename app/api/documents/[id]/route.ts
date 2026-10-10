@@ -4,6 +4,12 @@ import { prisma } from "@/lib/prisma";
 import { AnalysisStatus, Prisma } from "@prisma/client";
 import { createClient } from "@supabase/supabase-js";
 import { processDocumentAnalysis, shouldRecoverAnalysis } from "@/lib/jobs/process-document";
+import {
+  canRetryAnalysisManually,
+  getAnalysisJob,
+  MAX_ANALYSIS_ATTEMPTS,
+} from "@/lib/jobs/process-document-core";
+import { logOperationalEvent, toSafeErrorMessage } from "@/lib/observability/operations";
 import { isDocumentOwner } from "@/lib/security/access";
 
 function getSupabase() {
@@ -13,12 +19,18 @@ function getSupabase() {
   );
 }
 
+export const maxDuration = 300;
+
 function scheduleRecovery(documentId: string) {
   after(async () => {
     try {
       await processDocumentAnalysis(documentId);
     } catch (error) {
-      console.error("[analysis] recovery failed", documentId, error);
+      logOperationalEvent("analysis.worker_crashed", {
+        documentId,
+        trigger: "document_read",
+        error: toSafeErrorMessage(error),
+      }, "error");
     }
   });
 }
@@ -43,15 +55,20 @@ export async function GET(
     return NextResponse.json({ error: "Non autorizzato." }, { status: 403 });
   }
 
-  if (shouldRecoverAnalysis({
-    status: document.status,
-    analysis: document.analysis,
-    updatedAt: document.updatedAt,
-  })) {
+  if (shouldRecoverAnalysis(document)) {
     scheduleRecovery(document.id);
   }
 
-  return NextResponse.json(document);
+  const job = getAnalysisJob(document.analysis);
+  return NextResponse.json({
+    ...document,
+    processing: {
+      attempts: job.attempts,
+      maxAttempts: MAX_ANALYSIS_ATTEMPTS,
+      errorCode: job.lastErrorCode ?? null,
+      canRetry: canRetryAnalysisManually(document),
+    },
+  });
 }
 
 export async function DELETE(

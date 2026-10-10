@@ -60,6 +60,9 @@ importers:
         specifier: ^14.0.1
         version: 14.0.1
     devDependencies:
+      '@electric-sql/pglite':
+        specifier: 0.4.1
+        version: 0.4.1
       '@tailwindcss/postcss':
         specifier: ^4
         version: 4.3.1

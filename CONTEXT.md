@@ -1,6 +1,6 @@
 # CONTEXT.md — Veredoc
 
-> Aggiornato: 2026-08-31 — PWA mobile experience, profili, trend longitudinali e payroll intelligence v2
+> Aggiornato: 2026-10-10 — lifecycle analisi affidabile (lease con token, checkpoint estrazione, recovery), PWA, profili, trend e payroll intelligence v2
 
 ---
 
@@ -74,6 +74,7 @@ app/
     documents/upload/               upload associato a profilo
     documents/[id]/profile/         spostamento documento tra profili
     documents/[id]/                 lettura/recovery/cancellazione
+    documents/[id]/retry/           riprova manuale di un documento in ERROR
     documents/[id]/refresh-market/  refresh confronto mercato
     jobs/process-analysis/           recovery batch
 components/
@@ -117,9 +118,81 @@ supabase/rls.sql
 7. Il backend accetta `profileId` solo se appartiene allo stesso `userId`; senza id usa il profilo default.
 8. Il documento nasce `PENDING` con `userId + profileId`.
 9. Claude esegue auto-detection one-pass di luce/gas/internet/busta paga.
-10. Worker, validazione runtime, retry e recovery restano invariati.
+10. Il worker parte in `after()`; lifecycle, retry e recovery sono descritti in "Lifecycle analisi".
 
 La cattura da fotocamera usa il normale input file del browser con `capture="environment"`: non richiede permessi persistenti, API native o nuova business logic. La validazione server-side esistente resta la fonte di verità.
+
+---
+
+## Lifecycle analisi
+
+Codice: `lib/jobs/process-document-core.ts` (logica, testabile), `lib/jobs/process-document.ts` (adapter Prisma/Storage/AI), `lib/jobs/analysis-sql.ts` (SQL condizionato).
+
+```text
+PENDING ──claim──▶ PROCESSING ──▶ DONE                       estrazione valida (+ confronto mercato o "non_disponibile")
+                      │      ├──▶ ERROR documento_non_supportato
+                      │      ├──▶ PENDING (retry)             errore transitorio, tentativi < 3
+                      │      └──▶ ERROR <codice>              errore definitivo o 3° tentativo fallito
+                      └─ lease scaduto (6 min) ──▶ recovery: nuovo claim, oppure ERROR attempts_exhausted
+ERROR ──POST /api/documents/[id]/retry──▶ PENDING             solo proprietario, max 2, non per documenti non supportati
+```
+
+`DONE` è terminale per il worker: nessuna transizione verso `PENDING`/`PROCESSING`. Il confronto mercato dei documenti `DONE` viene aggiornato solo da `refresh-market(-rates)`.
+
+### Lease
+
+- Stato del job in `analysis._job`: `attempts`, `leaseId`, `phase`, `extracted`, `manualRetries`, `lastError`, `lastErrorCode`. Nessuna migrazione.
+- Il claim è un singolo `UPDATE` atomico condizionato su stato, `attempts` attesi e scadenza del lease calcolata con `now()` del DB.
+- Ogni scrittura del worker è condizionata su `status = PROCESSING`, `deletedAt IS NULL` e `analysis._job.leaseId` = token del worker.
+- **Non usare `updatedAt` come compare-and-swap**: il trigger `Document_updatedAt_trigger` (`001_schema.sql`) lo riscrive a `NOW()` con microsecondi a ogni UPDATE. Fino al 2026-10-10 il lease usava `updatedAt`: ogni `complete`/`markFailure` aggiornava zero righe in silenzio e nessun documento poteva arrivare a `DONE` (ultimo DONE creato il 2026-07-03).
+- Un aggiornamento a zero righe non è mai un successo: il worker rilegge il documento e registra `analysis.lease_lost` (`document_deleted`, `already_final`, `lease_taken`) oppure `analysis.persistence_unconfirmed` (caso inatteso, livello error).
+
+### Fasi e retry
+
+1. Download Storage → validazione magic bytes → Claude (timeout 110 s, 1 retry SDK).
+2. Validazione runtime dell'output AI.
+3. **Checkpoint**: estrazione validata salvata in `rawExtracted` con `_job.extracted = true`. I tentativi successivi la riutilizzano senza richiamare Claude.
+4. Arricchimento: confronto mercato (bollette) o verifica deterministica (buste paga).
+5. Persistenza finale `DONE`.
+
+Massimo 3 tentativi automatici. Retry: errori Storage, provider AI, output AI non valido, verifica payroll, persistenza. Definitivi subito: file non valido, documento non supportato. Un errore del confronto mercato non invalida l'estrazione: il documento va in `DONE` con `confronto_mercato: null` e `confronto_mercato_stato: "non_disponibile"`; il job notturno lo ricalcola.
+
+### Serverless e recovery
+
+- `after()` vive al massimo `maxDuration` della route (300 s, Vercel Hobby + Fluid Compute, regione iad1). Può essere interrotto: per questo il lease (6 min) supera la durata massima e il recovery è indipendente dalla richiesta originale.
+- Trigger del worker: upload (`after()`), `GET /api/documents/[id]` quando il documento è `PENDING` o con lease scaduto, retry manuale, job `POST /api/jobs/process-analysis`.
+- Job di recovery: max 20 candidati, max 10 elaborazioni, nessuna nuova elaborazione dopo 60 s; chiude in `ERROR` i documenti con tentativi esauriti. Protetto da `JOBS_SECRET`.
+- Scheduler: workflow n8n `scripts/n8n/analysis-recovery.workflow.json` ogni 5 minuti (istruzioni in `scripts/README-n8n.md`). Vercel Cron su Hobby è limitato a un'esecuzione giornaliera e non è usato.
+
+### UX stati
+
+Dashboard: `In coda`, `Analisi in corso`, `Completato`, `Errore analisi`. Dettaglio: coda, analisi in corso, nuovo tentativo automatico (n di 3), messaggio dopo 90 s, polling 3 s per 2 minuti poi 10 s, stop dopo 10 minuti con `Controlla di nuovo`. In `ERROR` il proprietario può usare `Riprova l'analisi` (nessun nuovo documento, nessun consumo di quota). I documenti legacy `AWAITING_CONFIRMATION` non mostrano più uno spinner infinito.
+
+### Eventi di log
+
+`analysis.queued`, `analysis.claimed`, `analysis.recovered`, `storage.document_download_completed`, `ai.analysis_completed`, `analysis.validation_completed`, `analysis.extraction_reused`, `analysis.enrichment_completed`, `analysis.enrichment_failed`, `analysis.completed`, `analysis.unsupported`, `analysis.retry_scheduled`, `analysis.failed`, `analysis.attempts_exhausted`, `analysis.lease_lost`, `analysis.persistence_unconfirmed`, `analysis.worker_crashed`, `analysis.manual_retry`, `job.process_analysis.completed`.
+
+Ogni evento del worker contiene `documentId` e `attempt`; gli errori `phase`, `errorCode`, `retryable`. Non vengono registrati contenuti del documento, testo AI o segreti (anche i `SyntaxError` di parsing JSON sono sostituiti da un messaggio generico).
+
+### Diagnosi di un documento bloccato
+
+1. Vercel Logs (Hobby: retention 1 ora) → cerca il `documentId`: l'ultimo evento indica la fase.
+2. Supabase SQL editor (sola lettura):
+   ```sql
+   select id, status, "updatedAt", analysis->'_job' as job, "rawExtracted" is not null as has_extraction
+   from "Document" where id = '<id>';
+   ```
+3. Interpretazione: `PROCESSING` con `updatedAt` recente = in lavorazione; `PROCESSING` oltre 6 minuti = worker interrotto, recuperabile; `PENDING` con `attempts > 0` = retry in attesa; `ERROR` con `error = attempts_exhausted` o altro codice = definitivo; `_job.extracted = true` = estrazione già salvata, il recovery non richiama Claude.
+
+### Recupero manuale sicuro
+
+Non modificare righe a mano. Chiamare il job (idempotente, claim atomico):
+
+```bash
+curl -X POST https://www.veredoc.it/api/jobs/process-analysis -H "Authorization: Bearer $JOBS_SECRET"
+```
+
+In alternativa il proprietario apre il documento: la `GET` avvia il recovery. Per un documento in `ERROR`: `Riprova l'analisi` dalla UI.
 
 ---
 
@@ -200,7 +273,7 @@ I test includono payload payroll sintetici ma realistici e anonimizzati per vali
 
 ## Database
 
-La migrazione `supabase/migrations/002_analysis_profiles.sql` è stata applicata il 2026-08-30. Non sono richieste nuove migrazioni per payroll intelligence v2 o PWA/mobile UX.
+La migrazione `supabase/migrations/002_analysis_profiles.sql` è stata applicata il 2026-08-30. Non sono richieste nuove migrazioni per payroll intelligence v2, PWA/mobile UX o lifecycle analisi (stato del job in `analysis._job`). Il trigger `Document_updatedAt_trigger` resta attivo: `updatedAt` non è affidabile per confronti di uguaglianza.
 
 ---
 
@@ -255,7 +328,8 @@ PR solo se richiesta, imposta da policy o realmente necessaria per validare in s
 ## Test principali
 
 - validazione upload e output AI;
-- worker concurrency/lease/retry;
+- worker lifecycle: lease, claim concorrenti, retry, tentativi esauriti, recovery, checkpoint estrazione, update a zero righe, confronto mercato non bloccante;
+- SQL del lease su Postgres reale in-process (PGlite) con il trigger di produzione;
 - auto-detection cross-type;
 - payroll coherence v2;
 - payload payroll realistici sintetici per saldi/TFR/eventi variabili;
@@ -275,7 +349,7 @@ PR solo se richiesta, imposta da policy o realmente necessaria per validare in s
 3. Evolvere le bollette da trend a monitoraggio tariffa/consumo con spiegazione della causa dominante.
 4. Valutare rename/archive profilo mantenendo la cancellazione documenti separata.
 5. Billing reale PRO solo previa approvazione esplicita.
-6. Pubblicare n8n Analysis Recovery quando si decide di attivare il recovery automatico.
+6. Importare e attivare in n8n `scripts/n8n/analysis-recovery.workflow.json` (non ancora verificato come attivo).
 7. Misurare installazione e ritorno della PWA prima di valutare wrapper o app native.
 8. Valutare notifiche push solo quando esistono alert longitudinali realmente utili e con consenso esplicito.
 

@@ -115,7 +115,8 @@ SE NON È UN DOCUMENTO SUPPORTATO restituisci esattamente:
 }
 
 export class AnthropicProvider implements AIProvider {
-  private client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  // Timeout e retry restano entro la durata massima della funzione (300 s) che esegue il worker.
+  private client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 110_000, maxRetries: 1 })
 
   async analyzeDocument(params: AnalyzeDocumentParams): Promise<AnalyzeDocumentResult> {
     const { fileBase64, mimeType, textOverride } = params
@@ -160,6 +161,13 @@ export class AnthropicProvider implements AIProvider {
     const text = response.content.find((b) => b.type === 'text')?.text ?? ''
     const jsonMatch = text.match(/\{[\s\S]*\}/)
     if (!jsonMatch) throw new Error('Nessun JSON trovato nella risposta AI.')
-    return { raw: JSON.parse(jsonMatch[0]), provider: 'anthropic' }
+    let raw: unknown
+    try {
+      raw = JSON.parse(jsonMatch[0])
+    } catch {
+      // Il messaggio di SyntaxError include frammenti del testo estratto: non va propagato nei log.
+      throw new Error(`Risposta AI non è un JSON valido (stop_reason: ${response.stop_reason ?? 'n/d'}).`)
+    }
+    return { raw, provider: 'anthropic' }
   }
 }

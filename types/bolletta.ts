@@ -89,4 +89,6 @@ export interface ConfrontoMercato {
 
 export interface BollettaAnalysis extends BollettaRaw {
   confronto_mercato: ConfrontoMercato | null;
+  /** Presente solo quando l'arricchimento è fallito: l'estrazione resta valida e consultabile. */
+  confronto_mercato_stato?: "non_disponibile";
 }

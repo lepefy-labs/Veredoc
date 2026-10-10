@@ -11,6 +11,7 @@ import {
   type AcceptedMimeType,
 } from "@/lib/documents/upload-validation";
 import { processDocumentAnalysis } from "@/lib/jobs/process-document";
+import { logOperationalEvent, toSafeErrorMessage } from "@/lib/observability/operations";
 
 function getSupabase() {
   return createClient(
@@ -70,12 +71,20 @@ async function resolveProfile(userId: string, requestedProfileId: string | null)
   });
 }
 
+// after() resta legato alla durata massima della funzione: se il worker viene interrotto,
+// il documento viene recuperato alla scadenza del lease (GET documento o job process-analysis).
+export const maxDuration = 300;
+
 function scheduleAnalysis(documentId: string) {
   after(async () => {
     try {
       await processDocumentAnalysis(documentId);
     } catch (error) {
-      console.error("[analysis] failed to start document analysis", documentId, error);
+      logOperationalEvent("analysis.worker_crashed", {
+        documentId,
+        trigger: "upload",
+        error: toSafeErrorMessage(error),
+      }, "error");
     }
   });
 }
@@ -161,6 +170,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    logOperationalEvent("analysis.queued", { documentId: document.id });
     scheduleAnalysis(document.id);
     return NextResponse.json({ id: document.id, status: "PENDING", profileId: profile.id }, { status: 202 });
   } catch (error) {

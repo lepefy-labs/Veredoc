@@ -267,7 +267,11 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
 
       {(!confronto || confronto.prezzo_kwh_attuale === null) && (
         <Card>
-          <p className="text-sm text-muted">{TEXTS.analysis.noMarketData}</p>
+          <p className="text-sm text-muted">
+            {data.confronto_mercato_stato === "non_disponibile"
+              ? "Il confronto con le offerte di mercato è temporaneamente non disponibile. La lettura della bolletta è completa; il confronto verrà aggiornato automaticamente oppure puoi aggiornarlo ora."
+              : TEXTS.analysis.noMarketData}
+          </p>
         </Card>
       )}
 
