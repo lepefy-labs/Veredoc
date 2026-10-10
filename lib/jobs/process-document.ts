@@ -6,7 +6,8 @@ import { verificaBustaPaga } from "@/lib/parsers/bustapaga";
 import { validateBollettaOutput, validateBustaPagaOutput } from "@/lib/ai/validate";
 import { validateDocumentBuffer, type AcceptedMimeType } from "@/lib/documents/upload-validation";
 import { logOperationalEvent } from "@/lib/observability/operations";
-import { isNotificationOutboxEnabled } from "@/lib/notifications/config";
+import { getDelayedThresholdSeconds, isDelayedNoticeEnabled, isNotificationOutboxEnabled } from "@/lib/notifications/config";
+import { startDelayedNoticeTimer } from "@/lib/notifications/delayed-notice";
 import type { NotificationIntent } from "@/lib/notifications/events";
 import { withOutboxEventSql } from "@/lib/notifications/notification-sql";
 import { dispatchDocumentNotifications } from "@/lib/notifications/dispatcher";
@@ -104,11 +105,37 @@ const NOTIFIABLE_OUTCOMES = new Set<AnalysisOutcome>([
   "exhausted",
 ]);
 
-// Esegue l'analisi e, se il documento ha raggiunto uno stato finale, prova subito a inviare
-// la relativa email. L'invio non influisce mai sull'esito dell'analisi.
-export async function processDocumentAnalysisAndNotify(documentId: string): Promise<AnalysisRunResult> {
-  const result = await processDocumentAnalysis(documentId);
-  if (NOTIFIABLE_OUTCOMES.has(result.outcome) && isNotificationOutboxEnabled()) {
+// Esegue l'analisi e, se il documento ha raggiunto uno stato finale, invia subito la relativa
+// email chiamando Brevo. Con `delayedNotice` (upload e riprova manuale, cioè l'inizio di un
+// ciclo) avvia in parallelo il timer dell'avviso di attesa prolungata.
+// L'invio non influisce mai sull'esito dell'analisi.
+export async function processDocumentAnalysisAndNotify(
+  documentId: string,
+  options: { delayedNotice?: boolean } = {}
+): Promise<AnalysisRunResult> {
+  const notificationsEnabled = isNotificationOutboxEnabled();
+  // +1 s: la soglia è verificata in SQL con l'orologio del DB.
+  const timer = options.delayedNotice && notificationsEnabled && isDelayedNoticeEnabled()
+    ? startDelayedNoticeTimer(
+      getDelayedThresholdSeconds() * 1000 + 1000,
+      () => dispatchDocumentNotifications(documentId, { enqueueDelayed: true })
+    )
+    : null;
+
+  let result: AnalysisRunResult;
+  try {
+    result = await processDocumentAnalysis(documentId);
+  } catch (error) {
+    await timer?.cancel();
+    throw error;
+  }
+
+  const final = NOTIFIABLE_OUTCOMES.has(result.outcome);
+  if (timer) {
+    if (final) await timer.cancel();
+    else await timer.wait();
+  }
+  if (final && notificationsEnabled) {
     await dispatchDocumentNotifications(documentId);
   }
   return result;

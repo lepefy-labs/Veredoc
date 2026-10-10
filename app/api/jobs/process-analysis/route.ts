@@ -9,6 +9,7 @@ import {
 import type { AnalysisOutcome } from "@/lib/jobs/process-document-core";
 import { elapsedMs, logOperationalEvent, toSafeErrorMessage } from "@/lib/observability/operations";
 import { isJobRequestAuthorized } from "@/lib/security/access";
+import { runNotificationDispatch } from "@/lib/notifications/dispatcher";
 
 export const maxDuration = 300;
 
@@ -24,6 +25,32 @@ export async function POST(req: NextRequest) {
   }
 
   const startedAt = Date.now();
+
+  // Notifiche: avvisi di attesa non partiti dall'after() dell'upload e retry degli invii
+  // falliti o interrotti. Prima delle analisi (operazione breve) e mai bloccante.
+  // Il tempo impiegato rientra nel budget START_BUDGET_MS.
+  let notifications: Record<string, number | boolean | string> = { skipped: true };
+  try {
+    const dispatch = await runNotificationDispatch({ enqueueDelayed: true, batchSize: 10 });
+    notifications = dispatch.skipped
+      ? { skipped: true, reason: dispatch.reason }
+      : {
+        skipped: false,
+        enqueuedDelayed: dispatch.enqueuedDelayed,
+        claimed: dispatch.claimed,
+        sent: dispatch.sent + dispatch.deduplicated,
+        cancelled: dispatch.cancelled,
+        retryScheduled: dispatch.retryScheduled,
+        failed: dispatch.failed + dispatch.unconfirmed,
+        crashed: dispatch.crashed,
+        purged: dispatch.purged,
+      };
+    if (!dispatch.skipped) logOperationalEvent("job.process_notifications.completed", { ...dispatch });
+  } catch (error) {
+    notifications = { skipped: true, reason: "dispatch_failed" };
+    logOperationalEvent("job.process_notifications.failed", { error: toSafeErrorMessage(error, 200) }, "error");
+  }
+
   const staleBefore = new Date(Date.now() - ANALYSIS_LEASE_TIMEOUT_MS);
   const candidates = await prisma.document.findMany({
     where: {
@@ -88,5 +115,5 @@ export async function POST(req: NextRequest) {
     summary.unconfirmed > 0 ? "error" : summary.failed + summary.exhausted > 0 ? "warn" : "info"
   );
 
-  return NextResponse.json({ success: true, ...summary });
+  return NextResponse.json({ success: true, ...summary, notifications });
 }

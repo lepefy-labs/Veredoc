@@ -66,8 +66,11 @@ class FakeNotificationStore implements NotificationStore {
     return this.rows.find((row) => row.id === id)!;
   }
 
-  async enqueueDelayed() {
+  enqueuedFor: Array<string | null | undefined> = [];
+
+  async enqueueDelayed(input: { documentId?: string | null }) {
     this.enqueuedDelayedCalls++;
+    this.enqueuedFor.push(input.documentId);
     return 0;
   }
 
@@ -233,9 +236,10 @@ test("attesa prolungata: avviso inviato se il documento è ancora in elaborazion
   harness.store.documents.set("doc-1", { status: "PROCESSING", deletedAt: null, type: "BOLLETTA_LUCE", cycle: 0 });
   harness.store.add({ id: ID, eventType: "ANALYSIS_DELAYED" });
 
-  const summary = await harness.dispatch({ enqueueDelayed: true });
+  const summary = await harness.dispatch({ enqueueDelayed: true, documentId: "doc-1" });
 
   assert.equal(harness.store.enqueuedDelayedCalls, 1);
+  assert.deepEqual(harness.store.enqueuedFor, ["doc-1"]);
   assert.equal(summary.sent, 1);
   assert.equal(harness.sent[0].subject, "Stiamo ancora analizzando il tuo documento");
   assert.match(harness.sent[0].textContent, /Non devi fare nulla: puoi tornare alle tue attività\./);

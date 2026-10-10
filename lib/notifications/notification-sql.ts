@@ -44,8 +44,10 @@ export function enqueueDelayedNoticesSql(input: {
   thresholdSeconds: number;
   maxAgeSeconds: number;
   limit: number;
+  documentId?: string | null;
 }): Prisma.Sql {
   const prefix = eventKeyPrefix("ANALYSIS_DELAYED");
+  const documentFilter = input.documentId ? Prisma.sql`AND d."id" = ${input.documentId}` : Prisma.empty;
   return Prisma.sql`
     WITH candidates AS (
       SELECT d."id",
@@ -60,6 +62,7 @@ export function enqueueDelayedNoticesSql(input: {
       WHERE d."status" IN ('PENDING'::"AnalysisStatus", 'PROCESSING'::"AnalysisStatus")
         AND d."deletedAt" IS NULL
         AND d."updatedAt" > now() - make_interval(secs => ${input.maxAgeSeconds})
+        ${documentFilter}
     )
     INSERT INTO "NotificationOutbox"
       ("id", "userId", "documentId", "eventType", "eventKey", "analysisCycle", "status", "nextAttemptAt", "createdAt", "updatedAt")

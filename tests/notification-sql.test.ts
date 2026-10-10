@@ -243,6 +243,15 @@ test("attesa: la soglia parte dall'inizio del ciclo, non da createdAt o updatedA
   assert.deepEqual((await outbox(db)).map((event) => event.eventKey), ["analysis_delayed:doc-retry-old:2"]);
 });
 
+test("attesa: filtro per documento usato dal timer dell'upload", async () => {
+  const db = await createDb();
+  await insertDocument(db, { id: "doc-a", createdAgo: "90 seconds" });
+  await insertDocument(db, { id: "doc-b", createdAgo: "90 seconds" });
+
+  assert.equal(await exec(db, enqueueDelayedNoticesSql({ ...DELAYED, documentId: "doc-b" })), 1);
+  assert.deepEqual((await outbox(db)).map((event) => event.eventKey), ["analysis_delayed:doc-b:0"]);
+});
+
 async function insertEvent(db: PGlite, id: string, options: { status?: string; nextAttemptIn?: string; updatedAgo?: string } = {}) {
   await db.query(
     `INSERT INTO "NotificationOutbox" (id, "userId", "documentId", "eventType", "eventKey", "analysisCycle", status, "nextAttemptAt", "updatedAt")

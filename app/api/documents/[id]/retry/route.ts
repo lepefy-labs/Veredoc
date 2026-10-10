@@ -66,7 +66,7 @@ export async function POST(
 
   after(async () => {
     try {
-      await processDocumentAnalysisAndNotify(document.id);
+      await processDocumentAnalysisAndNotify(document.id, { delayedNotice: true });
     } catch (error) {
       logOperationalEvent("analysis.worker_crashed", {
         documentId: document.id,

@@ -78,6 +78,7 @@ export type NotificationDispatchResult =
 export async function runNotificationDispatch(options: {
   documentId?: string | null;
   enqueueDelayed?: boolean;
+  batchSize?: number;
 } = {}): Promise<NotificationDispatchResult> {
   if (!isNotificationOutboxEnabled()) return { skipped: true, reason: "notifications_disabled" };
   // Senza chiave API le righe restano PENDING e verranno inviate quando il provider sarà configurato.
@@ -86,14 +87,19 @@ export async function runNotificationDispatch(options: {
   return { skipped: false, ...summary };
 }
 
-// Invio immediato dopo una transizione finale del worker. Non lancia mai:
-// un problema email non deve influire sull'analisi; il job schedulato riprende le righe rimaste.
-export async function dispatchDocumentNotifications(documentId: string): Promise<void> {
+// Invio immediato per un documento (fine del worker o soglia dell'avviso di attesa).
+// Non lancia mai: un problema email non deve influire sull'analisi; il job di recovery
+// riprende le righe rimaste.
+export async function dispatchDocumentNotifications(
+  documentId: string,
+  options: { enqueueDelayed?: boolean } = {}
+): Promise<void> {
   try {
-    const result = await runNotificationDispatch({ documentId });
+    const result = await runNotificationDispatch({ documentId, enqueueDelayed: options.enqueueDelayed });
     if (!result.skipped && result.claimed > 0) {
       logOperationalEvent("notification.inline_dispatch", {
         documentId,
+        enqueuedDelayed: result.enqueuedDelayed,
         claimed: result.claimed,
         sent: result.sent + result.deduplicated,
         retryScheduled: result.retryScheduled,

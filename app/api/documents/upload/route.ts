@@ -79,7 +79,7 @@ export const maxDuration = 300;
 function scheduleAnalysis(documentId: string) {
   after(async () => {
     try {
-      await processDocumentAnalysisAndNotify(documentId);
+      await processDocumentAnalysisAndNotify(documentId, { delayedNotice: true });
     } catch (error) {
       logOperationalEvent("analysis.worker_crashed", {
         documentId,

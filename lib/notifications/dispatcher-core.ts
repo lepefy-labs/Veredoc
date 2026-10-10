@@ -44,7 +44,7 @@ export interface NotificationContext {
 }
 
 export interface NotificationStore {
-  enqueueDelayed(input: { thresholdSeconds: number; maxAgeSeconds: number; limit: number }): Promise<number>;
+  enqueueDelayed(input: { thresholdSeconds: number; maxAgeSeconds: number; limit: number; documentId?: string | null }): Promise<number>;
   claim(input: { leaseId: string; leaseSeconds: number; limit: number; documentId?: string | null }): Promise<ClaimedNotificationRow[]>;
   loadContext(row: ClaimedNotificationRow): Promise<NotificationContext>;
   markSendStarted(input: { id: string; leaseId: string; ambiguousSince: Date | null }): Promise<number>;
@@ -242,6 +242,7 @@ export function createNotificationDispatcher(deps: NotificationDispatcherDepende
         thresholdSeconds: deps.delayedNotice.thresholdSeconds,
         maxAgeSeconds: deps.delayedNotice.maxAgeSeconds,
         limit: 50,
+        documentId: options.documentId ?? null,
       });
     }
 
