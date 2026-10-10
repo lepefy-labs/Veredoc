@@ -294,6 +294,18 @@ test("destinatario mancante o non valido: nessun invio", async () => {
   }
 });
 
+test("indirizzo non confermato: nessun invio", async () => {
+  const harness = createHarness();
+  harness.store.add({ id: ID, eventType: "ANALYSIS_COMPLETED" });
+  const loadContext = harness.store.loadContext.bind(harness.store);
+  harness.store.loadContext = async (row) => ({ ...(await loadContext(row)), recipientVerified: false });
+
+  await harness.dispatch();
+
+  assert.equal(harness.sent.length, 0);
+  assert.equal(harness.store.row(ID).lastErrorCode, "email_unverified");
+});
+
 test("riprova manuale avviata: l'errore del ciclo precedente non viene più notificato", async () => {
   const harness = createHarness();
   harness.store.documents.set("doc-1", { status: "PENDING", deletedAt: null, type: "BOLLETTA_LUCE", cycle: 1 });

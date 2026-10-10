@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { signOut } from "next-auth/react";
 import Button from "@/components/ui/Button";
 import { PASSWORD_MIN_LENGTH } from "@/lib/account/credentials";
 
@@ -33,6 +34,11 @@ export default function PasswordChangeForm() {
       if (!res.ok) {
         const data = await res.json().catch(() => null) as { error?: string } | null;
         setError(data?.error ?? "Non è stato possibile aggiornare la password.");
+        return;
+      }
+      const data = await res.json().catch(() => null) as { sessionsRevoked?: boolean } | null;
+      if (data?.sessionsRevoked) {
+        await signOut({ callbackUrl: "/login?passwordChanged=1" });
         return;
       }
       setCurrentPassword("");

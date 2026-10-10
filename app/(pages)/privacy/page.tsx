@@ -113,8 +113,9 @@ export default function PrivacyPage() {
                 data) viene conservato per 90 giorni e non contiene il testo delle email
               </li>
               <li>
-                In caso di cancellazione dell&apos;account, tutti i dati vengono
-                eliminati entro 30 giorni
+                L&apos;account può essere eliminato in qualsiasi momento dalla pagina
+                Account: documenti, file caricati e analisi vengono cancellati subito;
+                eventuali copie nei backup tecnici vengono eliminate entro 30 giorni
               </li>
             </ul>
           </section>
@@ -126,7 +127,11 @@ export default function PrivacyPage() {
               rettifica, cancellazione, portabilità e opposizione al trattamento.
             </p>
             <p className="mt-2">
-              Per esercitare i propri diritti:{" "}
+              Dalla pagina Account puoi scaricare una copia dei tuoi dati in formato
+              JSON, modificare l&apos;indirizzo email ed eliminare l&apos;account.
+            </p>
+            <p className="mt-2">
+              Per esercitare gli altri diritti:{" "}
               <a href="mailto:privacy@veredoc.it" className="text-brand hover:underline">
                 privacy@veredoc.it
               </a>

@@ -1,5 +1,5 @@
 // POST /api/account/password — cambio password dell'utente autenticato.
-// Richiede la password attuale; invalida i link di reset ancora attivi.
+// Richiede la password attuale; invalida i link di reset ancora attivi e le sessioni aperte.
 
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
@@ -9,6 +9,7 @@ import { PASSWORD_PROBLEM_MESSAGES, passwordProblem } from "@/lib/account/creden
 import { RATE_LIMITS } from "@/lib/security/rate-limit";
 import { enforceRateLimits } from "@/lib/security/rate-limit-server";
 import { logOperationalEvent } from "@/lib/observability/operations";
+import { bumpSessionVersion } from "@/lib/account/state";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -50,6 +51,8 @@ export async function POST(req: NextRequest) {
     prisma.passwordResetToken.updateMany({ where: { userId: user.id, usedAt: null }, data: { usedAt: now } }),
   ]);
 
-  logOperationalEvent("account.password_changed", { userId: user.id });
-  return NextResponse.json({ success: true });
+  // Chiude tutte le sessioni aperte, compresa quella corrente (dopo la migrazione 005).
+  const sessionsRevoked = await bumpSessionVersion(user.id);
+  logOperationalEvent("account.password_changed", { userId: user.id, sessionsRevoked });
+  return NextResponse.json({ success: true, sessionsRevoked });
 }
