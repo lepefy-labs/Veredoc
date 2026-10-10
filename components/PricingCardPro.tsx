@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { TEXTS } from "@/lib/config/texts";
 
 type Billing = "monthly" | "annual";
 
 export default function PricingCardPro() {
+  const { data: session } = useSession();
   const [billing, setBilling] = useState<Billing>("annual");
   const plan = TEXTS.pricing.pro;
   const active = billing === "monthly" ? plan.monthly : plan.annual;
@@ -71,10 +73,10 @@ export default function PricingCardPro() {
       </ul>
 
       <Link
-        href="/register"
+        href={session ? "/account#piano" : "/register"}
         className="mt-6 inline-flex items-center justify-center px-5 py-3 bg-brand text-white rounded-lg font-semibold hover:bg-brand-dark transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
       >
-        {plan.cta}
+        {session ? plan.ctaLoggedIn : plan.cta}
       </Link>
       <p className="text-xs text-muted text-center mt-2">{plan.ctaNote}</p>
     </div>

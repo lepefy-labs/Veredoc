@@ -8,7 +8,7 @@ export default function Footer() {
         <nav className="flex flex-wrap justify-center gap-x-3 gap-y-1">
           <Link href="/privacy" className="hover:text-brand transition-colors">Privacy Policy</Link>
           <span aria-hidden="true">·</span>
-          <Link href="/privacy" className="hover:text-brand transition-colors">Cookie Policy</Link>
+          <Link href="/privacy#cookie" className="hover:text-brand transition-colors">Cookie Policy</Link>
           <span aria-hidden="true">·</span>
           <Link href="/termini" className="hover:text-brand transition-colors">Termini di servizio</Link>
         </nav>

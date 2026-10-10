@@ -10,6 +10,7 @@ import type { AnalysisOutcome } from "@/lib/jobs/process-document-core";
 import { elapsedMs, logOperationalEvent, toSafeErrorMessage } from "@/lib/observability/operations";
 import { isJobRequestAuthorized } from "@/lib/security/access";
 import { runNotificationDispatch } from "@/lib/notifications/dispatcher";
+import { purgeRateLimitsSql } from "@/lib/security/rate-limit";
 
 export const maxDuration = 300;
 
@@ -50,6 +51,9 @@ export async function POST(req: NextRequest) {
     notifications = { skipped: true, reason: "dispatch_failed" };
     logOperationalEvent("job.process_notifications.failed", { error: toSafeErrorMessage(error, 200) }, "error");
   }
+
+  // Contatori del rate limit più vecchi di 24 h (tabella assente prima della migrazione 004).
+  await prisma.$executeRaw(purgeRateLimitsSql()).catch(() => 0);
 
   const staleBefore = new Date(Date.now() - ANALYSIS_LEASE_TIMEOUT_MS);
   const candidates = await prisma.document.findMany({

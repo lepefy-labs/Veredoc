@@ -35,7 +35,9 @@ function LoginContent() {
     setLoading(false);
 
     if (result?.error) {
-      setError("Email o password non corretti.");
+      setError(result.code === "rate_limited"
+        ? "Troppi tentativi di accesso. Attendi qualche minuto e riprova."
+        : "Email o password non corretti.");
       return;
     }
 

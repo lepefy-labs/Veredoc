@@ -3,6 +3,9 @@ import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { TEXTS } from "@/lib/config/texts";
+import { PASSWORD_PROBLEM_MESSAGES, passwordProblem } from "@/lib/account/credentials";
+import { clientIpFrom, RATE_LIMITS } from "@/lib/security/rate-limit";
+import { enforceRateLimits } from "@/lib/security/rate-limit-server";
 
 export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get("token");
@@ -22,8 +25,19 @@ export async function POST(req: NextRequest) {
     if (!token || !password) {
       return NextResponse.json({ error: TEXTS.resetPassword.errors.missingFields }, { status: 400 });
     }
-    if (password.length < 8) {
+    const problem = passwordProblem(password);
+    if (problem === "too_short") {
       return NextResponse.json({ error: TEXTS.resetPassword.errors.tooShort }, { status: 400 });
+    }
+    if (problem) {
+      return NextResponse.json({ error: PASSWORD_PROBLEM_MESSAGES[problem] }, { status: 400 });
+    }
+
+    const limit = await enforceRateLimits("reset_password", [
+      { rule: RATE_LIMITS.resetIp, subject: clientIpFrom(req.headers) },
+    ]);
+    if (!limit.allowed) {
+      return NextResponse.json({ error: "Troppi tentativi. Riprova tra un'ora." }, { status: 429 });
     }
 
     const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
