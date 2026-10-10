@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AnalysisStatus, Prisma } from "@prisma/client";
 import { createClient } from "@supabase/supabase-js";
-import { processDocumentAnalysis, shouldRecoverAnalysis } from "@/lib/jobs/process-document";
+import { processDocumentAnalysisAndNotify, shouldRecoverAnalysis } from "@/lib/jobs/process-document";
 import {
   canRetryAnalysisManually,
   getAnalysisJob,
@@ -11,6 +11,7 @@ import {
 } from "@/lib/jobs/process-document-core";
 import { logOperationalEvent, toSafeErrorMessage } from "@/lib/observability/operations";
 import { isDocumentOwner } from "@/lib/security/access";
+import { canNotifyByEmail } from "@/lib/notifications/config";
 
 function getSupabase() {
   return createClient(
@@ -24,7 +25,7 @@ export const maxDuration = 300;
 function scheduleRecovery(documentId: string) {
   after(async () => {
     try {
-      await processDocumentAnalysis(documentId);
+      await processDocumentAnalysisAndNotify(documentId);
     } catch (error) {
       logOperationalEvent("analysis.worker_crashed", {
         documentId,
@@ -68,6 +69,8 @@ export async function GET(
       errorCode: job.lastErrorCode ?? null,
       canRetry: canRetryAnalysisManually(document),
     },
+    // true solo se notifiche, provider email e indirizzo dell'account sono utilizzabili.
+    emailNotification: canNotifyByEmail(session.user.email),
   });
 }
 

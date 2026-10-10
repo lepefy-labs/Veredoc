@@ -6,7 +6,7 @@
 import { after, NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { processDocumentAnalysis } from "@/lib/jobs/process-document";
+import { processDocumentAnalysisAndNotify } from "@/lib/jobs/process-document";
 import { canRetryAnalysisManually, getAnalysisJob } from "@/lib/jobs/process-document-core";
 import { requeueAnalysisSql } from "@/lib/jobs/analysis-sql";
 import { isDocumentOwner } from "@/lib/security/access";
@@ -52,6 +52,8 @@ export async function POST(
         extracted: previousJob.extracted === true,
         phase: "manual_retry",
         lastErrorCode: previousJob.lastErrorCode ?? null,
+        // Nuovo ciclo di analisi: la soglia dell'avviso di attesa parte da qui.
+        cycleStartedAt: new Date().toISOString(),
       },
     },
   }));
@@ -64,7 +66,7 @@ export async function POST(
 
   after(async () => {
     try {
-      await processDocumentAnalysis(document.id);
+      await processDocumentAnalysisAndNotify(document.id, { delayedNotice: true });
     } catch (error) {
       logOperationalEvent("analysis.worker_crashed", {
         documentId: document.id,

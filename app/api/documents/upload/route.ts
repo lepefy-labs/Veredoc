@@ -10,8 +10,9 @@ import {
   validateDocumentBuffer,
   type AcceptedMimeType,
 } from "@/lib/documents/upload-validation";
-import { processDocumentAnalysis } from "@/lib/jobs/process-document";
+import { processDocumentAnalysisAndNotify } from "@/lib/jobs/process-document";
 import { logOperationalEvent, toSafeErrorMessage } from "@/lib/observability/operations";
+import { canNotifyByEmail } from "@/lib/notifications/config";
 
 function getSupabase() {
   return createClient(
@@ -78,7 +79,7 @@ export const maxDuration = 300;
 function scheduleAnalysis(documentId: string) {
   after(async () => {
     try {
-      await processDocumentAnalysis(documentId);
+      await processDocumentAnalysisAndNotify(documentId, { delayedNotice: true });
     } catch (error) {
       logOperationalEvent("analysis.worker_crashed", {
         documentId,
@@ -172,7 +173,12 @@ export async function POST(req: NextRequest) {
 
     logOperationalEvent("analysis.queued", { documentId: document.id });
     scheduleAnalysis(document.id);
-    return NextResponse.json({ id: document.id, status: "PENDING", profileId: profile.id }, { status: 202 });
+    return NextResponse.json({
+      id: document.id,
+      status: "PENDING",
+      profileId: profile.id,
+      emailNotification: canNotifyByEmail(session.user.email),
+    }, { status: 202 });
   } catch (error) {
     await supabase.storage.from("documents").remove([storagePath]);
     console.error("[upload] database create failed; storage object removed", error);

@@ -1,6 +1,6 @@
 # CONTEXT.md — Veredoc
 
-> Aggiornato: 2026-10-10 — lifecycle analisi affidabile (lease con token, checkpoint estrazione, recovery), PWA, profili, trend e payroll intelligence v2
+> Aggiornato: 2026-10-10 — notifiche email transazionali dell'analisi (outbox), lifecycle analisi affidabile (lease con token, checkpoint estrazione, recovery), PWA, profili, trend e payroll intelligence v2
 
 ---
 
@@ -76,7 +76,7 @@ app/
     documents/[id]/                 lettura/recovery/cancellazione
     documents/[id]/retry/           riprova manuale di un documento in ERROR
     documents/[id]/refresh-market/  refresh confronto mercato
-    jobs/process-analysis/           recovery batch
+    jobs/process-analysis/           recovery batch + recupero notifiche email
 components/
   layout/MobileBottomNav.tsx        navigazione mobile autenticata
   pwa/PwaRegistration.tsx           registrazione service worker client-side
@@ -95,13 +95,16 @@ lib/
   parsers/bustapaga.ts              payroll-coherence-v2
   ai/
   jobs/
-  security/
+  notifications/                    outbox, dispatcher, template email, config
+  email.ts                          servizio Brevo centralizzato
+  security/                         job secret, ownership, redirect post-login
 public/
   sw.js                             service worker PWA
   offline.html                      fallback offline statico e senza dati account
   pwa/                              icone installazione
 prisma/schema.prisma
 supabase/migrations/002_analysis_profiles.sql
+supabase/migrations/003_notification_outbox.sql
 supabase/rls.sql
 ```
 
@@ -119,6 +122,7 @@ supabase/rls.sql
 8. Il documento nasce `PENDING` con `userId + profileId`.
 9. Claude esegue auto-detection one-pass di luce/gas/internet/busta paga.
 10. Il worker parte in `after()`; lifecycle, retry e recovery sono descritti in "Lifecycle analisi".
+11. La pagina mostra `Documento ricevuto!` e continua il polling. Se le notifiche sono attive (vedi "Notifiche email transazionali") l'utente può lasciare la pagina e riceve un'email a risultato pronto; l'upload non invia email.
 
 La cattura da fotocamera usa il normale input file del browser con `capture="environment"`: non richiede permessi persistenti, API native o nuova business logic. La validazione server-side esistente resta la fonte di verità.
 
@@ -161,8 +165,13 @@ Massimo 3 tentativi automatici. Retry: errori Storage, provider AI, output AI no
 
 - `after()` vive al massimo `maxDuration` della route (300 s, Vercel Hobby + Fluid Compute, regione iad1). Può essere interrotto: per questo il lease (6 min) supera la durata massima e il recovery è indipendente dalla richiesta originale.
 - Trigger del worker: upload (`after()`), `GET /api/documents/[id]` quando il documento è `PENDING` o con lease scaduto, retry manuale, job `POST /api/jobs/process-analysis`.
+- Il job di recovery esegue anche, prima delle analisi, il recupero delle notifiche email (vedi "Notifiche email transazionali").
 - Job di recovery: max 20 candidati, max 10 elaborazioni, nessuna nuova elaborazione dopo 60 s; chiude in `ERROR` i documenti con tentativi esauriti. Protetto da `JOBS_SECRET`.
 - Scheduler: workflow n8n `scripts/n8n/analysis-recovery.workflow.json` ogni 5 minuti (istruzioni in `scripts/README-n8n.md`). Vercel Cron su Hobby è limitato a un'esecuzione giornaliera e non è usato.
+
+### Ciclo di analisi
+
+Un ciclo comprende l'upload (ciclo `0`) e ogni riprova manuale (ciclo = `_job.manualRetries`); i retry automatici restano nello stesso ciclo. La riprova manuale salva `_job.cycleStartedAt`; per il ciclo `0` l'inizio è `createdAt`. Il ciclo identifica le notifiche (`eventKey`).
 
 ### UX stati
 
@@ -171,6 +180,8 @@ Dashboard: `In coda`, `Analisi in corso`, `Completato`, `Errore analisi`. Dettag
 ### Eventi di log
 
 `analysis.queued`, `analysis.claimed`, `analysis.recovered`, `storage.document_download_completed`, `ai.analysis_completed`, `analysis.validation_completed`, `analysis.extraction_reused`, `analysis.enrichment_completed`, `analysis.enrichment_failed`, `analysis.completed`, `analysis.unsupported`, `analysis.retry_scheduled`, `analysis.failed`, `analysis.attempts_exhausted`, `analysis.lease_lost`, `analysis.persistence_unconfirmed`, `analysis.worker_crashed`, `analysis.manual_retry`, `job.process_analysis.completed`.
+
+Notifiche: `notification.sent`, `notification.retry_scheduled`, `notification.cancelled`, `notification.failed`, `notification.lease_recovered`, `notification.lease_lost`, `notification.dispatch_crashed`, `notification.inline_dispatch`, `notification.inline_dispatch_failed`, `job.process_notifications.completed|failed` (passo notifiche del job di recovery). Contengono `notificationId`, `documentId`, `eventType`, `attempt`, `errorCode`: mai indirizzi email o testo delle email.
 
 Ogni evento del worker contiene `documentId` e `attempt`; gli errori `phase`, `errorCode`, `retryable`. Non vengono registrati contenuti del documento, testo AI o segreti (anche i `SyntaxError` di parsing JSON sono sostituiti da un messaggio generico).
 
@@ -193,6 +204,75 @@ curl -X POST https://www.veredoc.it/api/jobs/process-analysis -H "Authorization:
 ```
 
 In alternativa il proprietario apre il documento: la `GET` avvia il recovery. Per un documento in `ERROR`: `Riprova l'analisi` dalla UI.
+
+---
+
+## Notifiche email transazionali
+
+Obiettivo: l'utente può lasciare la pagina dopo l'upload e viene avvisato via email. Le notifiche sono solo di servizio (nessun tracking o marketing) e non influiscono mai sull'analisi.
+
+### Eventi
+
+| Evento | Quando | Oggetto | CTA |
+|---|---|---|---|
+| `ANALYSIS_DELAYED` | documento ancora `PENDING`/`PROCESSING` ≥ soglia (default 60 s) dall'inizio del ciclo; max 1 per ciclo; solo cicli iniziati da < 30 min | Stiamo ancora analizzando il tuo documento | Segui lo stato dell'analisi |
+| `ANALYSIS_COMPLETED` | transizione a `DONE` | La tua analisi è pronta! | Visualizza la tua analisi |
+| `ANALYSIS_FAILED` | transizione definitiva a `ERROR` (errore definitivo, tentativi esauriti, documento non supportato); mai sui retry transitori | Non siamo riusciti a completare la tua analisi | Torna al documento |
+
+Nessuna email all'upload. CTA → `<APP_BASE_URL>/analyze?id=<documentId>`: senza sessione il middleware reindirizza a `/login?callbackUrl=…` e dopo il login l'utente torna al report (`lib/security/redirect.ts` accetta solo percorsi interni `/analyze` e `/dashboard`). Nessun token nei link: valgono i normali controlli di ownership.
+
+### Transactional outbox
+
+Tabella `NotificationOutbox` (`003_notification_outbox.sql`): `id` (UUID v4, usato come idempotencyKey Brevo), `userId`, `documentId`, `eventType`, `eventKey` UNIQUE (`<evento>:<documentId>:<ciclo>`), `analysisCycle`, `status` (`PENDING`, `SENDING`, `SENT`, `FAILED`, `CANCELLED`), `attempts`, `nextAttemptAt`, `leaseId`, `leaseExpiresAt`, `lastSendStartedAt`, `ambiguousSince`, `sentAt`, `lastErrorCode`, `providerMessageId`. L'indirizzo email non viene copiato: è letto da `User` al momento dell'invio. Cascade su utente/documento; RLS attiva senza policy (solo server).
+
+- `ANALYSIS_COMPLETED`/`ANALYSIS_FAILED` sono inseriti nella **stessa istruzione SQL** della transizione del documento (`withOutboxEventSql`: CTE `UPDATE … RETURNING` + `INSERT … ON CONFLICT DO NOTHING`). Lease perso → nessuna transizione e nessun evento. Documenti caricati da oltre 48 ore (ciclo 0) chiusi dal recovery non generano email: nessuna notifica retroattiva.
+- `ANALYSIS_DELAYED` è accodato dal job con un unico `INSERT … SELECT` idempotente.
+
+### Dispatcher
+
+Codice: `lib/notifications/dispatcher-core.ts` (logica), `dispatcher.ts` (adapter Prisma/Brevo), `notification-sql.ts`.
+
+1. Claim atomico a batch (20 righe, `FOR UPDATE SKIP LOCKED`), lease 3 min con token, concorrenza 4.
+2. Ricontrollo immediatamente prima dell'invio: documento esistente e non eliminato, stato coerente con l'evento (`DELAYED` solo se ancora in elaborazione, `COMPLETED` solo `DONE`, `FAILED` solo `ERROR`), stesso ciclo, email valida. Altrimenti `CANCELLED` con motivo.
+3. Invio con `idempotencyKey = id riga`; esito registrato con scritture condizionate al lease.
+4. Errori: `429`/`401`/`403` → retry con backoff (1, 2, 5, 10, 30, 60, 120 min; un 429 rimanda il resto del batch); altri `4xx` → `FAILED`; timeout, rete, `5xx` → **ambigui**: retry dopo 60 s con la stessa chiave; max 8 tentativi.
+5. Lease scaduto → la riga torna reclamabile; se l'invio era già partito (`lastSendStartedAt`) l'esito è trattato come ambiguo.
+
+Nessuno scheduler dedicato: le email partono chiamando Brevo direttamente dal server.
+
+- **Completamento / errore definitivo:** subito dopo il worker, in `processDocumentAnalysisAndNotify` (upload, GET documento, retry manuale e job di recovery), solo per il documento appena chiuso.
+- **Avviso di attesa:** all'upload e alla riprova manuale un timer (`lib/notifications/delayed-notice.ts`) parte nello stesso `after()` del worker (`maxDuration` 300 s). Allo scadere della soglia (+1 s) accoda l'avviso per quel documento, solo se ancora `PENDING`/`PROCESSING` (verifica SQL), e lo invia. Analisi conclusa prima della soglia → timer annullato. Worker terminato con retry in coda → si attende comunque la soglia.
+- **Recupero:** `POST /api/jobs/process-analysis` (n8n ogni 5 minuti, `JOBS_SECRET`), prima delle analisi, accoda gli avvisi di attesa persi (funzione interrotta, cicli iniziati da < 30 min), ritenta gli invii dovuti (batch 10) ed elimina le righe chiuse da oltre 90 giorni. Il risultato è nel campo `notifications` della risposta (solo contatori). Senza questo workflow attivo i retry dopo un errore Brevo o un'interruzione restano in coda.
+
+### Idempotenza Brevo e limiti
+
+Brevo accetta `headers.idempotencyKey` (UUID) su `/v3/smtp/email` e rifiuta una seconda richiesta con la stessa chiave (`duplicate_parameter`, trattato come `SENT` deduplicato). La validità della chiave è documentata tra 15 e 30 minuti. Strategia: i retry ambigui avvengono solo entro **10 minuti** dal primo esito ambiguo; oltre, la riga va in `FAILED` con `delivery_unconfirmed` senza reinviare. Garanzia risultante: nessun duplicato logico (vincolo UNIQUE) e nessun doppio invio fisico entro la finestra; nel raro caso di esito ambiguo non risolto si preferisce una email mancata a un duplicato.
+
+### Servizio email
+
+`lib/email.ts`: `sendTransactionalEmail` (unico punto HTTP verso Brevo; timeout 10 s; `textContent`; classificazione esiti; `messageId`). Mittente `Veredoc <noreply@veredoc.it>`. Il reset password usa lo stesso servizio con contenuto invariato. I log non contengono indirizzi, contenuti o corpi di risposta del provider.
+
+### Template
+
+`lib/notifications/templates.ts`: HTML a tabelle con CSS inline, max 600 px, wordmark testuale, riquadro tipo documento + stato, CTA, nota sicurezza, footer di servizio; variante testo. Solo categorie generiche (`Bolletta luce/gas/internet`, `Busta paga`, `Documento`; prima del completamento sempre `Documento`). Nessun dato estratto, importo, nominativo, codice fiscale, POD, indirizzo o nome file.
+
+### UX
+
+Durante l'attesa `AnalysisResult` mostra `Documento ricevuto! Stiamo elaborando la tua analisi.` e continua il polling. Il messaggio promette l'email solo se `emailNotification` (da `GET /api/documents/[id]` e dall'upload) è `true`: notifiche attive, `BREVO_API_KEY` presente e email dell'account valida; altrimenti rimanda alla dashboard.
+
+### Configurazione e attivazione
+
+| Variabile | Default | Note |
+|---|---|---|
+| `NOTIFICATIONS_ENABLED` | `false` | interruttore principale; con `false` nessuna lettura/scrittura della tabella |
+| `NOTIFICATION_DELAYED_ENABLED` | `true` | avviso di attesa prolungata |
+| `NOTIFICATION_DELAYED_THRESHOLD_SECONDS` | `60` | ammessi 15–900 |
+| `APP_BASE_URL` | `NEXTAUTH_URL` se https, poi `https://www.veredoc.it` | base dei link email; mai dagli header |
+| `BREVO_API_KEY` | — | richiesta per l'invio |
+
+Attivazione: (1) eseguire `003_notification_outbox.sql` nel Supabase SQL Editor; (2) `NOTIFICATIONS_ENABLED=true` su Vercel e redeploy; (3) per i retry, assicurarsi che il workflow n8n di recovery `scripts/n8n/analysis-recovery.workflow.json` sia attivo. Rollback: `NOTIFICATIONS_ENABLED=false`, poi eventualmente i `DROP` indicati nella migrazione.
+
+Diagnosi: `select status, "lastErrorCode", count(*) from "NotificationOutbox" group by 1, 2;`
 
 ---
 
@@ -277,6 +357,8 @@ I test includono payload payroll sintetici ma realistici e anonimizzati per vali
 
 La migrazione `supabase/migrations/002_analysis_profiles.sql` è stata applicata il 2026-08-30. Non sono richieste nuove migrazioni per payroll intelligence v2, PWA/mobile UX o lifecycle analisi (stato del job in `analysis._job`). Il trigger `Document_updatedAt_trigger` resta attivo: `updatedAt` non è affidabile per confronti di uguaglianza.
 
+`supabase/migrations/003_notification_outbox.sql` (additiva: enum `NotificationEventType`/`NotificationStatus`, tabella `NotificationOutbox`, indice parziale `Document_analysis_in_flight_idx`) è predisposta ma **non ancora applicata** al 2026-10-10: finché non lo è, `NOTIFICATIONS_ENABLED` deve restare spento. Le migrazioni si applicano manualmente dal Supabase SQL Editor (nessuna migrazione al deploy).
+
 ---
 
 ## PWA e comportamento mobile/offline
@@ -340,6 +422,7 @@ PR solo se richiesta, imposta da policy o realmente necessaria per validare in s
 - trend payroll v2 su TFR progressivo, saldi con unità compatibili e nuove/scomparse voci;
 - isolamento trend tra profili differenti;
 - authorization job/ownership;
+- notifiche: outbox atomica con DONE/ERROR su PGlite con la migrazione reale, eventKey per ciclo, avviso di attesa (soglia, ciclo, documenti chiusi/eliminati/storici), claim concorrente, lease scaduto, retry/backoff, rate limit, esiti ambigui e deduplica Brevo, destinatario non valido, template senza dati sensibili, reset password invariato, redirect post-login sicuro;
 - observability.
 
 ---
@@ -352,8 +435,9 @@ PR solo se richiesta, imposta da policy o realmente necessaria per validare in s
 4. Valutare rename/archive profilo mantenendo la cancellazione documenti separata.
 5. Billing reale PRO solo previa approvazione esplicita.
 6. Importare e attivare in n8n `scripts/n8n/analysis-recovery.workflow.json` (non ancora verificato come attivo).
-7. Misurare installazione e ritorno della PWA prima di valutare wrapper o app native.
-8. Valutare notifiche push solo quando esistono alert longitudinali realmente utili e con consenso esplicito.
+7. Attivare le notifiche email: applicare `003_notification_outbox.sql`, impostare `NOTIFICATIONS_ENABLED=true`, verificare un invio reale end-to-end (il recupero dei retry dipende dal workflow di recovery del punto 6).
+8. Misurare installazione e ritorno della PWA prima di valutare wrapper o app native.
+9. Valutare notifiche push solo quando esistono alert longitudinali realmente utili e con consenso esplicito.
 
 ---
 
@@ -372,3 +456,4 @@ PR solo se richiesta, imposta da policy o realmente necessaria per validare in s
 - `JOBS_SECRET`
 - `SCRAPERAPI_KEY`
 - `BREVO_API_KEY`
+- `NOTIFICATIONS_ENABLED`, `NOTIFICATION_DELAYED_ENABLED`, `NOTIFICATION_DELAYED_THRESHOLD_SECONDS`, `APP_BASE_URL` (opzionali, vedi "Notifiche email transazionali")

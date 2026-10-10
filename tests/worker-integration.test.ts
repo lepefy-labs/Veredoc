@@ -12,6 +12,7 @@ import {
   type DocumentAnalysisStore,
   type ProcessableDocument,
 } from "../lib/jobs/process-document-core.ts";
+import type { NotificationIntent } from "../lib/notifications/events.ts";
 
 // Store in memoria che riproduce la semantica SQL di lib/jobs/analysis-sql.ts,
 // incluso il trigger di produzione che riscrive updatedAt a ogni UPDATE con l'orologio del DB.
@@ -21,6 +22,8 @@ class FakeStore implements DocumentAnalysisStore {
   writes = 0;
   failComplete = false;
   failRelease = false;
+  // Eventi outbox accodati insieme a una transizione riuscita (stessa istruzione SQL in produzione).
+  notifications: NotificationIntent[] = [];
 
   constructor(document: ProcessableDocument | null, dbNowMs: number) {
     this.document = document;
@@ -82,6 +85,7 @@ class FakeStore implements DocumentAnalysisStore {
     this.document!.rawExtracted = structuredClone(input.rawExtracted);
     this.document!.analysis = structuredClone(input.analysis);
     this.touch();
+    if (input.notification) this.notifications.push(input.notification);
     return 1;
   }
 
@@ -91,6 +95,7 @@ class FakeStore implements DocumentAnalysisStore {
     this.document!.status = input.status === "ERROR" ? AnalysisStatus.ERROR : AnalysisStatus.PENDING;
     this.document!.analysis = structuredClone(input.analysis);
     this.touch();
+    if (input.notification && input.status === "ERROR") this.notifications.push(input.notification);
     return 1;
   }
 
@@ -99,6 +104,7 @@ class FakeStore implements DocumentAnalysisStore {
     this.document!.status = AnalysisStatus.ERROR;
     this.document!.analysis = structuredClone(input.analysis);
     this.touch();
+    if (input.notification) this.notifications.push(input.notification);
     return 1;
   }
 }
@@ -543,4 +549,84 @@ test("retry manuale consentito solo per errori non definitivi e entro il limite"
   assert.equal(canRetryAnalysisManually({ status: AnalysisStatus.ERROR, analysis: { error: "x", _job: { attempts: 3, manualRetries: 2 } } }), false);
   assert.equal(canRetryAnalysisManually({ status: AnalysisStatus.ERROR, analysis: { error: "documento_non_supportato" } }), false);
   assert.equal(canRetryAnalysisManually({ status: AnalysisStatus.DONE, analysis: {} }), false);
+});
+
+// ---------------------------------------------------------------------------
+// Notifiche: eventi accodati solo con le transizioni finali realmente persistite.
+// ---------------------------------------------------------------------------
+
+test("notifiche: DONE accoda un solo evento ANALYSIS_COMPLETED per il ciclo dell'upload", async () => {
+  const harness = createHarness();
+
+  await harness.process("doc-1");
+  // Doppia esecuzione del worker sullo stesso documento già completato.
+  assert.equal((await harness.process("doc-1")).outcome, "skipped");
+
+  assert.deepEqual(harness.store.notifications, [{ eventType: "ANALYSIS_COMPLETED", cycle: 0 }]);
+});
+
+test("notifiche: un retry transitorio non genera email, l'errore definitivo sì", async () => {
+  const harness = createHarness({
+    overrides: {
+      analyze: async () => {
+        throw new Error("provider AI non raggiungibile");
+      },
+    },
+  });
+
+  assert.equal((await harness.process("doc-1")).outcome, "retry_scheduled");
+  assert.deepEqual(harness.store.notifications, []);
+  assert.equal((await harness.process("doc-1")).outcome, "retry_scheduled");
+  assert.deepEqual(harness.store.notifications, []);
+  assert.equal((await harness.process("doc-1")).outcome, "failed");
+  assert.deepEqual(harness.store.notifications, [{ eventType: "ANALYSIS_FAILED", cycle: 0 }]);
+});
+
+test("notifiche: documento non supportato e tentativi esauriti generano ANALYSIS_FAILED", async () => {
+  const unsupported = createHarness({
+    overrides: { analyze: async () => ({ raw: { tipo_rilevato: "sconosciuto" }, provider: "anthropic" }) },
+  });
+  await unsupported.process("doc-1");
+  assert.deepEqual(unsupported.store.notifications, [{ eventType: "ANALYSIS_FAILED", cycle: 0 }]);
+
+  const exhausted = createHarness({
+    document: pendingDocument({ analysis: { _job: { attempts: MAX_ANALYSIS_ATTEMPTS, manualRetries: 1 } } }),
+  });
+  assert.equal((await exhausted.process("doc-1")).outcome, "exhausted");
+  assert.deepEqual(exhausted.store.notifications, [{ eventType: "ANALYSIS_FAILED", cycle: 1 }]);
+});
+
+test("notifiche: la riprova manuale apre un nuovo ciclo e conserva l'inizio del ciclo", async () => {
+  const cycleStartedAt = "2026-10-10T19:55:30.000Z";
+  const harness = createHarness({
+    document: pendingDocument({
+      analysis: { _job: { attempts: 0, manualRetries: 1, phase: "manual_retry", cycleStartedAt } },
+    }),
+  });
+
+  await harness.process("doc-1");
+
+  assert.deepEqual(harness.store.notifications, [{ eventType: "ANALYSIS_COMPLETED", cycle: 1 }]);
+});
+
+test("notifiche: documento eliminato o lease perso non generano eventi", async () => {
+  const deleted = createHarness({ document: pendingDocument({ deletedAt: new Date(T0) }) });
+  await deleted.process("doc-1");
+  assert.deepEqual(deleted.store.notifications, []);
+
+  const harness = createHarness({
+    overrides: {
+      enrichBill: async (validated) => {
+        harness.store.document!.deletedAt = new Date(T0);
+        return validated;
+      },
+    },
+  });
+  assert.equal((await harness.process("doc-1")).outcome, "lease_lost");
+  assert.deepEqual(harness.store.notifications, []);
+});
+
+test("notifiche: getAnalysisJob conserva cycleStartedAt tra claim e checkpoint", () => {
+  const job = getAnalysisJob({ _job: { attempts: 1, manualRetries: 1, cycleStartedAt: "2026-10-10T19:55:30.000Z" } });
+  assert.equal(job.cycleStartedAt, "2026-10-10T19:55:30.000Z");
 });

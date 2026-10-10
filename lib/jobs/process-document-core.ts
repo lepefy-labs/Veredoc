@@ -1,4 +1,5 @@
 import { AnalysisStatus, DocumentType } from "@prisma/client";
+import type { NotificationIntent } from "../notifications/events.ts";
 
 export const MAX_ANALYSIS_ATTEMPTS = 3;
 // Deve superare la durata massima delle funzioni che eseguono il worker (maxDuration = 300 s):
@@ -55,6 +56,8 @@ export interface AnalysisJobState {
   manualRetries?: number;
   lastError?: string | null;
   lastErrorCode?: string | null;
+  // Inizio del ciclo di analisi corrente (riprova manuale). Assente per il ciclo dell'upload.
+  cycleStartedAt?: string | null;
 }
 
 export interface ProcessableDocument {
@@ -69,6 +72,8 @@ export interface ProcessableDocument {
 }
 
 // Ogni scrittura restituisce il numero di righe aggiornate: zero righe non è mai un successo.
+// `notification`: evento da accodare nella stessa istruzione della transizione finale
+// (DONE/ERROR). Lo store lo ignora se le notifiche non sono attive.
 export interface DocumentAnalysisStore {
   findById(documentId: string): Promise<ProcessableDocument | null>;
   claim(input: {
@@ -90,18 +95,21 @@ export interface DocumentAnalysisStore {
     type: DocumentType;
     rawExtracted: unknown;
     analysis: unknown;
+    notification?: NotificationIntent;
   }): Promise<number>;
   release(input: {
     documentId: string;
     leaseId: string;
     status: "PENDING" | "ERROR";
     analysis: unknown;
+    notification?: NotificationIntent;
   }): Promise<number>;
   exhaust(input: {
     documentId: string;
     expectedAttempts: number;
     leaseTimeoutMs: number;
     analysis: unknown;
+    notification?: NotificationIntent;
   }): Promise<number>;
 }
 
@@ -172,6 +180,7 @@ export function getAnalysisJob(analysis: unknown): AnalysisJobState {
     manualRetries: nonNegativeInteger(job.manualRetries),
     lastError: typeof job.lastError === "string" ? job.lastError : null,
     lastErrorCode: typeof job.lastErrorCode === "string" ? job.lastErrorCode : null,
+    cycleStartedAt: typeof job.cycleStartedAt === "string" ? job.cycleStartedAt : null,
   };
 }
 
@@ -296,6 +305,7 @@ export function createDocumentAnalysisProcessor(deps: DocumentAnalysisDependenci
     }
 
     const previousJob = getAnalysisJob(current.analysis);
+    const cycle = previousJob.manualRetries ?? 0;
 
     if (previousJob.attempts >= MAX_ANALYSIS_ATTEMPTS) {
       const job: AnalysisJobState = {
@@ -309,6 +319,7 @@ export function createDocumentAnalysisProcessor(deps: DocumentAnalysisDependenci
         expectedAttempts: previousJob.attempts,
         leaseTimeoutMs: ANALYSIS_LEASE_TIMEOUT_MS,
         analysis: { errore: FAILED_DOCUMENT_MESSAGE, error: "attempts_exhausted", _job: job },
+        notification: { eventType: "ANALYSIS_FAILED", cycle },
       });
       if (rows === 0) return skipped("exhaust_not_applied");
       log("analysis.attempts_exhausted", {
@@ -393,6 +404,7 @@ export function createDocumentAnalysisProcessor(deps: DocumentAnalysisDependenci
               message: UNSUPPORTED_DOCUMENT_MESSAGE,
               _job: { ...job, leaseId: null, phase: "unsupported" },
             },
+            notification: { eventType: "ANALYSIS_FAILED", cycle },
           }));
           if (rows === 0) return explainZeroRows(documentId, leaseId, attempt, phase);
           log("analysis.unsupported", { documentId, attempt, durationMs: Date.now() - startedAt }, "warn");
@@ -472,6 +484,7 @@ export function createDocumentAnalysisProcessor(deps: DocumentAnalysisDependenci
         type: effectiveType,
         rawExtracted: validated,
         analysis,
+        notification: { eventType: "ANALYSIS_COMPLETED", cycle },
       }));
       if (rows === 0) return explainZeroRows(documentId, leaseId, attempt, phase);
 
@@ -510,6 +523,7 @@ export function createDocumentAnalysisProcessor(deps: DocumentAnalysisDependenci
           analysis: exhausted
             ? { errore: FAILED_DOCUMENT_MESSAGE, error: failure.code, _job: failedJob }
             : { _job: failedJob },
+          notification: exhausted ? { eventType: "ANALYSIS_FAILED", cycle } : undefined,
         });
       } catch (releaseError) {
         // Il documento resta PROCESSING: verrà recuperato alla scadenza del lease.
