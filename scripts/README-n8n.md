@@ -93,9 +93,12 @@ Frequenza: ogni 5 minuti. Il lease dura 6 minuti e ogni esecuzione non avvia nuo
   "leaseLost": 0,
   "skipped": 0,
   "unconfirmed": 0,
-  "durationMs": 120
+  "durationMs": 120,
+  "notifications": { "skipped": true, "reason": "notifications_disabled" }
 }
 ```
+
+Lo stesso job recupera le notifiche email dell'analisi: accoda gli avvisi di attesa persi e ritenta gli invii falliti o interrotti. Con `NOTIFICATIONS_ENABLED=true` il campo `notifications` contiene solo contatori (`enqueuedDelayed`, `claimed`, `sent`, `cancelled`, `retryScheduled`, `failed`, `crashed`, `purged`). Non serve un workflow aggiuntivo: l'invio normale parte direttamente dal server.
 
 `401` indica una credenziale errata. `unconfirmed > 0` richiede di controllare nei log Vercel gli eventi `analysis.persistence_unconfirmed` / `analysis.worker_crashed`.
 

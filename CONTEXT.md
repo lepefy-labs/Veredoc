@@ -76,8 +76,7 @@ app/
     documents/[id]/                 lettura/recovery/cancellazione
     documents/[id]/retry/           riprova manuale di un documento in ERROR
     documents/[id]/refresh-market/  refresh confronto mercato
-    jobs/process-analysis/           recovery batch
-    jobs/process-notifications/      avvisi di attesa + invio email outbox
+    jobs/process-analysis/           recovery batch + recupero notifiche email
 components/
   layout/MobileBottomNav.tsx        navigazione mobile autenticata
   pwa/PwaRegistration.tsx           registrazione service worker client-side
@@ -166,6 +165,7 @@ Massimo 3 tentativi automatici. Retry: errori Storage, provider AI, output AI no
 
 - `after()` vive al massimo `maxDuration` della route (300 s, Vercel Hobby + Fluid Compute, regione iad1). Può essere interrotto: per questo il lease (6 min) supera la durata massima e il recovery è indipendente dalla richiesta originale.
 - Trigger del worker: upload (`after()`), `GET /api/documents/[id]` quando il documento è `PENDING` o con lease scaduto, retry manuale, job `POST /api/jobs/process-analysis`.
+- Il job di recovery esegue anche, prima delle analisi, il recupero delle notifiche email (vedi "Notifiche email transazionali").
 - Job di recovery: max 20 candidati, max 10 elaborazioni, nessuna nuova elaborazione dopo 60 s; chiude in `ERROR` i documenti con tentativi esauriti. Protetto da `JOBS_SECRET`.
 - Scheduler: workflow n8n `scripts/n8n/analysis-recovery.workflow.json` ogni 5 minuti (istruzioni in `scripts/README-n8n.md`). Vercel Cron su Hobby è limitato a un'esecuzione giornaliera e non è usato.
 
@@ -181,7 +181,7 @@ Dashboard: `In coda`, `Analisi in corso`, `Completato`, `Errore analisi`. Dettag
 
 `analysis.queued`, `analysis.claimed`, `analysis.recovered`, `storage.document_download_completed`, `ai.analysis_completed`, `analysis.validation_completed`, `analysis.extraction_reused`, `analysis.enrichment_completed`, `analysis.enrichment_failed`, `analysis.completed`, `analysis.unsupported`, `analysis.retry_scheduled`, `analysis.failed`, `analysis.attempts_exhausted`, `analysis.lease_lost`, `analysis.persistence_unconfirmed`, `analysis.worker_crashed`, `analysis.manual_retry`, `job.process_analysis.completed`.
 
-Notifiche: `notification.sent`, `notification.retry_scheduled`, `notification.cancelled`, `notification.failed`, `notification.lease_recovered`, `notification.lease_lost`, `notification.dispatch_crashed`, `notification.inline_dispatch`, `notification.inline_dispatch_failed`, `job.process_notifications.completed|skipped|failed`. Contengono `notificationId`, `documentId`, `eventType`, `attempt`, `errorCode`: mai indirizzi email o testo delle email.
+Notifiche: `notification.sent`, `notification.retry_scheduled`, `notification.cancelled`, `notification.failed`, `notification.lease_recovered`, `notification.lease_lost`, `notification.dispatch_crashed`, `notification.inline_dispatch`, `notification.inline_dispatch_failed`, `job.process_notifications.completed|failed` (passo notifiche del job di recovery). Contengono `notificationId`, `documentId`, `eventType`, `attempt`, `errorCode`: mai indirizzi email o testo delle email.
 
 Ogni evento del worker contiene `documentId` e `attempt`; gli errori `phase`, `errorCode`, `retryable`. Non vengono registrati contenuti del documento, testo AI o segreti (anche i `SyntaxError` di parsing JSON sono sostituiti da un messaggio generico).
 
@@ -238,7 +238,11 @@ Codice: `lib/notifications/dispatcher-core.ts` (logica), `dispatcher.ts` (adapte
 4. Errori: `429`/`401`/`403` → retry con backoff (1, 2, 5, 10, 30, 60, 120 min; un 429 rimanda il resto del batch); altri `4xx` → `FAILED`; timeout, rete, `5xx` → **ambigui**: retry dopo 60 s con la stessa chiave; max 8 tentativi.
 5. Lease scaduto → la riga torna reclamabile; se l'invio era già partito (`lastSendStartedAt`) l'esito è trattato come ambiguo.
 
-Trigger: subito dopo il worker (`processDocumentAnalysisAndNotify` in upload, GET documento, retry manuale e job recovery) e job `POST /api/jobs/process-notifications` (n8n ogni minuto, `JOBS_SECRET`), che accoda anche gli avvisi di attesa ed elimina le righe chiuse da oltre 90 giorni.
+Nessuno scheduler dedicato: le email partono chiamando Brevo direttamente dal server.
+
+- **Completamento / errore definitivo:** subito dopo il worker, in `processDocumentAnalysisAndNotify` (upload, GET documento, retry manuale e job di recovery), solo per il documento appena chiuso.
+- **Avviso di attesa:** all'upload e alla riprova manuale un timer (`lib/notifications/delayed-notice.ts`) parte nello stesso `after()` del worker (`maxDuration` 300 s). Allo scadere della soglia (+1 s) accoda l'avviso per quel documento, solo se ancora `PENDING`/`PROCESSING` (verifica SQL), e lo invia. Analisi conclusa prima della soglia → timer annullato. Worker terminato con retry in coda → si attende comunque la soglia.
+- **Recupero:** `POST /api/jobs/process-analysis` (n8n ogni 5 minuti, `JOBS_SECRET`), prima delle analisi, accoda gli avvisi di attesa persi (funzione interrotta, cicli iniziati da < 30 min), ritenta gli invii dovuti (batch 10) ed elimina le righe chiuse da oltre 90 giorni. Il risultato è nel campo `notifications` della risposta (solo contatori). Senza questo workflow attivo i retry dopo un errore Brevo o un'interruzione restano in coda.
 
 ### Idempotenza Brevo e limiti
 
@@ -266,7 +270,7 @@ Durante l'attesa `AnalysisResult` mostra `Documento ricevuto! Stiamo elaborando 
 | `APP_BASE_URL` | `NEXTAUTH_URL` se https, poi `https://www.veredoc.it` | base dei link email; mai dagli header |
 | `BREVO_API_KEY` | — | richiesta per l'invio |
 
-Attivazione: (1) eseguire `003_notification_outbox.sql` nel Supabase SQL Editor; (2) `NOTIFICATIONS_ENABLED=true` su Vercel e redeploy; (3) importare e attivare `scripts/n8n/notifications.workflow.json` (istruzioni in `scripts/README-n8n.md`). Rollback: `NOTIFICATIONS_ENABLED=false`, poi eventualmente i `DROP` indicati nella migrazione.
+Attivazione: (1) eseguire `003_notification_outbox.sql` nel Supabase SQL Editor; (2) `NOTIFICATIONS_ENABLED=true` su Vercel e redeploy; (3) per i retry, assicurarsi che il workflow n8n di recovery `scripts/n8n/analysis-recovery.workflow.json` sia attivo. Rollback: `NOTIFICATIONS_ENABLED=false`, poi eventualmente i `DROP` indicati nella migrazione.
 
 Diagnosi: `select status, "lastErrorCode", count(*) from "NotificationOutbox" group by 1, 2;`
 
@@ -431,7 +435,7 @@ PR solo se richiesta, imposta da policy o realmente necessaria per validare in s
 4. Valutare rename/archive profilo mantenendo la cancellazione documenti separata.
 5. Billing reale PRO solo previa approvazione esplicita.
 6. Importare e attivare in n8n `scripts/n8n/analysis-recovery.workflow.json` (non ancora verificato come attivo).
-7. Attivare le notifiche email: applicare `003_notification_outbox.sql`, impostare `NOTIFICATIONS_ENABLED=true`, importare `scripts/n8n/notifications.workflow.json` (non ancora verificato come attivo) e verificare un invio reale end-to-end.
+7. Attivare le notifiche email: applicare `003_notification_outbox.sql`, impostare `NOTIFICATIONS_ENABLED=true`, verificare un invio reale end-to-end (il recupero dei retry dipende dal workflow di recovery del punto 6).
 8. Misurare installazione e ritorno della PWA prima di valutare wrapper o app native.
 9. Valutare notifiche push solo quando esistono alert longitudinali realmente utili e con consenso esplicito.
 
