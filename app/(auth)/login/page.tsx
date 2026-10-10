@@ -8,11 +8,13 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import { TEXTS } from "@/lib/config/texts";
 import VeredocLogo from "@/components/ui/VeredocLogo";
+import { safeCallbackPath } from "@/lib/security/redirect";
 
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const justRegistered = searchParams.get("registered") === "1";
+  const callbackUrl = searchParams.get("callbackUrl");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -37,7 +39,7 @@ function LoginContent() {
       return;
     }
 
-    router.push("/dashboard");
+    router.push(safeCallbackPath(callbackUrl, "/dashboard", window.location.origin));
   }
 
   return (

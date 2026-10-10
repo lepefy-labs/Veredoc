@@ -1,3 +1,4 @@
+import { safeCallbackPath } from "@/lib/security/redirect";
 import type { NextAuthConfig } from "next-auth";
 
 export const authConfig = {
@@ -12,7 +13,8 @@ export const authConfig = {
 
       if (isProtected && !isLoggedIn) return false;
       if (isAuthPage && isLoggedIn) {
-        return Response.redirect(new URL("/dashboard", request.nextUrl));
+        const destination = safeCallbackPath(request.nextUrl.searchParams.get("callbackUrl"), "/dashboard", request.nextUrl.origin);
+        return Response.redirect(new URL(destination, request.nextUrl));
       }
       return true;
     },

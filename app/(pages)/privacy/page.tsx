@@ -60,6 +60,14 @@ export default function PrivacyPage() {
             <ul className="list-disc list-inside space-y-1">
               <li>Erogare il servizio di analisi automatica dei documenti</li>
               <li>Gestire l&apos;account utente e l&apos;autenticazione</li>
+              <li>
+                Inviare all&apos;indirizzo dell&apos;account comunicazioni di servizio
+                strettamente legate all&apos;uso di Veredoc (ad esempio analisi pronta,
+                analisi ancora in corso o non completata, reimpostazione password), sulla
+                base dell&apos;esecuzione del servizio richiesto (Art. 6.1.b GDPR). Queste
+                email non contengono dati estratti dai documenti e non sono comunicazioni
+                promozionali
+              </li>
               <li>Migliorare la qualità del servizio in forma aggregata e anonima</li>
             </ul>
             <p className="mt-2 text-muted">
@@ -99,6 +107,10 @@ export default function PrivacyPage() {
                 La funzione &quot;Elimina&quot; rimuove il file e azzera i dati estratti
                 — restano solo metadati anonimi (data, tipo documento) per finalità
                 statistiche
+              </li>
+              <li>
+                Il registro tecnico degli invii email di servizio (tipo di evento, esito,
+                data) viene conservato per 90 giorni e non contiene il testo delle email
               </li>
               <li>
                 In caso di cancellazione dell&apos;account, tutti i dati vengono

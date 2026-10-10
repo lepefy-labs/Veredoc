@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import { authConfig } from "@/lib/auth.config";
 import { NextResponse } from "next/server";
+import { buildLoginRedirectPath, safeCallbackPath } from "@/lib/security/redirect";
 
 const { auth } = NextAuth(authConfig);
 
@@ -16,10 +17,12 @@ export default auth((req) => {
   const isAuthPage = pathname.startsWith("/login") || pathname.startsWith("/register");
 
   if (isProtected && !isLoggedIn) {
-    return NextResponse.redirect(new URL("/login", req.nextUrl));
+    // Conserva la destinazione (es. link email al report) per il ritorno dopo il login.
+    return NextResponse.redirect(new URL(buildLoginRedirectPath(pathname, req.nextUrl.search), req.nextUrl));
   }
   if (isAuthPage && isLoggedIn) {
-    return NextResponse.redirect(new URL("/dashboard", req.nextUrl));
+    const destination = safeCallbackPath(req.nextUrl.searchParams.get("callbackUrl"), "/dashboard", req.nextUrl.origin);
+    return NextResponse.redirect(new URL(destination, req.nextUrl));
   }
 });
 

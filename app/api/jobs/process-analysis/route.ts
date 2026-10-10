@@ -3,7 +3,7 @@ import { AnalysisStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   ANALYSIS_LEASE_TIMEOUT_MS,
-  processDocumentAnalysis,
+  processDocumentAnalysisAndNotify,
   shouldRecoverAnalysis,
 } from "@/lib/jobs/process-document";
 import type { AnalysisOutcome } from "@/lib/jobs/process-document-core";
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     }
     attempted += 1;
     try {
-      const result = await processDocumentAnalysis(candidate.id);
+      const result = await processDocumentAnalysisAndNotify(candidate.id);
       outcomes[result.outcome] = (outcomes[result.outcome] ?? 0) + 1;
     } catch (error) {
       outcomes.crashed = (outcomes.crashed ?? 0) + 1;

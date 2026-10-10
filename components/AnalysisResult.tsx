@@ -28,6 +28,8 @@ export interface DocumentData {
     errorCode: string | null;
     canRetry: boolean;
   };
+  // true quando il server invierà un'email al termine dell'analisi.
+  emailNotification?: boolean;
 }
 
 interface AnalysisResultProps {
@@ -68,6 +70,25 @@ function LoadingSpinner({ title, note }: { title?: string; note?: string }) {
       <div className="w-10 h-10 border-4 border-brand border-t-transparent rounded-full animate-spin" />
       <p className="text-sm font-medium text-ink transition-all">{title ?? LOADING_MESSAGES[msgIdx]}</p>
       <p className="max-w-sm text-xs text-muted">{note ?? "L'analisi richiede circa 30-60 secondi"}</p>
+    </div>
+  );
+}
+
+function ReceivedNotice({ emailNotification }: { emailNotification: boolean }) {
+  return (
+    <div className="rounded-xl border border-[#86EFAC] bg-[#F0FDF4] px-4 py-4 sm:px-5" role="status" aria-live="polite">
+      <div className="flex items-start gap-3">
+        <span aria-hidden="true" className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-success text-sm font-bold text-white">✓</span>
+        <div className="min-w-0 space-y-1">
+          <p className="text-base font-semibold text-[#166534]">Documento ricevuto!</p>
+          <p className="text-sm text-[#166534]">Stiamo elaborando la tua analisi.</p>
+          <p className="text-sm text-[#166534]/90">
+            {emailNotification
+              ? "Puoi lasciare questa pagina: riceverai un'email quando il risultato sarà disponibile."
+              : "Puoi lasciare questa pagina: ritroverai il risultato nella dashboard appena sarà pronto."}
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -189,7 +210,9 @@ export default function AnalysisResult({ documentId, onReset, onDocLoaded }: Ana
             L&apos;analisi sta impiegando molto più tempo del previsto.
           </p>
           <p className="text-sm text-muted">
-            Il documento resta in coda e il sistema lo riprende automaticamente: puoi ritrovarlo più tardi nella dashboard.
+            {doc.emailNotification
+              ? "Il documento resta in coda e il sistema lo riprende automaticamente: ti invieremo un'email quando il risultato sarà pronto."
+              : "Il documento resta in coda e il sistema lo riprende automaticamente: puoi ritrovarlo più tardi nella dashboard."}
           </p>
           <div className="flex flex-wrap gap-3 justify-center">
             <button
@@ -221,11 +244,19 @@ export default function AnalysisResult({ documentId, onReset, onDocLoaded }: Ana
     } else if (doc.status === "PENDING") {
       title = "Documento in coda per l'analisi...";
     }
+    const emailNotification = doc.emailNotification === true;
     const note = slow
-      ? "Sta impiegando più del previsto. Puoi chiudere questa pagina: ritroverai il risultato nella dashboard."
+      ? emailNotification
+        ? "Sta impiegando più del previsto. Puoi chiudere questa pagina: ti invieremo un'email quando il risultato sarà pronto."
+        : "Sta impiegando più del previsto. Puoi chiudere questa pagina: ritroverai il risultato nella dashboard."
       : undefined;
 
-    return <LoadingSpinner title={title} note={note} />;
+    return (
+      <div className="space-y-4">
+        <ReceivedNotice emailNotification={emailNotification} />
+        <LoadingSpinner title={title} note={note} />
+      </div>
+    );
   }
 
   if (doc.status === "ERROR") {
