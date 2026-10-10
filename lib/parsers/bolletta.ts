@@ -1,17 +1,26 @@
 import { prisma } from "@/lib/prisma";
 import { BollettaRaw, BollettaAnalysis, ConfrontoMercato, OffertaMercato } from "@/types/bolletta";
+import { isOfferCurrentlyValid, validOfferWhere } from "@/lib/parsers/market-offers";
 
-async function getOfferteBilanciate(category: string, limit = 20) {
+async function getOfferteBilanciate(category: string, limit = 20, now = new Date()) {
+  const latest = await prisma.marketRate.aggregate({
+    where: { category },
+    _max: { scrapedAt: true },
+  });
+  const aggiornatoAl = latest._max.scrapedAt;
+  if (!aggiornatoAl) return { offerte: [] as MarketRateRow[], aggiornatoAl: null };
+
+  const valid = validOfferWhere(category, aggiornatoAl, now);
   const half = Math.ceil(limit / 2);
 
   const [fisse, variabili] = await Promise.all([
     prisma.marketRate.findMany({
-      where: { category, tipoOfferta: "fisso" },
+      where: { ...valid, tipoOfferta: "fisso" },
       orderBy: { priceValue: "asc" },
       take: half,
     }),
     prisma.marketRate.findMany({
-      where: { category, tipoOfferta: "variabile" },
+      where: { ...valid, tipoOfferta: "variabile" },
       orderBy: { priceValue: "asc" },
       take: half,
     }),
@@ -23,14 +32,19 @@ async function getOfferteBilanciate(category: string, limit = 20) {
   if (mancanti > 0) {
     const usedIds = combined.map((o) => o.id);
     const extra = await prisma.marketRate.findMany({
-      where: { category, id: { notIn: usedIds } },
+      where: { ...valid, id: { notIn: usedIds } },
       orderBy: { priceValue: "asc" },
       take: mancanti,
     });
     combined.push(...extra);
   }
 
-  return combined.sort((a, b) => a.priceValue - b.priceValue).slice(0, limit);
+  const offerte = combined
+    .filter((offerta) => isOfferCurrentlyValid(offerta, aggiornatoAl, now))
+    .sort((a, b) => a.priceValue - b.priceValue)
+    .slice(0, limit);
+
+  return { offerte, aggiornatoAl };
 }
 
 interface MarketRateRow {
@@ -66,7 +80,7 @@ export async function arricchisciConFrontoMercato(
     return { ...rawExtracted, confronto_mercato: null };
   }
 
-  const tariffe = (await getOfferteBilanciate(categoria, 20)) as MarketRateRow[];
+  const { offerte: tariffe, aggiornatoAl } = await getOfferteBilanciate(categoria, 20);
 
   if (tariffe.length === 0) {
     return { ...rawExtracted, confronto_mercato: null };
@@ -165,6 +179,7 @@ export async function arricchisciConFrontoMercato(
     arera_prezzo_kwh: arera?.priceValue ?? null,
     offerte: offerte.slice(0, 20),
     stima_affidabile: offerte.slice(0, 3).every((o) => o.stima_completa),
+    offerte_aggiornate_al: aggiornatoAl ? aggiornatoAl.toISOString() : null,
   };
 
   return { ...rawExtracted, confronto_mercato };

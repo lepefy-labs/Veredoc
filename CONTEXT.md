@@ -226,6 +226,8 @@ Il motore trend applica anche un filtro `profileId` interno. La dashboard può e
 
 `BollettaDecisionSummary.tsx` porta in alto verdetto, risparmio potenziale e azione consigliata. `BollettaReport.tsx` mantiene il dettaglio tecnico e le offerte.
 
+Offerte nel confronto (`lib/parsers/market-offers.ts`): `MarketRate` conserva ogni offerta mai letta dal file ARERA e le righe non vengono rimosse. Il confronto usa solo offerte nel periodo di validità (`offertaInizio <= ora < offertaFine`) e presenti nell'ultimo snapshot della categoria (`scrapedAt` entro 12 ore dall'ultimo aggiornamento); le offerte ritirate dal file ARERA restano quindi escluse. Il confronto salva `offerte_aggiornate_al`; la UI segnala dati più vecchi di 7 giorni e offerte scadute in confronti salvati in precedenza, invitando ad aggiornare il confronto. I confronti dei documenti `DONE` sono istantanee: vengono ricalcolati dal job notturno `refresh-market-rates` o dal pulsante `Aggiorna confronto mercato`.
+
 ### Buste paga — payroll intelligence v2
 
 Il payload payroll resta backward-compatible e aggiunge campi opzionali/normalizzati:

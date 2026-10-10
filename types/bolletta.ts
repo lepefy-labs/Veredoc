@@ -85,6 +85,8 @@ export interface ConfrontoMercato {
   arera_prezzo_kwh: number | null;
   offerte: OffertaMercato[];
   stima_affidabile: boolean;
+  /** Data dell'ultimo snapshot ARERA usato: solo offerte valide e presenti in quello snapshot. */
+  offerte_aggiornate_al?: string | null;
 }
 
 export interface BollettaAnalysis extends BollettaRaw {

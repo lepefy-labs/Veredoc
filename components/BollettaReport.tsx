@@ -6,6 +6,7 @@ import { BollettaAnalysis, OffertaMercato } from "@/types/bolletta";
 import { RISPARMIO_MINIMO_BANNER_EURO } from "@/lib/config/constants";
 import { TEXTS } from "@/lib/config/texts";
 import { getProviderDisplay } from "@/lib/utils/provider";
+import { isMarketDataStale } from "@/lib/parsers/market-offers";
 
 interface BollettaReportProps {
   data: BollettaAnalysis;
@@ -186,7 +187,8 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
 
       {confronto && confronto.prezzo_kwh_attuale !== null && (
         <Card>
-          <h3 className="font-semibold text-ink mb-4">Confronto con il mercato</h3>
+          <h3 className="font-semibold text-ink mb-1">Confronto con il mercato</h3>
+          <MarketFreshness aggiornatoAl={confronto.offerte_aggiornate_al} offerte={confronto.offerte} />
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 mb-4">
             {confronto.costo_materia_mensile_attuale !== null && (
               <Stat label="Materia energia/mese" value={fmt(confronto.costo_materia_mensile_attuale)} mono />
@@ -284,6 +286,30 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
           {refreshing ? "Aggiornamento..." : "Aggiorna confronto mercato"}
         </button>
       </div>
+    </div>
+  );
+}
+
+function MarketFreshness({ aggiornatoAl, offerte }: { aggiornatoAl?: string | null; offerte: OffertaMercato[] }) {
+  const [now] = useState(() => Date.now());
+  const scadute = offerte.filter((o) => o.offerta_fine && new Date(o.offerta_fine).getTime() <= now).length;
+  const aggiornato = aggiornatoAl ? new Date(aggiornatoAl) : null;
+  const datiVecchi = aggiornato !== null && isMarketDataStale(aggiornato, new Date(now));
+
+  return (
+    <div className="mb-4 space-y-2">
+      {aggiornato && (
+        <p className="text-xs text-muted">
+          Offerte valide del portale ARERA aggiornate al {aggiornato.toLocaleDateString("it-IT")}.
+        </p>
+      )}
+      {(scadute > 0 || datiVecchi) && (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          {scadute > 0
+            ? `${scadute === 1 ? "Un'offerta" : `${scadute} offerte`} di questo confronto ${scadute === 1 ? "è scaduta" : "sono scadute"}: aggiorna il confronto mercato per ricalcolare il risparmio sulle offerte disponibili oggi.`
+            : "I dati di mercato non sono aggiornati da più di una settimana: le offerte potrebbero essere cambiate."}
+        </p>
+      )}
     </div>
   );
 }
