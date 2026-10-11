@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { UserPlan } from "@prisma/client";
 import { normalizeEmail } from "@/lib/account/credentials";
 import { findUserIdByEmail } from "@/lib/account/users";
+import { invalidateAccountState } from "@/lib/account/state";
 import { isJobRequestAuthorized } from "@/lib/security/access";
 
 export async function POST(req: NextRequest) {
@@ -33,5 +34,6 @@ export async function POST(req: NextRequest) {
     select: { id: true, email: true, plan: true },
   });
 
+  invalidateAccountState(user.id);
   return NextResponse.json({ ok: true, user });
 }

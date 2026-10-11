@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Inserisci la password attuale." }, { status: 400 });
   }
 
-  const state = await getAccountSessionState(session.user.id);
+  const state = await getAccountSessionState(session.user.id, { fresh: true });
   if (!state || !isLifecycleAvailable() || state.emailStatus === "unknown" || !isEmailProviderConfigured()) {
     return NextResponse.json({ error: "Il cambio email non è ancora disponibile." }, { status: 503 });
   }

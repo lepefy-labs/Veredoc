@@ -6,17 +6,13 @@ import Link from "next/link";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import { DOCUMENTO_LABEL } from "@/lib/config/constants";
-import { AnalysisStatus, DocumentType, ProfileKind } from "@prisma/client";
+import { AnalysisStatus, ProfileKind } from "@prisma/client";
+import type { DashboardDocumentSummary } from "@/lib/dashboard/summary";
 
-interface DocumentItem {
-  id: string;
-  profileId: string;
-  type: DocumentType;
-  fileName: string;
-  status: AnalysisStatus;
-  createdAt: Date | string;
-  analysis: unknown;
-}
+type DocumentItem = DashboardDocumentSummary;
+
+// Documenti mostrati inizialmente per profilo; gli altri con "Mostra altri".
+const PAGE_SIZE = 10;
 
 interface ProfileOption {
   id: string;
@@ -52,7 +48,10 @@ export default function DocumentList({ initialDocuments, profiles, currentProfil
   const [deleting, setDeleting] = useState(false);
   const [movingId, setMovingId] = useState<string | null>(null);
   const [rowError, setRowError] = useState<Record<string, string>>({});
-  const documents = initialDocuments.filter((doc) => !hiddenIds.includes(doc.id));
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const allDocuments = initialDocuments.filter((doc) => !hiddenIds.includes(doc.id));
+  const documents = allDocuments.slice(0, visibleCount);
+  const remaining = allDocuments.length - documents.length;
 
   async function handleDelete(id: string) {
     setDeleting(true);
@@ -105,9 +104,8 @@ export default function DocumentList({ initialDocuments, profiles, currentProfil
       {confirmDeleteId && <ConfirmDialog onConfirm={() => handleDelete(confirmDeleteId)} onCancel={() => setConfirmDeleteId(null)} loading={deleting} />}
       <div className="space-y-3">
         {documents.map((doc) => {
-          const analysis = (doc.analysis ?? null) as Record<string, unknown> | null;
-          const importo = analysis?.importo_totale ?? analysis?.stipendio_netto;
-          const fornitore = analysis?.fornitore ?? analysis?.datore_lavoro;
+          const importo = doc.amount;
+          const fornitore = doc.counterparty;
 
           return (
             <Card key={doc.id} padding="sm" className="space-y-3">
@@ -119,10 +117,10 @@ export default function DocumentList({ initialDocuments, profiles, currentProfil
                       <Badge status={doc.status as AnalysisStatus} />
                     </div>
                     <p className="mt-0.5 truncate text-xs text-muted">{doc.fileName}</p>
-                    {fornitore != null && <p className="mt-0.5 truncate text-xs text-muted">{String(fornitore)}</p>}
+                    {fornitore && <p className="mt-0.5 truncate text-xs text-muted">{fornitore}</p>}
                   </div>
                   <div className="shrink-0 text-right">
-                    {importo !== undefined && importo !== null && <p className="font-mono text-sm font-bold text-ink">{Number(importo).toLocaleString("it-IT", { style: "currency", currency: "EUR" })}</p>}
+                    {importo !== null && <p className="font-mono text-sm font-bold text-ink">{importo.toLocaleString("it-IT", { style: "currency", currency: "EUR" })}</p>}
                     <p className="mt-0.5 text-xs text-muted">{new Date(doc.createdAt).toLocaleDateString("it-IT")}</p>
                   </div>
                 </div>
@@ -148,6 +146,15 @@ export default function DocumentList({ initialDocuments, profiles, currentProfil
           );
         })}
       </div>
+      {remaining > 0 && (
+        <button
+          type="button"
+          onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}
+          className="mt-3 min-h-11 w-full rounded-xl border border-line bg-white px-4 text-sm font-medium text-brand hover:bg-brand-soft"
+        >
+          Mostra altri {Math.min(remaining, PAGE_SIZE)} di {remaining}
+        </button>
+      )}
     </>
   );
 }

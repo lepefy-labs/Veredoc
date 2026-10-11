@@ -11,6 +11,9 @@ import { TEXTS } from "@/lib/config/texts";
 import { ANALYSIS_LIMITS } from "@/lib/config/constants";
 import { startOfCurrentMonthUtc } from "@/lib/account/usage";
 import { AnalysisStatus, UserPlan } from "@prisma/client";
+import { buildLongitudinalInsights } from "@/lib/insights/history";
+import { buildMultiPeriodTrends } from "@/lib/insights/trends";
+import { summarizeDocument } from "@/lib/dashboard/summary";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -21,10 +24,16 @@ export default async function DashboardPage() {
     prisma.analysisProfile.findMany({
       where: { userId: session.user.id },
       orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
-      include: {
+      select: {
+        id: true,
+        label: true,
+        kind: true,
+        isDefault: true,
         documents: {
           where: { status: { not: AnalysisStatus.DELETED } },
           orderBy: { createdAt: "desc" },
+          // Solo le colonne necessarie: niente rawExtracted, testo anonimizzato o mappe.
+          select: { id: true, profileId: true, type: true, fileName: true, status: true, createdAt: true, analysis: true },
         },
       },
     }),
@@ -40,20 +49,16 @@ export default async function DashboardPage() {
   const plan = session.user.plan === "PRO" ? UserPlan.PRO : UserPlan.FREE;
   const monthlyLimit = ANALYSIS_LIMITS[plan];
   const profileOptions = profiles.map(({ id, label, kind, isDefault }) => ({ id, label, kind, isDefault }));
+  // Storico e trend calcolati sul server: al client arrivano risultati e riepiloghi,
+  // non le analisi complete di tutti i documenti.
   const dashboardProfiles = profiles.map((profile) => ({
     id: profile.id,
     label: profile.label,
     kind: profile.kind,
     isDefault: profile.isDefault,
-    documents: profile.documents.map((document) => ({
-      id: document.id,
-      profileId: document.profileId,
-      type: document.type,
-      fileName: document.fileName,
-      status: document.status,
-      createdAt: document.createdAt.toISOString(),
-      analysis: document.analysis,
-    })),
+    insights: buildLongitudinalInsights(profile.documents),
+    trends: buildMultiPeriodTrends(profile.documents, profile.id),
+    documents: profile.documents.map(summarizeDocument),
   }));
   const defaultProfile = profiles.find((profile) => profile.isDefault) ?? profiles[0];
   const analyzeHref = defaultProfile ? `/analyze?profile=${encodeURIComponent(defaultProfile.id)}` : "/analyze";

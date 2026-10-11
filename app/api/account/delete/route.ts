@@ -9,6 +9,7 @@ import { createClient } from "@supabase/supabase-js";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { accountMailer } from "@/lib/account/mailer";
+import { invalidateAccountState } from "@/lib/account/state";
 import { DELETE_CONFIRMATION } from "@/lib/account/credentials";
 import { RATE_LIMITS } from "@/lib/security/rate-limit";
 import { enforceRateLimits } from "@/lib/security/rate-limit-server";
@@ -66,6 +67,7 @@ export async function POST(req: NextRequest) {
     prisma.user.delete({ where: { id: userId } }),
   ]);
 
+  invalidateAccountState(userId);
   logOperationalEvent("account.deleted", { userId });
   await accountMailer.accountDeleted(user.email);
   return NextResponse.json({ success: true });

@@ -1,0 +1,22 @@
+# dipendenze
+node_modules/
+
+# build Next.js
+.next/
+out/
+*.tsbuildinfo
+
+# test end-to-end
+test-results/
+playwright-report/
+playwright/.cache/
+
+# ambiente locale
+.env
+.env.*
+!.env.example
+.vercel
+
+# sistema
+.DS_Store
+*.log

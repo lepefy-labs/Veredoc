@@ -1,14 +1,10 @@
-"use client";
-
+// Pagina statica: gli utenti con sessione vengono reindirizzati alla dashboard dal middleware.
 import Link from "next/link";
-import { useSession } from "next-auth/react";
 import { TEXTS } from "@/lib/config/texts";
 import VeredocLogo from "@/components/ui/VeredocLogo";
 import PricingCardPro from "@/components/PricingCardPro";
 
 export default function Home() {
-  const { data: session } = useSession();
-
   return (
     <main className="min-h-screen flex flex-col items-center px-4 py-16 sm:py-20">
       <div className="max-w-2xl w-full text-center space-y-8">
@@ -22,7 +18,7 @@ export default function Home() {
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link
-            href={session ? "/analyze" : "/register"}
+            href="/register"
             className="inline-flex items-center justify-center px-7 py-3 bg-brand text-white rounded-lg font-semibold shadow-md shadow-brand/20 hover:bg-brand-dark transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
           >
             Inizia gratis
