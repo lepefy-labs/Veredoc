@@ -2,6 +2,8 @@
 // Nessuna route deve chiamare direttamente l'API HTTP di Brevo.
 // I log non contengono indirizzi email, contenuti o corpi di risposta del provider.
 
+import { getAppBaseUrl } from "./notifications/config.ts";
+
 export const SENDER = { name: "Veredoc", email: "noreply@veredoc.it" };
 
 const BREVO_SMTP_ENDPOINT = "https://api.brevo.com/v3/smtp/email";
@@ -104,7 +106,7 @@ export async function sendTransactionalEmail(
 }
 
 export async function sendPasswordResetEmail(to: string, token: string, options: EmailTransportOptions = {}) {
-  const resetUrl = `https://veredoc.it/reset-password?token=${token}`;
+  const resetUrl = new URL(`/reset-password?token=${encodeURIComponent(token)}`, getAppBaseUrl()).toString();
 
   const textContent = `Ciao,
 

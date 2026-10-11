@@ -15,7 +15,9 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+// Dominio canonico: https://www.veredoc.it (stesso valore di default di getAppBaseUrl()).
 export const metadata: Metadata = {
+  metadataBase: new URL("https://www.veredoc.it"),
   title: "Veredoc — Analisi AI di bollette e buste paga",
   description: "Carica la tua bolletta luce, gas o internet oppure la busta paga: Veredoc la analizza con l'AI, spiega ogni voce in italiano e ti dice se stai pagando troppo.",
   keywords: ["analisi bolletta online", "capire busta paga", "controllare bolletta luce AI", "spiegazione voci busta paga", "confronto offerte energia"],
@@ -28,7 +30,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Veredoc — I tuoi documenti, spiegati in chiaro",
     description: "AI che legge bollette e buste paga al posto tuo. Ogni voce spiegata, ogni anomalia segnalata.",
-    url: "https://veredoc.it",
+    url: "https://www.veredoc.it",
     siteName: "Veredoc",
     locale: "it_IT",
     type: "website",
@@ -43,7 +45,7 @@ export const metadata: Metadata = {
     follow: true,
   },
   alternates: {
-    canonical: "https://veredoc.it",
+    canonical: "https://www.veredoc.it",
   },
   icons: {
     icon: "/favicon.svg",
