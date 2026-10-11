@@ -173,7 +173,7 @@ Massimo 3 tentativi automatici. Retry: errori Storage, provider AI, output AI no
 
 ### Serverless e recovery
 
-- `after()` vive al massimo `maxDuration` della route (300 s, Vercel Hobby + Fluid Compute, regione iad1). Può essere interrotto: per questo il lease (6 min) supera la durata massima e il recovery è indipendente dalla richiesta originale.
+- `after()` vive al massimo `maxDuration` della route (300 s, Vercel Hobby + Fluid Compute, regione lhr1 Londra, la stessa del database Supabase eu-west-2). Può essere interrotto: per questo il lease (6 min) supera la durata massima e il recovery è indipendente dalla richiesta originale.
 - Trigger del worker: upload (`after()`), `GET /api/documents/[id]` quando il documento è `PENDING` o con lease scaduto, retry manuale, job `POST /api/jobs/process-analysis`.
 - Il job di recovery esegue anche, prima delle analisi, il recupero delle notifiche email (vedi "Notifiche email transazionali").
 - Job di recovery: max 20 candidati, max 10 elaborazioni, nessuna nuova elaborazione dopo 60 s; chiude in `ERROR` i documenti con tentativi esauriti. Protetto da `JOBS_SECRET`.
@@ -317,6 +317,8 @@ Il motore trend applica anche un filtro `profileId` interno. La dashboard può e
 `BollettaDecisionSummary.tsx` porta in alto verdetto, risparmio potenziale e azione consigliata. `BollettaReport.tsx` mantiene il dettaglio tecnico e le offerte.
 
 Offerte nel confronto (`lib/parsers/market-offers.ts`): `MarketRate` conserva ogni offerta mai letta dal file ARERA e le righe non vengono rimosse. Il confronto usa solo offerte nel periodo di validità (`offertaInizio <= ora < offertaFine`) e presenti nell'ultimo snapshot della categoria (`scrapedAt` entro 12 ore dall'ultimo aggiornamento); le offerte ritirate dal file ARERA restano quindi escluse. Il confronto salva `offerte_aggiornate_al`; la UI segnala dati più vecchi di 7 giorni e offerte scadute in confronti salvati in precedenza, invitando ad aggiornare il confronto. I confronti dei documenti `DONE` sono istantanee: vengono ricalcolati dal job notturno `refresh-market-rates` o dal pulsante `Aggiorna confronto mercato`.
+
+Scraping tariffe (`/api/jobs/scrape-market-rates`, workflow n8n `Veredoc — Nightly Market Rates`, ogni notte alle 02:00): il download diretto dei file XML ARERA (~20 MB) dalle funzioni Vercel non riesce né da iad1 né da lhr1 (verificato il 2026-10-10); i file arrivano solo tramite il fallback ScraperAPI (`SCRAPERAPI_KEY`, 1 credito per categoria a notte). La chiave è sul piano Free (1.000 crediti/mese) ed è condivisa con un altro progetto: dal 2026-09-23 al 2026-10-10 i crediti erano esauriti e lo scraping non ha aggiornato `MarketRate`. In quel caso la route risponde comunque `200` con gli errori nel corpo, quindi l'esecuzione n8n risulta riuscita: controllare `extracted` nella risposta.
 
 ### Buste paga — payroll intelligence v2
 
