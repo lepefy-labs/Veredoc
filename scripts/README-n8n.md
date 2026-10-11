@@ -13,7 +13,7 @@ Aggiornare ogni notte le tariffe di mercato nel DB, chiamando l'endpoint interno
 
 3. Aggiungi un nodo **HTTP Request**:
    - Method: `POST`
-   - URL: `https://veredoc.vercel.app/api/jobs/scrape-market-rates`
+   - URL: `https://www.veredoc.it/api/jobs/scrape-market-rates`
    - Authentication: `Header Auth`
    - Header Name: `Authorization`
    - Header Value: `Bearer <JOBS_SECRET>` — usa il valore dalla variabile d'ambiente Vercel
@@ -25,7 +25,7 @@ Aggiornare ogni notte le tariffe di mercato nel DB, chiamando l'endpoint interno
 Dopo il nodo HTTP Request dello scraping tariffe, aggiungere un secondo nodo HTTP Request:
 
 - Method: `POST`
-- URL: `https://veredoc.vercel.app/api/jobs/refresh-market-rates`
+- URL: `https://www.veredoc.it/api/jobs/refresh-market-rates`
 - Authentication: `Header Auth`
 - Header Name: `Authorization`
 - Header Value: `Bearer <JOBS_SECRET>`

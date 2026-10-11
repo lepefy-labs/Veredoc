@@ -397,6 +397,7 @@ Il pagamento PRO non esiste: i testi dicono di scrivere a `ciao@veredoc.it` e il
 - **Dashboard** (`app/dashboard/page.tsx`): legge solo le colonne necessarie dei documenti, calcola sul server storico (`buildLongitudinalInsights`) e trend (`buildMultiPeriodTrends`) e invia al browser solo i risultati e un riepilogo per documento (`lib/dashboard/summary.ts`: tipo, stato, data, nome file, importo, fornitore/datore). Le analisi complete non lasciano più il server. La lista mostra 10 documenti per profilo con `Mostra altri`.
 - **Stato sessione** (`lib/account/state.ts`): il callback `jwt` usa una cache per istanza di 15 s (massimo 5.000 utenti). Le scritture della stessa istanza la invalidano; tra istanze diverse un cambio di piano/email o la revoca delle sessioni dopo un cambio password si propagano entro 15 s. Login, pagina account, API email e dispatcher notifiche leggono senza cache.
 - **Avvisi operativi** (`instrumentation.ts`, `lib/observability/alerts.ts`): con `OPS_ALERT_EMAIL` configurata, ogni evento di log di livello `error` (escluso `analysis.failed`, coperto da `analysis.attempts_exhausted`) e ogni errore server non gestito (`onRequestError`, solo percorso senza query string, tipo e digest) inviano un'email via Brevo. Massimo un'email all'ora per tipo di evento (rate limit su Postgres, condiviso tra istanze); senza rate limit verificabile l'avviso non parte. Nessun contenuto dei documenti.
+- **Dominio canonico**: `https://www.veredoc.it` per metadati (`metadataBase`, canonical, Open Graph), link delle email (`getAppBaseUrl()`, incluso il reset password), workflow n8n e documentazione.
 - **Home** (`app/page.tsx`): pagina statica senza sessione lato client; gli utenti con sessione vengono reindirizzati dal middleware.
 
 ---
@@ -496,7 +497,7 @@ PR solo se richiesta, imposta da policy o realmente necessaria per validare in s
 6. Importare e attivare in n8n `scripts/n8n/analysis-recovery.workflow.json` (non ancora verificato come attivo).
 7. Attivare le notifiche email (`NOTIFICATIONS_ENABLED=true`) e verificare un invio reale end-to-end; autenticare il dominio veredoc.it su Brevo (oggi il mittente viene riscritto su `brevosend.com`).
 8. Configurare `OPS_ALERT_EMAIL` per ricevere gli avvisi operativi.
-9. Scegliere un unico dominio canonico tra `veredoc.it` e `www.veredoc.it` (metadati, email, n8n e reset password non sono allineati).
+9. Verificare su Vercel che `veredoc.it` reindirizzi (308) a `www.veredoc.it` e che `NEXTAUTH_URL`/`APP_BASE_URL`, se impostate, usino `https://www.veredoc.it`.
 10. Misurare installazione e ritorno della PWA prima di valutare wrapper o app native.
 11. Valutare notifiche push solo quando esistono alert longitudinali realmente utili e con consenso esplicito.
 

@@ -108,7 +108,7 @@ types/
 
 1. Importa il repo su Vercel
 2. Aggiungi tutte le variabili d'ambiente nelle Settings → Environment Variables
-3. Imposta `NEXTAUTH_URL` = `https://veredoc.vercel.app`
+3. Imposta `NEXTAUTH_URL` = `https://www.veredoc.it`
 4. Ogni push su `main` fa deploy automatico
 
 ## Automazione scraping (n8n)

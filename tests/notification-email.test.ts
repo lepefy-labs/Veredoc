@@ -79,7 +79,7 @@ test("reset password: nessuna regressione su destinatario, oggetto, link e mitte
     assert.deepEqual(body.to, [{ email: "utente@example.com" }]);
     assert.equal(body.subject, "Reimposta la tua password Veredoc");
     assert.deepEqual(body.sender, SENDER);
-    assert.match(body.htmlContent, /https:\/\/veredoc\.it\/reset-password\?token=token123/);
+    assert.match(body.htmlContent, /https:\/\/www\.veredoc\.it\/reset-password\?token=token123/);
     assert.match(body.textContent, /Il link scade tra un'ora\./);
     assert.equal(body.headers, undefined);
 
