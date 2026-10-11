@@ -31,7 +31,37 @@ export interface AccountSessionState {
   emailStatus: "verified" | "unverified" | "legacy" | "unknown";
 }
 
-export async function getAccountSessionState(userId: string): Promise<AccountSessionState | null> {
+// Cache breve per istanza: il callback jwt gira a ogni richiesta autenticata (anche il polling
+// dell'analisi ogni 3 s). Le scritture fatte da questa istanza la invalidano subito; su altre
+// istanze un cambio di piano, email o una revoca di sessione si propagano entro STATE_CACHE_MS.
+const STATE_CACHE_MS = 15_000;
+const STATE_CACHE_MAX = 5_000;
+const stateCache = new Map<string, { value: AccountSessionState | null; expiresAt: number }>();
+
+export function invalidateAccountState(userId: string): void {
+  stateCache.delete(userId);
+}
+
+// Invalida prima e dopo la scrittura: una lettura concorrente non lascia in cache lo stato vecchio.
+async function withInvalidation<T>(userId: string, write: () => Promise<T>): Promise<T> {
+  invalidateAccountState(userId);
+  try {
+    return await write();
+  } finally {
+    invalidateAccountState(userId);
+  }
+}
+
+export async function getAccountSessionState(userId: string, options: { fresh?: boolean } = {}): Promise<AccountSessionState | null> {
+  const cached = options.fresh ? undefined : stateCache.get(userId);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  const value = await loadAccountSessionState(userId);
+  if (stateCache.size >= STATE_CACHE_MAX) stateCache.clear();
+  stateCache.set(userId, { value, expiresAt: Date.now() + STATE_CACHE_MS });
+  return value;
+}
+
+async function loadAccountSessionState(userId: string): Promise<AccountSessionState | null> {
   if (!tableKnownMissing()) {
     try {
       const [row] = await prisma.$queryRaw<SessionStateRow[]>(sessionStateSql(userId));
@@ -65,24 +95,24 @@ async function run<T>(operation: () => Promise<T>, fallback: T): Promise<T> {
 }
 
 export function ensureAccountState(userId: string): Promise<boolean> {
-  return run(async () => {
+  return withInvalidation(userId, () => run(async () => {
     await prisma.$executeRaw(ensureAccountStateSql(userId));
     return true;
-  }, false);
+  }, false));
 }
 
 export function bumpSessionVersion(userId: string): Promise<boolean> {
-  return run(async () => {
+  return withInvalidation(userId, () => run(async () => {
     await prisma.$queryRaw(bumpSessionVersionSql(userId));
     return true;
-  }, false);
+  }, false));
 }
 
 export function markEmailVerified(userId: string): Promise<boolean> {
-  return run(async () => {
+  return withInvalidation(userId, () => run(async () => {
     await prisma.$executeRaw(markEmailVerifiedSql(userId));
     return true;
-  }, false);
+  }, false));
 }
 
 // Le notifiche di servizio vanno solo a indirizzi confermati; gli account

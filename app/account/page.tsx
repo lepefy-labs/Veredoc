@@ -58,7 +58,7 @@ export default async function AccountPage() {
 
   const [usage, accountState] = await Promise.all([
     getMonthlyUsage(session.user.id, user.plan),
-    getAccountSessionState(session.user.id),
+    getAccountSessionState(session.user.id, { fresh: true }),
   ]);
   const emailStatus = accountState?.emailStatus ?? "unknown";
   const lifecycle = isLifecycleAvailable() && emailStatus !== "unknown" && isEmailProviderConfigured();

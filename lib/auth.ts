@@ -60,7 +60,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       // Riletto a ogni richiesta: piano ed email aggiornati, account eliminato e
       // sessioni emesse prima di un cambio/reset password non più valide.
-      const state = await getAccountSessionState(token.id as string);
+      // Al login lettura senza cache: la versione di sessione salvata nel token deve essere attuale.
+      const state = await getAccountSessionState(token.id as string, { fresh: Boolean(user) });
       if (!state) return null;
       if (user) {
         token.sv = state.sessionVersion ?? 0;

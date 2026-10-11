@@ -4,26 +4,19 @@ import { useState } from "react";
 import Link from "next/link";
 import DocumentList from "@/components/DocumentList";
 import HistoricalInsights from "@/components/HistoricalInsights";
-import { buildLongitudinalInsights } from "@/lib/insights/history";
-import { buildMultiPeriodTrends } from "@/lib/insights/trends";
-import { AnalysisStatus, DocumentType, ProfileKind } from "@prisma/client";
-
-interface DashboardDocument {
-  id: string;
-  profileId: string;
-  type: DocumentType;
-  fileName: string;
-  status: AnalysisStatus;
-  createdAt: string;
-  analysis: unknown;
-}
+import type { LongitudinalInsight } from "@/lib/insights/history";
+import type { TrendInsight } from "@/lib/insights/trends";
+import type { DashboardDocumentSummary } from "@/lib/dashboard/summary";
+import { ProfileKind } from "@prisma/client";
 
 interface DashboardProfile {
   id: string;
   label: string;
   kind: ProfileKind;
   isDefault: boolean;
-  documents: DashboardDocument[];
+  documents: DashboardDocumentSummary[];
+  insights: LongitudinalInsight[];
+  trends: TrendInsight[];
 }
 
 interface ProfileOption {
@@ -72,8 +65,6 @@ export default function ProfileDashboard({ profiles, profileOptions }: { profile
       )}
 
       {visibleProfiles.map((profile) => {
-        const insights = buildLongitudinalInsights(profile.documents);
-        const trends = buildMultiPeriodTrends(profile.documents, profile.id);
         return (
           <section key={profile.id} className="rounded-2xl border border-line bg-white p-5 sm:p-6 space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -94,7 +85,7 @@ export default function ProfileDashboard({ profiles, profileOptions }: { profile
               </Link>
             </div>
 
-            <HistoricalInsights insights={insights} trends={trends} />
+            <HistoricalInsights insights={profile.insights} trends={profile.trends} />
             <DocumentList initialDocuments={profile.documents} profiles={profileOptions} currentProfileId={profile.id} />
           </section>
         );

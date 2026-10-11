@@ -1,6 +1,6 @@
 # CONTEXT.md — Veredoc
 
-> Aggiornato: 2026-10-11 — ciclo di vita account (verifica e cambio email, esportazione, eliminazione, sessioni), spazio account e sicurezza credenziali, notifiche email transazionali dell'analisi (outbox), lifecycle analisi affidabile (lease con token, checkpoint estrazione, recovery), PWA, profili, trend e payroll intelligence v2
+> Aggiornato: 2026-10-11 — dashboard leggera, avvisi operativi, test end-to-end; ciclo di vita account (verifica e cambio email, esportazione, eliminazione, sessioni), spazio account e sicurezza credenziali, notifiche email transazionali dell'analisi (outbox), lifecycle analisi affidabile (lease con token, checkpoint estrazione, recovery), PWA, profili, trend e payroll intelligence v2
 
 ---
 
@@ -392,15 +392,25 @@ Il pagamento PRO non esiste: i testi dicono di scrivere a `ciao@veredoc.it` e il
 
 ---
 
+## Prestazioni e osservabilità
+
+- **Dashboard** (`app/dashboard/page.tsx`): legge solo le colonne necessarie dei documenti, calcola sul server storico (`buildLongitudinalInsights`) e trend (`buildMultiPeriodTrends`) e invia al browser solo i risultati e un riepilogo per documento (`lib/dashboard/summary.ts`: tipo, stato, data, nome file, importo, fornitore/datore). Le analisi complete non lasciano più il server. La lista mostra 10 documenti per profilo con `Mostra altri`.
+- **Stato sessione** (`lib/account/state.ts`): il callback `jwt` usa una cache per istanza di 15 s (massimo 5.000 utenti). Le scritture della stessa istanza la invalidano; tra istanze diverse un cambio di piano/email o la revoca delle sessioni dopo un cambio password si propagano entro 15 s. Login, pagina account, API email e dispatcher notifiche leggono senza cache.
+- **Avvisi operativi** (`instrumentation.ts`, `lib/observability/alerts.ts`): con `OPS_ALERT_EMAIL` configurata, ogni evento di log di livello `error` (escluso `analysis.failed`, coperto da `analysis.attempts_exhausted`) e ogni errore server non gestito (`onRequestError`, solo percorso senza query string, tipo e digest) inviano un'email via Brevo. Massimo un'email all'ora per tipo di evento (rate limit su Postgres, condiviso tra istanze); senza rate limit verificabile l'avviso non parte. Nessun contenuto dei documenti.
+- **Home** (`app/page.tsx`): pagina statica senza sessione lato client; gli utenti con sessione vengono reindirizzati dal middleware.
+
+---
+
 ## Database
 
 La migrazione `supabase/migrations/002_analysis_profiles.sql` è stata applicata il 2026-08-30. Non sono richieste nuove migrazioni per payroll intelligence v2, PWA/mobile UX o lifecycle analisi (stato del job in `analysis._job`). Il trigger `Document_updatedAt_trigger` resta attivo: `updatedAt` non è affidabile per confronti di uguaglianza.
 
-`supabase/migrations/005_account_lifecycle.sql` (additiva: tabelle `AccountState` ed `EmailToken`) è predisposta ma **non ancora applicata** al 2026-10-11. Va applicata dopo la 004.
+Migrazioni applicate in produzione il 2026-10-11 (dichiarato dal proprietario del progetto):
+- `003_notification_outbox.sql`: enum `NotificationEventType`/`NotificationStatus`, tabella `NotificationOutbox`, indice parziale `Document_analysis_in_flight_idx`. Le notifiche restano comunque governate da `NOTIFICATIONS_ENABLED`;
+- `004_account_security.sql`: tabelle `RateLimitBucket` e `UserConsent`, indice `User_email_lower_idx` su `lower(email)`;
+- `005_account_lifecycle.sql`: tabelle `AccountState` ed `EmailToken`.
 
-`supabase/migrations/004_account_security.sql` (additiva: tabelle `RateLimitBucket` e `UserConsent`, indice `User_email_lower_idx` su `lower(email)`) è predisposta ma **non ancora applicata** al 2026-10-11. Finché non lo è: rate limit non attivo (fail-open) e consensi non registrati; nessun errore per gli utenti.
-
-`supabase/migrations/003_notification_outbox.sql` (additiva: enum `NotificationEventType`/`NotificationStatus`, tabella `NotificationOutbox`, indice parziale `Document_analysis_in_flight_idx`) è predisposta ma **non ancora applicata** al 2026-10-10: finché non lo è, `NOTIFICATIONS_ENABLED` deve restare spento. Le migrazioni si applicano manualmente dal Supabase SQL Editor (nessuna migrazione al deploy).
+Le migrazioni si applicano manualmente dal Supabase SQL Editor (nessuna migrazione al deploy). Il codice tollera comunque l'assenza delle tabelle 004/005 (fail-open documentato nelle rispettive sezioni).
 
 ---
 
@@ -440,7 +450,10 @@ pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build
+pnpm test:e2e   # dopo pnpm build, con DATABASE_URL/DIRECT_URL di un Postgres di test
 ```
+
+GitHub Actions (`.github/workflows/ci.yml`) ha due job: `verify` (lint, typecheck, test unitari, build) ed `e2e` (Postgres 16 come service container, schema da `prisma db push`, build, Playwright con Chromium). I test end-to-end (`e2e/`, `@playwright/test` 1.56.1) coprono: ritorno alla pagina richiesta dopo il login, registrazione e login con maiuscole, registrazione con email già usata (risposta identica), consenso obbligatorio, cambio password con chiusura sessioni, esportazione JSON, profili (crea/rinomina/elimina), rate limit del login, account e logout dalla barra mobile, dashboard paginata senza campi dell'analisi nella pagina. Non chiamano Storage, AI né Brevo (`BREVO_API_KEY` vuota). Ogni test usa un `x-forwarded-for` diverso per non esaurire il rate limit per IP. In locale: `PW_CHROMIUM_PATH` per usare un Chromium già installato.
 
 Per lavoro ordinario destinato a `main` non si apre una PR di staging per default, per evitare preview deploy Vercel inutili.
 
@@ -468,6 +481,7 @@ PR solo se richiesta, imposta da policy o realmente necessaria per validare in s
 - ciclo di vita account su PGlite con la migrazione reale: stato legacy/da confermare/confermato, versione sessione, token monouso (scadenza, scopo, revoca), cambio email con conflitto su `lower()`, cascade; template email account; notifiche bloccate per indirizzi non confermati;
 - account e sicurezza: normalizzazione email e ricerca `lower()` senza jolly, regole password, rate limit su PGlite con la migrazione reale (finestra, chiavi hash, pulizia, fail-open), consenso con cascade, validazione nome profilo, ritorno a `/account` dopo il login;
 - notifiche: outbox atomica con DONE/ERROR su PGlite con la migrazione reale, eventKey per ciclo, avviso di attesa (soglia, ciclo, documenti chiusi/eliminati/storici), claim concorrente, lease scaduto, retry/backoff, rate limit, esiti ambigui e deduplica Brevo, destinatario non valido, template senza dati sensibili, reset password invariato, redirect post-login sicuro;
+- dashboard: riepilogo documenti senza campi dell'analisi; avvisi operativi; hook dei log di errore;
 - observability.
 
 ---
@@ -480,9 +494,9 @@ PR solo se richiesta, imposta da policy o realmente necessaria per validare in s
 4. Valutare l'archiviazione dei profili (rinomina ed eliminazione dei profili vuoti sono disponibili da `/account`).
 5. Billing reale PRO solo previa approvazione esplicita.
 6. Importare e attivare in n8n `scripts/n8n/analysis-recovery.workflow.json` (non ancora verificato come attivo).
-7. Applicare `004_account_security.sql` (rate limit e consensi).
-8. Applicare `005_account_lifecycle.sql` (verifica/cambio email, chiusura sessioni).
-9. Attivare le notifiche email: applicare `003_notification_outbox.sql`, impostare `NOTIFICATIONS_ENABLED=true`, verificare un invio reale end-to-end (il recupero dei retry dipende dal workflow di recovery del punto 6).
+7. Attivare le notifiche email (`NOTIFICATIONS_ENABLED=true`) e verificare un invio reale end-to-end; autenticare il dominio veredoc.it su Brevo (oggi il mittente viene riscritto su `brevosend.com`).
+8. Configurare `OPS_ALERT_EMAIL` per ricevere gli avvisi operativi.
+9. Scegliere un unico dominio canonico tra `veredoc.it` e `www.veredoc.it` (metadati, email, n8n e reset password non sono allineati).
 10. Misurare installazione e ritorno della PWA prima di valutare wrapper o app native.
 11. Valutare notifiche push solo quando esistono alert longitudinali realmente utili e con consenso esplicito.
 
@@ -503,5 +517,6 @@ PR solo se richiesta, imposta da policy o realmente necessaria per validare in s
 - `JOBS_SECRET`
 - `SCRAPERAPI_KEY`
 - `BREVO_API_KEY`
+- `OPS_ALERT_EMAIL` (opzionale): destinatario degli avvisi operativi
 - `APP_BASE_URL` (opzionale) è usato anche per i link delle email account
 - `NOTIFICATIONS_ENABLED`, `NOTIFICATION_DELAYED_ENABLED`, `NOTIFICATION_DELAYED_THRESHOLD_SECONDS`, `APP_BASE_URL` (opzionali, vedi "Notifiche email transazionali")

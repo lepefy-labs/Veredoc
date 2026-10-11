@@ -28,6 +28,15 @@ export function createOperationalEvent(
   };
 }
 
+// Hook registrato da instrumentation.ts (solo runtime Node): inoltra gli eventi di livello
+// error agli avvisi operativi. Non deve mai lanciare né rallentare il chiamante.
+type ErrorHook = (event: string, fields: OperationalFields) => void;
+let errorHook: ErrorHook | null = null;
+
+export function setOperationalErrorHook(hook: ErrorHook | null): void {
+  errorHook = hook;
+}
+
 export function logOperationalEvent(
   event: string,
   fields: OperationalFields = {},
@@ -37,4 +46,12 @@ export function logOperationalEvent(
   if (level === "error") console.error(payload);
   else if (level === "warn") console.warn(payload);
   else console.info(payload);
+
+  if (level === "error" && errorHook) {
+    try {
+      errorHook(event, fields);
+    } catch {
+      // gli avvisi non devono mai interrompere il flusso applicativo
+    }
+  }
 }

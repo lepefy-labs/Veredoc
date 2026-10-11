@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       if (updated === 0) {
         return NextResponse.json({ error: "Questo indirizzo è già usato da un altro account." }, { status: 409 });
       }
-      await markEmailVerified(row.userId);
+      await markEmailVerified(row.userId); // invalida anche la cache dello stato (email nuova)
       logOperationalEvent("account.email_changed", { userId: row.userId });
       return NextResponse.json({ success: true, changed: true });
     }
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "L'invio delle email non è disponibile in questo momento." }, { status: 503 });
   }
 
-  const state = await getAccountSessionState(session.user.id);
+  const state = await getAccountSessionState(session.user.id, { fresh: true });
   if (!state || !isLifecycleAvailable() || state.emailStatus === "unknown") {
     return NextResponse.json({ error: "La verifica dell'email non è ancora disponibile." }, { status: 503 });
   }

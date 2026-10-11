@@ -41,7 +41,7 @@ const store: NotificationStore = {
         where: { id: row.documentId },
         select: { status: true, deletedAt: true, type: true, analysis: true },
       }),
-      getAccountSessionState(row.userId),
+      getAccountSessionState(row.userId, { fresh: true }),
     ]);
     return {
       document: document
