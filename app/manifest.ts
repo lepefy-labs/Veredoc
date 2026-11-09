@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { praticheEnabled } from "@/lib/pratiche/feature";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -29,6 +30,7 @@ export default function manifest(): MetadataRoute.Manifest {
         url: "/dashboard",
         icons: [{ src: "/pwa/icon-192.png", sizes: "192x192", type: "image/png" }],
       },
+      ...(praticheEnabled() ? [{ name: "Le mie pratiche", short_name: "Pratiche", description: "Riprendi le tue pratiche", url: "/pratiche/mie", icons: [{ src: "/pwa/icon-192.png", sizes: "192x192", type: "image/png" }] }] : []),
     ],
     icons: [
       {

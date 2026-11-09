@@ -404,6 +404,18 @@ Il pagamento PRO non esiste: i testi dicono di scrivere a `ciao@veredoc.it` e il
 
 ## Database
 
+### Veredoc Pratiche (migrazione 006 applicata il 2026-11-09)
+
+Il modulo Pratiche è governato da `PRATICHE_ENABLED`, disabilitato per impostazione predefinita. Finché la variabile non vale `true`, le API rispondono 503 e la navigazione non mostra il modulo. Se lo schema 006 non è presente, le pagine e le API mostrano uno stato non disponibile, senza simulare la persistenza. La migrazione 006 e il seed sono stati applicati al progetto Supabase di produzione il 2026-11-09. L'attivazione richiede la revisione delle fonti, la configurazione di `PRATICHE_REVIEWER_IDS` e infine il flag.
+
+Il catalogo `/pratiche`, il dettaglio `/pratiche/[slug]`, la dashboard `/pratiche/mie` e il percorso `/pratiche/caso/[id]` usano NextAuth e gli `AnalysisProfile` esistenti. Il motore in `lib/pratiche/engine.ts` valida risposte, condizioni e checklist in modo deterministico. Ogni `UserCase` punta a una `ProcedureVersion` immutabile dopo la pubblicazione. `revision` implementa il controllo ottimistico; `idempotencyKey` evita duplicati nell'avvio. Gli stati distinguono attività completata, pratica pronta, presentazione dichiarata dall'utente e chiusura. Non esiste conferma dell'ente nell'MVP.
+
+La Knowledge Base usa `KnowledgeSource`, `KnowledgeRevision`, `ProcedureDefinition`, `ProcedureVersion`, `ProcedureCitation` e `KnowledgeAudit`. Una versione pubblicabile richiede fonti e revisioni `VERIFIED`, revisione più recente e copertura di tutti gli identificatori di istruzione. Un aggiornamento acquisito rende la fonte `STALE`, senza modificare la versione pubblicata. `lib/knowledge/ingestion.ts` accetta solo URL istituzionali consentiti, deduplica con SHA-256 e prepara revisioni `PENDING_REVIEW`; non effettua fetch autonomi e non ha scheduler. La revisione e pubblicazione passano da `/pratiche/admin` e dalla sua API, accessibili solo agli ID utente nella variabile server `PRATICHE_REVIEWER_IDS`. Nessun ID è autorizzato per impostazione predefinita. Le azioni sono registrate in `KnowledgeAudit`.
+
+La migrazione `006_pratiche.sql` è additiva e introduce le tabelle della conoscenza, `UserCase`, `CaseAnswer`, `CaseStep`, `CaseEvent` e audit. RLS è abilitata su tutte le nuove tabelle e i ruoli Supabase `anon` e `authenticated` non ricevono privilegi diretti; le API con connessione server controllano la proprietà. I profili eliminati lasciano `profileId` nullo nelle pratiche, mentre l'eliminazione dell'account cancella casi, risposte, passaggi ed eventi in cascata. L'export account include le pratiche. Non ci sono allegati amministrativi, OCR, AI contestuale, notifiche o pagamenti nel primo rilascio.
+
+Il seed `supabase/seeds/pratiche_pilots.sql` crea tre procedure in bozza: cambio di residenza, certificati anagrafici, preparazione DSU/ISEE. Le fonti sono ANPR, Ministero dell'Interno e INPS; nessuna fonte è inizialmente marcata verificata e nessuna procedura è pubblicata. Per i casi esclusi dal servizio online, il motore blocca il percorso e indirizza al Comune. La preparazione ISEE resta separata dalla compilazione e dall'esito ufficiale della DSU. Le istruzioni operative e i limiti sono in `docs/pratiche.md`.
+
 La migrazione `supabase/migrations/002_analysis_profiles.sql` è stata applicata il 2026-08-30. Non sono richieste nuove migrazioni per payroll intelligence v2, PWA/mobile UX o lifecycle analisi (stato del job in `analysis._job`). Il trigger `Document_updatedAt_trigger` resta attivo: `updatedAt` non è affidabile per confronti di uguaglianza.
 
 Migrazioni applicate in produzione il 2026-10-11 (dichiarato dal proprietario del progetto):
@@ -411,7 +423,7 @@ Migrazioni applicate in produzione il 2026-10-11 (dichiarato dal proprietario de
 - `004_account_security.sql`: tabelle `RateLimitBucket` e `UserConsent`, indice `User_email_lower_idx` su `lower(email)`;
 - `005_account_lifecycle.sql`: tabelle `AccountState` ed `EmailToken`.
 
-Le migrazioni si applicano manualmente dal Supabase SQL Editor (nessuna migrazione al deploy). Il codice tollera comunque l'assenza delle tabelle 004/005 (fail-open documentato nelle rispettive sezioni).
+Le migrazioni si applicano esplicitamente tramite Supabase (nessuna migrazione al deploy). Il codice tollera comunque l'assenza delle tabelle 004/005 (fail-open documentato nelle rispettive sezioni).
 
 ---
 

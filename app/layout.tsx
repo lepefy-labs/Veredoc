@@ -6,6 +6,7 @@ import Providers from "./providers";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import PwaRegistration from "@/components/pwa/PwaRegistration";
+import { praticheEnabled } from "@/lib/pratiche/feature";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
@@ -59,7 +60,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="it" className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-page text-ink">
         <Providers>
-          <Navbar />
+          <Navbar praticheAvailable={praticheEnabled()} />
           {children}
         </Providers>
         <Footer />

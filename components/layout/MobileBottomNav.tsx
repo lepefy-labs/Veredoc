@@ -4,15 +4,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import AccountIcon from "@/components/layout/AccountIcon";
 
-export default function MobileBottomNav() {
+export default function MobileBottomNav({ praticheAvailable = false }: { praticheAvailable?: boolean }) {
   const pathname = usePathname();
   const dashboardActive = pathname.startsWith("/dashboard");
   const analyzeActive = pathname.startsWith("/analyze");
   const accountActive = pathname.startsWith("/account");
+  const practicesActive = pathname.startsWith("/pratiche");
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-50 border-t border-line bg-white/95 px-3 pb-[max(env(safe-area-inset-bottom),0.65rem)] pt-2 backdrop-blur sm:hidden">
-      <nav aria-label="Navigazione app" className="mx-auto grid max-w-md grid-cols-3 gap-2">
+      <nav aria-label="Navigazione app" className={`mx-auto grid max-w-md gap-2 ${praticheAvailable ? "grid-cols-4" : "grid-cols-3"}`}>
         <Link
           href="/dashboard"
           aria-current={dashboardActive ? "page" : undefined}
@@ -33,6 +34,7 @@ export default function MobileBottomNav() {
           </svg>
           Analizza
         </Link>
+        {praticheAvailable && <Link href="/pratiche" aria-current={practicesActive ? "page" : undefined} className={`flex min-h-13 items-center justify-center rounded-xl px-1 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-brand ${practicesActive ? "bg-brand-soft text-brand" : "text-muted"}`}>Pratiche</Link>}
         <Link
           href="/account"
           aria-current={accountActive ? "page" : undefined}

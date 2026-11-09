@@ -5,7 +5,7 @@
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { AnalysisStatus } from "@prisma/client";
+import { AnalysisStatus, Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { RATE_LIMITS } from "@/lib/security/rate-limit";
@@ -29,6 +29,14 @@ async function optionalRows<T>(query: () => Promise<T[]>): Promise<T[]> {
   }
 }
 
+async function optionalPracticeRows<T>(query: () => Promise<T[]>): Promise<T[]> {
+  try { return await query(); }
+  catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && ["P2021", "P2022"].includes(error.code)) return [];
+    throw error;
+  }
+}
+
 export async function GET() {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Non autenticato." }, { status: 401 });
@@ -37,7 +45,7 @@ export async function GET() {
   const limit = await enforceRateLimits("account_export", [{ rule: RATE_LIMITS.exportUser, subject: userId }]);
   if (!limit.allowed) return NextResponse.json({ error: "Troppe esportazioni. Riprova tra un'ora." }, { status: 429 });
 
-  const [user, profiles, documents, consents, notifications] = await Promise.all([
+  const [user, profiles, documents, consents, notifications, cases] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId }, select: { email: true, plan: true, createdAt: true } }),
     prisma.analysisProfile.findMany({
       where: { userId },
@@ -57,6 +65,10 @@ export async function GET() {
       where: { userId },
       select: { documentId: true, eventType: true, status: true, createdAt: true, sentAt: true },
       orderBy: { createdAt: "asc" },
+    })),
+    optionalPracticeRows(() => prisma.userCase.findMany({
+      where: { userId }, orderBy: { createdAt: "asc" },
+      select: { id: true, profileId: true, procedureVersionId: true, title: true, status: true, createdAt: true, updatedAt: true, completedAt: true, answers: { select: { questionId: true, value: true, revision: true, updatedAt: true } }, steps: { select: { stepId: true, status: true, completedAt: true } }, events: { select: { type: true, createdAt: true } } },
     })),
   ]);
   if (!user) return NextResponse.json({ error: "Non autenticato." }, { status: 401 });
@@ -85,6 +97,7 @@ export async function GET() {
       originalFileUrl: filePath ? signed.get(filePath) ?? null : null,
     })),
     notifications,
+    cases,
   };
 
   logOperationalEvent("account.exported", { userId, documents: documents.length });

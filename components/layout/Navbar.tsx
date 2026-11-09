@@ -6,7 +6,7 @@ import MobileBottomNav from "@/components/layout/MobileBottomNav";
 import VeredocLogo from "@/components/ui/VeredocLogo";
 import AccountIcon from "@/components/layout/AccountIcon";
 
-export default function Navbar() {
+export default function Navbar({ praticheAvailable = false }: { praticheAvailable?: boolean }) {
   const { data: session } = useSession();
 
   return (
@@ -29,6 +29,7 @@ export default function Navbar() {
               <Link href="/analyze" className="text-ink transition-colors hover:text-brand">
                 Nuova analisi
               </Link>
+              {praticheAvailable && <Link href="/pratiche" className="text-ink transition-colors hover:text-brand">Pratiche</Link>}
               <Link
                 href="/account"
                 title={session.user?.email ? `Account: ${session.user.email}` : "Account"}
@@ -63,7 +64,7 @@ export default function Navbar() {
         )}
       </nav>
 
-      {session && <MobileBottomNav />}
+      {session && <MobileBottomNav praticheAvailable={praticheAvailable} />}
     </>
   );
 }

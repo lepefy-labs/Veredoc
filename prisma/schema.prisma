@@ -59,6 +59,8 @@ model User {
   consents            UserConsent[]
   accountState        AccountState?
   emailTokens         EmailToken[]
+  cases               UserCase[]
+  knowledgeAudits     KnowledgeAudit[]
   createdAt           DateTime             @default(now())
 }
 
@@ -70,6 +72,7 @@ model AnalysisProfile {
   kind      ProfileKind @default(PERSON)
   isDefault Boolean     @default(false)
   documents Document[]
+  cases     UserCase[]
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 
@@ -202,4 +205,151 @@ model EmailToken {
   createdAt DateTime  @default(now())
 
   @@index([userId])
+}
+
+model KnowledgeSource {
+  id             String              @id @default(cuid())
+  authority      String
+  title          String
+  url            String              @unique
+  sourceType     String
+  scope          String
+  status         String              @default("DRAFT")
+  provenance     Json?
+  acquiredAt     DateTime            @default(now())
+  verifiedAt     DateTime?
+  revisions      KnowledgeRevision[]
+  citations      ProcedureCitation[]
+}
+
+model KnowledgeRevision {
+  id            String              @id @default(cuid())
+  sourceId      String
+  source        KnowledgeSource     @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+  version       Int
+  content       String
+  contentHash   String
+  acquiredAt    DateTime            @default(now())
+  effectiveAt   DateTime?
+  status        String              @default("DRAFT")
+  diff          Json?
+  citations     ProcedureCitation[]
+
+  @@unique([sourceId, version])
+  @@unique([sourceId, contentHash])
+}
+
+model ProcedureDefinition {
+  id          String             @id @default(cuid())
+  slug        String             @unique
+  title       String
+  description String
+  category    String
+  audience    String
+  scope       String
+  authority   String
+  status      String             @default("DRAFT")
+  metadata    Json?
+  versions    ProcedureVersion[]
+}
+
+model ProcedureVersion {
+  id            String              @id @default(cuid())
+  procedureId   String
+  procedure     ProcedureDefinition @relation(fields: [procedureId], references: [id], onDelete: Restrict)
+  version       Int
+  definition    Json
+  status        String              @default("DRAFT")
+  approvedAt    DateTime?
+  effectiveAt   DateTime?
+  createdAt     DateTime            @default(now())
+  citations     ProcedureCitation[]
+  cases         UserCase[]
+
+  @@unique([procedureId, version])
+  // Indice parziale per una sola versione PUBLISHED in 006_pratiche.sql.
+}
+
+model ProcedureCitation {
+  id                String            @id @default(cuid())
+  procedureVersionId String
+  procedureVersion  ProcedureVersion  @relation(fields: [procedureVersionId], references: [id], onDelete: Restrict)
+  sourceId          String
+  source            KnowledgeSource   @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+  revisionId        String
+  revision          KnowledgeRevision @relation(fields: [revisionId], references: [id], onDelete: Restrict)
+  instructionIds    String[]
+
+  @@unique([procedureVersionId, revisionId])
+}
+
+model UserCase {
+  id                 String           @id @default(cuid())
+  userId             String
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profileId          String?
+  profile            AnalysisProfile? @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  procedureVersionId String
+  procedureVersion   ProcedureVersion @relation(fields: [procedureVersionId], references: [id], onDelete: Restrict)
+  title              String
+  status             String           @default("DRAFT")
+  revision           Int              @default(0)
+  idempotencyKey     String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  completedAt        DateTime?
+  answers            CaseAnswer[]
+  steps              CaseStep[]
+  events             CaseEvent[]
+
+  @@index([userId, updatedAt])
+  @@index([profileId])
+  @@unique([userId, idempotencyKey])
+}
+
+model CaseAnswer {
+  caseId      String
+  case        UserCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  questionId  String
+  value       Json
+  revision    Int
+  updatedAt   DateTime @updatedAt
+
+  @@id([caseId, questionId])
+}
+
+model CaseStep {
+  caseId      String
+  case        UserCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  stepId      String
+  status      String
+  completedAt DateTime?
+  metadata    Json?
+
+  @@id([caseId, stepId])
+}
+
+model CaseEvent {
+  id        String   @id @default(cuid())
+  caseId    String
+  case      UserCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  type      String
+  actorId   String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([caseId, createdAt])
+}
+
+model KnowledgeAudit {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  entityType String
+  entityId   String
+  action     String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId, createdAt])
 }

@@ -51,6 +51,11 @@ export default function PrivacyPage() {
                 <strong>Dati di utilizzo:</strong> numero di analisi effettuate, data e
                 tipo di documento, stato dell&apos;elaborazione
               </li>
+              <li>
+                <strong>Pratiche:</strong> profilo scelto, risposte alle domande, attività
+                completate e stato del percorso, se usi il modulo Pratiche.
+                In questa fase non raccogliamo allegati amministrativi.
+              </li>
             </ul>
           </section>
 
@@ -59,6 +64,7 @@ export default function PrivacyPage() {
             <p className="mb-2">I dati vengono trattati esclusivamente per:</p>
             <ul className="list-disc list-inside space-y-1">
               <li>Erogare il servizio di analisi automatica dei documenti</li>
+              <li>Salvare e riprendere le pratiche amministrative che avvii</li>
               <li>Gestire l&apos;account utente e l&apos;autenticazione</li>
               <li>
                 Inviare all&apos;indirizzo dell&apos;account comunicazioni di servizio
@@ -116,6 +122,10 @@ export default function PrivacyPage() {
                 L&apos;account può essere eliminato in qualsiasi momento dalla pagina
                 Account: documenti, file caricati e analisi vengono cancellati subito;
                 eventuali copie nei backup tecnici vengono eliminate entro 30 giorni
+              </li>
+              <li>
+                Le pratiche e le risposte restano finché non elimini la singola pratica o
+                l&apos;account. L&apos;eliminazione dell&apos;account le cancella dal database.
               </li>
             </ul>
           </section>
@@ -179,7 +189,7 @@ export default function PrivacyPage() {
         </div>
 
         <footer className="mt-12 pt-6 border-t border-line text-xs text-muted">
-          Ultimo aggiornamento: ottobre 2026
+          Ultimo aggiornamento: novembre 2026
         </footer>
       </div>
     </main>
