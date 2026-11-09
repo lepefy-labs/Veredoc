@@ -468,6 +468,8 @@ pnpm test:e2e   # dopo pnpm build, con DATABASE_URL/DIRECT_URL di un Postgres di
 
 GitHub Actions (`.github/workflows/ci.yml`) ha due job: `verify` (lint, typecheck, test unitari, build) ed `e2e` (Postgres 16 come service container, schema da `prisma db push`, build, Playwright con Chromium). I test end-to-end (`e2e/`, `@playwright/test` 1.56.1) coprono: ritorno alla pagina richiesta dopo il login, registrazione e login con maiuscole, registrazione con email già usata (risposta identica), consenso obbligatorio, cambio password con chiusura sessioni, esportazione JSON, profili (crea/rinomina/elimina), rate limit del login, account e logout dalla barra mobile, dashboard paginata senza campi dell'analisi nella pagina. Non chiamano Storage, AI né Brevo (`BREVO_API_KEY` vuota). Ogni test usa un `x-forwarded-for` diverso per non esaurire il rate limit per IP. In locale: `PW_CHROMIUM_PATH` per usare un Chromium già installato.
 
+Il job E2E usa Ubuntu 24.04, versione supportata da Playwright 1.56.1 per l'installazione di Chromium.
+
 Per lavoro ordinario destinato a `main` non si apre una PR di staging per default, per evitare preview deploy Vercel inutili.
 
 ```text
