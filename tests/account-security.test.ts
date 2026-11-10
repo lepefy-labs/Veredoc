@@ -172,4 +172,6 @@ test("profili: nome validato e normalizzato", () => {
 test("account: rotta protetta con ritorno dopo il login", () => {
   assert.equal(safeCallbackPath("/account"), "/account");
   assert.equal(buildLoginRedirectPath("/account", ""), "/login?callbackUrl=%2Faccount");
+  assert.equal(safeCallbackPath("/pratiche/cambio-residenza"), "/pratiche/cambio-residenza");
+  assert.equal(buildLoginRedirectPath("/pratiche", ""), "/login?callbackUrl=%2Fpratiche");
 });
