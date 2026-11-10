@@ -23,6 +23,9 @@ test("percorso Pratiche salva, riprende e protegge la proprietà", async ({ page
   await login(page, email);
   await expect(page).toHaveURL(/\/dashboard/);
   await page.goto(`/pratiche/${slug}`);
+  await expect(page.getByText("Documento richiesto per questo caso.")).toBeHidden();
+  await page.getByRole("button", { name: "Spiegazione: In alcuni casi: Prepara il documento aggiuntivo" }).click();
+  await expect(page.getByText("Documento richiesto per questo caso.")).toBeVisible();
   await page.getByRole("button", { name: "Inizia la pratica" }).click();
   await expect(page).toHaveURL(/\/pratiche\/caso\//);
   const caseId = page.url().split("/").pop()!;
@@ -31,6 +34,9 @@ test("percorso Pratiche salva, riprende e protegge la proprietà", async ({ page
   await page.getByLabel("No").check();
   await page.getByRole("button", { name: "Avanti" }).click();
   await expect(page.getByRole("heading", { name: "Prepara i dati" })).toBeVisible();
+  await expect(page.getByText("Raccogli le informazioni necessarie.")).toBeHidden();
+  await page.getByRole("button", { name: "Spiegazione: Prepara i dati" }).click();
+  await expect(page.getByText("Raccogli le informazioni necessarie.")).toBeVisible();
   await page.reload();
   await expect(page.getByRole("heading", { name: "Serve un documento aggiuntivo?" })).toBeVisible();
   await page.getByRole("button", { name: "Avanti" }).click();

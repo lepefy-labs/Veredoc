@@ -69,7 +69,7 @@ const pilotCopy: Record<string, Copy> = {
         { title: "Dati che spiegano perché puoi abitare lì", detail: "Per esempio, i dati del contratto d'affitto registrato o quelli del proprietario." },
         { title: "Eventuali allegati", detail: "Se sono utili per il tuo caso, tieni a portata di mano il contratto d'affitto oppure il consenso del proprietario con una copia del suo documento. La guida ANPR indica che gli allegati non sono sempre obbligatori." },
       ],
-      note: "Il Comune può chiedere informazioni diverse in base alla tua situazione. Controlla le richieste mostrate sul sito ANPR prima di inviare.",
+      note: "Controlla su ANPR cosa serve per il tuo caso prima di inviare.",
     },
   },
   pv_certificati_1: {
@@ -111,7 +111,7 @@ const pilotCopy: Record<string, Copy> = {
         { title: "Il tipo di certificato che cerchi", detail: "Per esempio, un certificato di residenza o di stato di famiglia. Sul sito vedrai quali puoi richiedere." },
         { title: "I dati della persona a cui serve", detail: "Se è per un familiare, controlla che compaia tra le persone per cui puoi chiedere il certificato online." },
       ],
-      note: "Per questa richiesta online non è indicato un documento da caricare in anticipo. Se il tuo caso non compare sul sito ANPR, chiedi al Comune.",
+      note: "Non è indicato un documento da caricare in anticipo.",
     },
   },
   pv_isee_1: {
@@ -160,7 +160,7 @@ const pilotCopy: Record<string, Copy> = {
         { title: "Dati della casa", detail: "Se vivi in affitto, tieni pronto il contratto e il canone. Se possiedi immobili, controlla i relativi dati." },
         { title: "Accesso con SPID, CIE o CNS", detail: "Ti serve per usare il servizio INPS. Se scegli la dichiarazione in parte già compilata, gli altri adulti possono autorizzare l'uso dei propri dati con il loro accesso." },
       ],
-      note: "Il sito INPS può mostrare dati già presenti nei suoi archivi: controllali prima di confermarli. Alcune situazioni richiedono informazioni in più.",
+      note: "Controlla i dati già presenti su INPS prima di confermarli.",
     },
   },
 };
@@ -177,7 +177,7 @@ export function plainTitle(versionId: string | null | undefined, title: string):
 export function plainPreparation(versionId: string | null | undefined, workflow: Workflow): Preparation | null {
   const copy = versionId ? pilotCopy[versionId] : undefined;
   if (copy) return copy.preparation;
-  const items = workflow.steps.filter((step) => step.kind === "document").map((step) => ({ title: step.title, detail: step.description }));
+  const items = workflow.steps.filter((step) => step.kind === "document").map((step) => ({ title: step.when ? `In alcuni casi: ${step.title}` : step.title, detail: step.description }));
   return items.length ? { items, note: "Ti mostreremo solo i passaggi utili per il tuo caso." } : null;
 }
 

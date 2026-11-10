@@ -32,5 +32,6 @@ test("le tre guide pilota mostrano elenchi concreti; le altre usano i documenti 
     assert.ok(preparation.items.every((item) => item.title && item.detail));
   }
   assert.deepEqual(plainPreparation("another_version", workflow)?.items, [{ title: "Titolo di occupazione", detail: "Originale" }]);
+  assert.equal(plainPreparation("another_version", { questions: [], steps: [workflow.steps[1], { ...workflow.steps[0], when: { questionId: "altri_maggiorenni", equals: true } }] })?.items[0].title, "In alcuni casi: Titolo di occupazione");
   assert.equal(plainPreparation("another_version", { questions: [], steps: [] }), null);
 });
