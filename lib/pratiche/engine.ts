@@ -59,7 +59,7 @@ export function isOfficialUrl(url: string): boolean {
     const parsed = new URL(url);
     if (parsed.protocol !== "https:" || parsed.username || parsed.password) return false;
     const host = parsed.hostname.toLowerCase();
-    return host === "anagrafenazionale.interno.it" || host.endsWith(".anagrafenazionale.interno.it") || host === "interno.gov.it" || host.endsWith(".interno.gov.it") || host === "inps.it" || host.endsWith(".inps.it") || host === "normattiva.it" || host.endsWith(".normattiva.it") || host === "agenziaentrate.gov.it" || host.endsWith(".agenziaentrate.gov.it");
+    return host === "anagrafenazionale.interno.it" || host.endsWith(".anagrafenazionale.interno.it") || host === "sc.anpr.interno.it" || host === "interno.gov.it" || host.endsWith(".interno.gov.it") || host === "inps.it" || host.endsWith(".inps.it") || host === "normattiva.it" || host.endsWith(".normattiva.it") || host === "agenziaentrate.gov.it" || host.endsWith(".agenziaentrate.gov.it");
   } catch { return false; }
 }
 

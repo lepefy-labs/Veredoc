@@ -40,6 +40,8 @@ test("blocca i casi fuori ambito anche se le attività sono complete", () => {
 
 test("accetta solo URL HTTPS su domini istituzionali consentiti", () => {
   assert.equal(isOfficialUrl("https://www.inps.it/it/"), true);
+  assert.equal(isOfficialUrl("https://sc.anpr.interno.it/serviziCittadino/dist/docs/guida_compilazione_cambio_residenza.pdf"), true);
+  assert.equal(isOfficialUrl("https://sc.anpr.interno.it.evil.example/"), false);
   assert.equal(isOfficialUrl("https://inps.it.evil.example/"), false);
   assert.equal(isOfficialUrl("http://www.inps.it/"), false);
   assert.equal(isOfficialUrl("https://evil.example@www.inps.it/"), false);

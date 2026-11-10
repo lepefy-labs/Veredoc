@@ -9,6 +9,7 @@ const base = {
 
 test("pubblica solo conoscenza verificata e copertura completa", () => {
   assert.equal(hasVerifiedCoverage(base), true);
+  assert.equal(hasVerifiedCoverage({ ...base, citations: [{ ...base.citations[0], source: { ...base.citations[0].source, url: "https://sc.anpr.interno.it/serviziCittadino/dist/docs/guida_compilazione_cambio_residenza.pdf" } }] }), true);
   assert.equal(hasVerifiedCoverage({ ...base, citations: [] }), false);
   assert.equal(hasVerifiedCoverage({ ...base, citations: [{ ...base.citations[0], instructionIds: ["who"] }] }), false);
 });
