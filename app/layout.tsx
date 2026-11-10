@@ -19,9 +19,9 @@ export const viewport: Viewport = {
 // Dominio canonico: https://www.veredoc.it (stesso valore di default di getAppBaseUrl()).
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.veredoc.it"),
-  title: "Veredoc — Analisi AI di bollette e buste paga",
-  description: "Carica la tua bolletta luce, gas o internet oppure la busta paga: Veredoc la analizza con l'AI, spiega ogni voce in italiano e ti dice se stai pagando troppo.",
-  keywords: ["analisi bolletta online", "capire busta paga", "controllare bolletta luce AI", "spiegazione voci busta paga", "confronto offerte energia"],
+  title: "Veredoc | Documenti e pratiche, più chiari",
+  description: "Analizza bollette e buste paga, prepara le pratiche con percorsi guidati e tieni traccia dei passaggi. Tutto nel tuo account Veredoc.",
+  keywords: ["pratiche guidate", "cambio di residenza", "certificati anagrafici", "preparazione ISEE", "analisi bolletta online", "capire busta paga"],
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
@@ -29,8 +29,8 @@ export const metadata: Metadata = {
     title: "Veredoc",
   },
   openGraph: {
-    title: "Veredoc — I tuoi documenti, spiegati in chiaro",
-    description: "AI che legge bollette e buste paga al posto tuo. Ogni voce spiegata, ogni anomalia segnalata.",
+    title: "Veredoc | Documenti e pratiche, più chiari",
+    description: "Leggi meglio bollette e buste paga. Prepara le pratiche con guide e fonti ufficiali.",
     url: "https://www.veredoc.it",
     siteName: "Veredoc",
     locale: "it_IT",
@@ -38,8 +38,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Veredoc — Analisi AI di bollette e buste paga",
-    description: "Carica il documento. L'AI spiega tutto in italiano semplice.",
+    title: "Veredoc | Documenti e pratiche, più chiari",
+    description: "Analizza i documenti e prepara le pratiche passo dopo passo.",
   },
   robots: {
     index: true,

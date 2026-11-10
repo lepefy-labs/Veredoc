@@ -394,11 +394,11 @@ Il pagamento PRO non esiste: i testi dicono di scrivere a `ciao@veredoc.it` e il
 
 ## Prestazioni e osservabilità
 
-- **Dashboard** (`app/dashboard/page.tsx`): legge solo le colonne necessarie dei documenti, calcola sul server storico (`buildLongitudinalInsights`) e trend (`buildMultiPeriodTrends`) e invia al browser solo i risultati e un riepilogo per documento (`lib/dashboard/summary.ts`: tipo, stato, data, nome file, importo, fornitore/datore). Le analisi complete non lasciano più il server. La lista mostra 10 documenti per profilo con `Mostra altri`.
+- **Dashboard** (`app/dashboard/page.tsx`): quando Pratiche è attivo, apre con due accessi distinti a Pratiche e analisi documenti; profili e storico restano nella sezione documenti. Legge solo le colonne necessarie dei documenti, calcola sul server storico (`buildLongitudinalInsights`) e trend (`buildMultiPeriodTrends`) e invia al browser solo i risultati e un riepilogo per documento (`lib/dashboard/summary.ts`: tipo, stato, data, nome file, importo, fornitore/datore). Le analisi complete non lasciano più il server. La lista mostra 10 documenti per profilo con `Mostra altri`.
 - **Stato sessione** (`lib/account/state.ts`): il callback `jwt` usa una cache per istanza di 15 s (massimo 5.000 utenti). Le scritture della stessa istanza la invalidano; tra istanze diverse un cambio di piano/email o la revoca delle sessioni dopo un cambio password si propagano entro 15 s. Login, pagina account, API email e dispatcher notifiche leggono senza cache.
 - **Avvisi operativi** (`instrumentation.ts`, `lib/observability/alerts.ts`): con `OPS_ALERT_EMAIL` configurata, ogni evento di log di livello `error` (escluso `analysis.failed`, coperto da `analysis.attempts_exhausted`) e ogni errore server non gestito (`onRequestError`, solo percorso senza query string, tipo e digest) inviano un'email via Brevo. Massimo un'email all'ora per tipo di evento (rate limit su Postgres, condiviso tra istanze); senza rate limit verificabile l'avviso non parte. Nessun contenuto dei documenti.
 - **Dominio canonico**: `https://www.veredoc.it` per metadati (`metadataBase`, canonical, Open Graph), link delle email (`getAppBaseUrl()`, incluso il reset password), workflow n8n e documentazione.
-- **Home** (`app/page.tsx`): pagina statica senza sessione lato client; gli utenti con sessione vengono reindirizzati dal middleware.
+- **Home** (`app/page.tsx`): presenta Pratiche come percorso principale quando `PRATICHE_ENABLED=true`, con accesso alle tre guide pubblicate, e distingue il modulo dall'analisi documenti e dai relativi piani. Senza il flag mostra solo l'analisi documenti. Gli utenti con sessione vengono reindirizzati dal middleware alla dashboard.
 
 ---
 

@@ -1,187 +1,108 @@
-// Pagina statica: gli utenti con sessione vengono reindirizzati alla dashboard dal middleware.
 import Link from "next/link";
-import { TEXTS } from "@/lib/config/texts";
-import VeredocLogo from "@/components/ui/VeredocLogo";
 import PricingCardPro from "@/components/PricingCardPro";
+import { TEXTS } from "@/lib/config/texts";
+import { praticheEnabled } from "@/lib/pratiche/feature";
+
+const procedures = [
+  { title: "Cambio di residenza", description: "Prepara la dichiarazione per il Comune competente.", href: "/pratiche/cambio-residenza", category: "Anagrafe" },
+  { title: "Certificati anagrafici", description: "Organizza la richiesta di un certificato tramite ANPR.", href: "/pratiche/certificati-anagrafici", category: "Anagrafe" },
+  { title: "Preparazione DSU/ISEE", description: "Raccogli i dati prima di compilare la DSU sul portale INPS.", href: "/pratiche/preparazione-dsu-isee", category: "Famiglia" },
+];
+
+const practiceSteps = [
+  "Verifica il tuo caso",
+  "Prepara le informazioni richieste",
+  "Segui i passaggi sul portale ufficiale",
+];
 
 export default function Home() {
+  const praticheAvailable = praticheEnabled();
   return (
-    <main className="min-h-screen flex flex-col items-center px-4 py-16 sm:py-20">
-      <div className="max-w-2xl w-full text-center space-y-8">
-        <div>
-          <div className="flex justify-center">
-            <VeredocLogo variant="full" size="lg" />
-          </div>
-          <h1 className="mt-5 text-3xl sm:text-4xl font-bold tracking-tight text-ink">{TEXTS.app.tagline}</h1>
-          <p className="mt-3 text-lg text-muted max-w-xl mx-auto">{TEXTS.app.description}</p>
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Link
-            href="/register"
-            className="inline-flex items-center justify-center px-7 py-3 bg-brand text-white rounded-lg font-semibold shadow-md shadow-brand/20 hover:bg-brand-dark transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-          >
-            Inizia gratis
-          </Link>
-          <Link
-            href="/login"
-            className="inline-flex items-center justify-center px-6 py-3 bg-transparent text-brand border border-brand rounded-lg font-medium hover:bg-blue-50 transition-colors"
-          >
-            Accedi
-          </Link>
-        </div>
-        <p className="text-sm text-muted text-center mt-1">Crea un account gratuito in 30 secondi — nessuna carta di credito richiesta.</p>
-
-        <div className="mt-16 text-left">
-          <h2 className="text-lg font-semibold text-ink text-center">Come funziona</h2>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-left !mt-4">
-          <div className="space-y-3">
-            <p className="text-sm font-semibold text-muted uppercase tracking-wide">⚡ Bollette</p>
-            {[
-              { title: "Carica", body: "PDF, JPG o PNG. Veredoc riconosce automaticamente il tipo di bolletta." },
-              { title: "Lettura AI", body: "L'AI identifica ogni voce (materia energia, oneri, tasse) e la spiega in italiano semplice." },
-              { title: "Confronto prezzi", body: "Vedi se la tua tariffa è in linea col mercato e cosa conviene fare, con le alternative più interessanti quando disponibili." },
-            ].map((item, i) => (
-              <div key={item.title} className="bg-white rounded-xl border border-line p-5">
-                <div className="flex items-center gap-2 mb-1">
-                  <span aria-hidden="true" className="flex items-center justify-center w-5 h-5 rounded-full bg-brand-soft text-brand text-[11px] font-bold shrink-0">{i + 1}</span>
-                  <p className="font-semibold text-brand">{item.title}</p>
-                </div>
-                <p className="text-sm text-muted">{item.body}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="space-y-3">
-            <p className="text-sm font-semibold text-muted uppercase tracking-wide">📄 Buste paga</p>
-            {[
-              { title: "Carica", body: "PDF, JPG o PNG. Non devi indicare il tipo: Veredoc riconosce il cedolino automaticamente." },
-              { title: "Lettura AI", body: "Estrae e spiega lordo, netto, contributi, imponibili, IRPEF, detrazioni, TFR e le principali voci del mese." },
-              { title: "Controllo anomalie", body: "Verifica la quadratura del netto e segnala contributi, imponibili o trattenute che meritano un controllo." },
-            ].map((item, i) => (
-              <div key={item.title} className="bg-white rounded-xl border border-line p-5">
-                <div className="flex items-center gap-2 mb-1">
-                  <span aria-hidden="true" className="flex items-center justify-center w-5 h-5 rounded-full bg-brand-soft text-brand text-[11px] font-bold shrink-0">{i + 1}</span>
-                  <p className="font-semibold text-brand">{item.title}</p>
-                </div>
-                <p className="text-sm text-muted">{item.body}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="text-left mt-8 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-ink">Ecco cosa ottieni</h2>
-            <span className="text-xs bg-chip text-muted px-2 py-1 rounded-full font-medium">Esempio</span>
-          </div>
-
-          <div className="bg-success rounded-xl p-5 text-white">
-            <p className="text-sm font-medium opacity-90">Stai pagando il 28% in più della media di mercato</p>
-            <p className="font-mono text-4xl font-bold mt-1">€312<span className="text-xl font-semibold opacity-80">/anno</span></p>
-            <p className="text-sm opacity-80 mt-1">Risparmio stimato</p>
-          </div>
-
-          <div className="bg-white rounded-xl border border-line overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-line bg-page">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted">Voce</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-muted">Importo</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted hidden sm:table-cell">Cosa significa</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  { voce: "Materia energia", importo: "€67,40", desc: "Il costo dell'energia che hai consumato (342 kWh × €0,197)" },
-                  { voce: "Trasporto e gestione", importo: "€18,20", desc: "Costo fisso della rete di distribuzione" },
-                  { voce: "Oneri di sistema", importo: "€9,80", desc: "Contributi obbligatori per incentivi rinnovabili" },
-                  { voce: "Imposte e IVA", importo: "€14,60", desc: "IVA 10% + accisa" },
-                ].map((row, i) => (
-                  <tr key={i} className="border-b border-line last:border-0">
-                    <td className="px-4 py-3 text-ink font-medium">{row.voce}</td>
-                    <td className="px-4 py-3 text-right font-mono font-semibold text-ink">{row.importo}</td>
-                    <td className="px-4 py-3 text-muted hidden sm:table-cell">{row.desc}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="bg-white rounded-xl border-2 border-success p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="font-semibold text-ink">💡 Illumia Luce Web — €0,142/kWh</p>
-                <p className="text-sm text-muted mt-1">Risparmio stimato vs tariffa attuale: <span className="font-semibold text-success">€26/mese</span></p>
-              </div>
-              <Link
-                href="#"
-                className="shrink-0 inline-flex items-center justify-center px-4 py-2 bg-success text-white rounded-lg text-sm font-medium hover:bg-emerald-600 transition-colors"
-              >
-                Confronta →
-              </Link>
+    <main className="w-full flex-1">
+      <section className="border-b border-line bg-white">
+        <div className={`mx-auto grid w-full max-w-6xl gap-10 px-4 pb-16 pt-14 sm:px-6 sm:pt-20 lg:items-center lg:gap-16 lg:pb-20 lg:pt-24 ${praticheAvailable ? "lg:grid-cols-[1.05fr_0.95fr]" : ""}`}>
+          <div>
+            <p className="inline-flex rounded-full border border-brand/15 bg-brand-soft px-3 py-1.5 text-xs font-bold uppercase tracking-[0.14em] text-brand">{praticheAvailable ? "Documenti e pratiche, nello stesso posto" : "I tuoi documenti, più chiari"}</p>
+            <h1 className="mt-6 max-w-2xl text-4xl font-bold leading-[1.12] tracking-tight text-ink sm:text-5xl lg:text-[3.55rem]">{praticheAvailable ? "Capisci i documenti. Porta avanti le pratiche." : "Capisci meglio bollette e buste paga."}</h1>
+            <p className="mt-6 max-w-xl text-lg leading-8 text-muted">{praticheAvailable ? "Veredoc ti aiuta a leggere bollette e buste paga e a preparare le pratiche passo dopo passo. Sai da dove iniziare, cosa serve e cosa manca." : "Carica un documento: Veredoc spiega le voci principali e segnala i punti che meritano una verifica."}</p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+              {praticheAvailable && <Link href="/pratiche" className="inline-flex min-h-12 items-center justify-center rounded-xl bg-brand px-6 font-semibold text-white transition-colors hover:bg-brand-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">Esplora Pratiche <span aria-hidden="true" className="ml-2">→</span></Link>}
+              <Link href="/register" className="inline-flex min-h-12 items-center justify-center rounded-xl border border-line bg-white px-6 font-semibold text-ink transition-colors hover:border-brand hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">Crea un account gratuito</Link>
             </div>
+            {praticheAvailable && <p className="mt-3 text-sm text-muted">Per usare Pratiche serve un account Veredoc.</p>}
           </div>
-        </div>
-
-        <div className="mt-16 bg-white border border-line rounded-2xl p-8 text-left">
-          <h2 className="text-xl font-semibold text-ink text-center">I tuoi dati sono al sicuro</h2>
-          <p className="text-sm text-muted text-center mt-1 mb-8">Veredoc tratta i tuoi documenti con la stessa cura che vorresti dal tuo commercialista.</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {[
-              { icon: "🔒", title: "Crittografia end-to-end", body: "I file viaggiano cifrati e sono salvati su infrastrutture europee. Nessun accesso esterno non autorizzato." },
-              { icon: "🚫", title: "Zero training sull'AI", body: "I dati inviati all'AI non vengono usati per addestrare modelli. È garantito contrattualmente dal fornitore AI." },
-              { icon: "🗑️", title: "Cancellazione su richiesta", body: "Puoi eliminare un documento in qualsiasi momento dalla dashboard. La cancellazione è immediata e permanente." },
-              { icon: "🛡️", title: "Anonymizer PRO", body: "Con il piano PRO puoi oscurare visivamente le informazioni sensibili (codice fiscale, IBAN, POD) prima ancora che il documento lasci il tuo browser." },
-            ].map((item) => (
-              <div key={item.title} className="flex gap-3">
-                <span className="text-2xl leading-none mt-0.5">{item.icon}</span>
-                <div>
-                  <p className="font-semibold text-ink">{item.title}</p>
-                  <p className="text-sm text-muted mt-1">{item.body}</p>
-                </div>
+          {praticheAvailable && <div className="rounded-[2rem] bg-brand-soft p-4 sm:p-7">
+            <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-xl shadow-brand/10">
+              <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-4 sm:px-6">
+                <div><p className="text-xs font-bold uppercase tracking-[0.14em] text-brand">Veredoc Pratiche</p><p className="mt-1 text-sm text-muted">Un percorso alla volta, con ordine</p></div>
+                <span className="rounded-full bg-brand-soft px-3 py-1 text-xs font-semibold text-brand">Guida</span>
               </div>
-            ))}
-          </div>
-        </div>
-
-        <section id="prezzi" className="mt-16 text-left">
-          <h2 className="text-lg font-semibold text-ink text-center">{TEXTS.pricing.title}</h2>
-          <p className="text-sm text-muted text-center mt-1 mb-8">{TEXTS.pricing.subtitle}</p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div className="bg-white rounded-2xl border border-line p-6 flex flex-col h-full">
-              <span className="self-start text-[11px] font-semibold px-2 py-0.5 rounded-full bg-chip text-muted mb-4">
-                {TEXTS.pricing.free.badge}
-              </span>
-              <div className="mb-1">
-                <span className="text-3xl font-bold text-ink font-mono">{TEXTS.pricing.free.price}</span>
-                <span className="text-sm text-muted"> / {TEXTS.pricing.free.period}</span>
+              <div className="p-5 sm:p-6">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Esempio di percorso</p>
+                <h2 className="mt-2 text-2xl font-bold tracking-tight text-ink">Cambio di residenza</h2>
+                <p className="mt-2 text-sm leading-6 text-muted">Dalla verifica del caso alla preparazione della dichiarazione.</p>
+                <ol className="mt-6 space-y-3">
+                  {practiceSteps.map((step, index) => <li key={step} className="flex items-center gap-3 rounded-xl border border-line bg-page px-4 py-3 text-sm font-medium text-ink"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-xs font-bold text-brand shadow-sm">{index + 1}</span>{step}</li>)}
+                </ol>
+                <Link href="/pratiche/cambio-residenza" className="mt-6 inline-flex min-h-11 items-center font-semibold text-brand hover:text-brand-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">Apri questa guida <span aria-hidden="true" className="ml-2">→</span></Link>
               </div>
-              <p className="text-xs text-success font-medium mt-1 mb-4 h-4"> </p>
-              <ul className="space-y-2.5 text-sm text-ink flex-1">
-                {TEXTS.pricing.free.features.map((f) => (
-                  <li key={f} className="flex items-start gap-2">
-                    <span className="text-success font-bold mt-0.5" aria-hidden="true">✓</span>
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <Link
-                href="/register"
-                className="mt-6 inline-flex items-center justify-center px-5 py-3 bg-white text-brand border border-brand rounded-lg font-semibold hover:bg-brand-soft transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-              >
-                {TEXTS.pricing.free.cta}
-              </Link>
             </div>
+            <p className="mt-4 text-center text-xs font-medium text-muted">Fonti ufficiali consultabili in ogni pratica</p>
+          </div>}
+        </div>
+      </section>
 
-            <PricingCardPro />
+      <section id="funzioni" className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
+        <div className="max-w-2xl"><p className="text-xs font-bold uppercase tracking-[0.14em] text-brand">La piattaforma</p><h2 className="mt-3 text-3xl font-bold tracking-tight text-ink sm:text-4xl">{praticheAvailable ? "Scegli da cosa partire" : "Analizza i tuoi documenti"}</h2>{praticheAvailable && <p className="mt-3 text-base leading-7 text-muted">Due strumenti per problemi diversi, con un accesso unico.</p>}</div>
+        <div className={`mt-8 grid gap-5 ${praticheAvailable ? "lg:grid-cols-2" : ""}`}>
+          {praticheAvailable && <article className="flex flex-col rounded-3xl border border-brand/20 bg-brand-soft p-7 sm:p-9">
+            <span className="self-start rounded-full bg-brand px-3 py-1 text-xs font-bold uppercase tracking-wide text-white">Pratiche</span>
+            <h3 className="mt-6 text-2xl font-bold tracking-tight text-ink">Organizza una procedura, passo dopo passo</h3>
+            <p className="mt-3 leading-7 text-muted">Scegli la pratica, rispondi alle domande pertinenti e tieni traccia delle attività da completare. Le fonti ufficiali sono sempre a portata di mano.</p>
+            <ul className="mt-6 space-y-2 text-sm font-medium text-ink"><li>✓ Percorsi guidati per il tuo caso</li><li>✓ Attività mancanti e avanzamento</li><li>✓ Collegamenti ai portali ufficiali</li></ul>
+            <Link href="/pratiche" className="mt-8 inline-flex min-h-12 items-center justify-center self-start rounded-xl bg-brand px-5 font-semibold text-white transition-colors hover:bg-brand-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">Vai a Pratiche <span aria-hidden="true" className="ml-2">→</span></Link>
+          </article>}
+          <article className="flex flex-col rounded-3xl border border-line bg-white p-7 sm:p-9">
+            <span className="self-start rounded-full bg-chip px-3 py-1 text-xs font-bold uppercase tracking-wide text-ink">Analisi documenti</span>
+            <h3 className="mt-6 text-2xl font-bold tracking-tight text-ink">Leggi meglio bollette e buste paga</h3>
+            <p className="mt-3 leading-7 text-muted">Carica un documento. Veredoc riconosce il tipo, spiega le voci principali e segnala i punti che meritano una verifica.</p>
+            <ul className="mt-6 space-y-2 text-sm font-medium text-ink"><li>✓ Bollette luce, gas e internet</li><li>✓ Buste paga e controlli di coerenza</li><li>✓ Analisi conservate nel tuo account</li></ul>
+            <Link href="/analyze" className="mt-8 inline-flex min-h-12 items-center justify-center self-start rounded-xl border border-brand px-5 font-semibold text-brand transition-colors hover:bg-brand-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">Analizza un documento <span aria-hidden="true" className="ml-2">→</span></Link>
+          </article>
+        </div>
+      </section>
+
+      {praticheAvailable && <section className="border-y border-line bg-white">
+        <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
+          <div className="flex flex-wrap items-end justify-between gap-5">
+            <div className="max-w-2xl"><p className="text-xs font-bold uppercase tracking-[0.14em] text-brand">Pratiche disponibili</p><h2 className="mt-3 text-3xl font-bold tracking-tight text-ink sm:text-4xl">Inizia da una guida concreta</h2><p className="mt-3 leading-7 text-muted">Tre percorsi già disponibili, con passaggi e fonti verificati.</p></div>
+            <Link href="/pratiche" className="inline-flex min-h-11 items-center font-semibold text-brand hover:text-brand-dark">Vedi tutte le pratiche <span aria-hidden="true" className="ml-2">→</span></Link>
           </div>
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
+            {procedures.map((procedure) => <article key={procedure.href} className="flex h-full flex-col rounded-2xl border border-line bg-page p-6 transition-colors hover:border-brand/40">
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-brand">{procedure.category}</p>
+              <h3 className="mt-4 text-xl font-bold text-ink">{procedure.title}</h3>
+              <p className="mt-2 flex-1 text-sm leading-6 text-muted">{procedure.description}</p>
+              <Link href={procedure.href} className="mt-6 inline-flex min-h-11 items-center self-start font-semibold text-brand hover:text-brand-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">Apri la guida <span aria-hidden="true" className="ml-2">→</span></Link>
+            </article>)}
+          </div>
+          <p className="mt-5 text-sm text-muted">Veredoc ti aiuta a preparare la pratica. La presentazione avviene sul portale dell’ente competente.</p>
+        </div>
+      </section>}
 
-          <p className="text-sm text-muted text-center mt-8">{TEXTS.pricing.dataNote}</p>
-        </section>
-      </div>
+      <section id="prezzi" className="mx-auto w-full max-w-4xl px-4 py-16 sm:px-6 sm:py-20">
+        <div className="text-center"><p className="text-xs font-bold uppercase tracking-[0.14em] text-brand">Analisi documenti</p><h2 className="mt-3 text-3xl font-bold tracking-tight text-ink sm:text-4xl">{TEXTS.pricing.title}</h2><p className="mt-3 text-muted">Questi piani riguardano l’analisi di bollette e buste paga.</p></div>
+        <div className="mt-10 grid gap-6 sm:grid-cols-2">
+          <div className="flex h-full flex-col rounded-2xl border border-line bg-white p-6">
+            <span className="mb-4 self-start rounded-full bg-chip px-2 py-0.5 text-[11px] font-semibold text-muted">{TEXTS.pricing.free.badge}</span>
+            <p><span className="font-mono text-3xl font-bold text-ink">{TEXTS.pricing.free.price}</span><span className="text-sm text-muted"> / {TEXTS.pricing.free.period}</span></p>
+            <ul className="mt-6 flex-1 space-y-2.5 text-sm text-ink">{TEXTS.pricing.free.features.map((feature) => <li key={feature} className="flex items-start gap-2"><span aria-hidden="true" className="font-bold text-success">✓</span><span>{feature}</span></li>)}</ul>
+            <Link href="/register" className="mt-6 inline-flex min-h-12 items-center justify-center rounded-lg border border-brand px-5 font-semibold text-brand transition-colors hover:bg-brand-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">{TEXTS.pricing.free.cta}</Link>
+          </div>
+          <PricingCardPro />
+        </div>
+        <p className="mt-8 text-center text-sm text-muted">{TEXTS.pricing.dataNote}</p>
+      </section>
     </main>
   );
 }
