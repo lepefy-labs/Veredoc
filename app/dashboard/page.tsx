@@ -83,7 +83,7 @@ export default async function DashboardPage() {
 
         {praticheAvailable ? <section aria-label="Scegli una funzione" className="grid gap-4 sm:grid-cols-2">
           <Link href="/pratiche" className="group flex min-h-44 flex-col justify-between rounded-2xl bg-brand p-6 text-white shadow-sm transition-colors hover:bg-brand-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
-            <div><p className="text-xs font-bold uppercase tracking-[0.12em] text-white/75">Veredoc Pratiche</p><h2 className="mt-3 text-xl font-bold">Prepara una pratica</h2><p className="mt-2 text-sm leading-6 text-white/85">Percorsi guidati, fonti ufficiali e attività da completare.</p></div>
+            <div><p className="text-xs font-bold uppercase tracking-[0.12em] text-white/75">Veredoc Pratiche</p><h2 className="mt-3 text-xl font-bold">Prepara una pratica</h2><p className="mt-2 text-sm leading-6 text-white/85">Scopri cosa fare e quali dati e documenti tenere pronti.</p></div>
             <span className="mt-5 font-semibold">Apri Pratiche <span aria-hidden="true">→</span></span>
           </Link>
           <Link href={analyzeHref} className="group flex min-h-44 flex-col justify-between rounded-2xl border border-line bg-white p-6 text-ink shadow-sm transition-colors hover:border-brand/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">

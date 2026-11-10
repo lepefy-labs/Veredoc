@@ -21,9 +21,9 @@ export default function Catalog({ items }: { items: Item[] }) {
         <p className="text-xs font-semibold uppercase tracking-wide text-brand">{item.category}</p>
         <h2 className="mt-2 text-lg font-bold">{item.title}</h2>
         <p className="mt-2 text-sm text-muted">{item.description}</p>
-        <p className="mt-3 text-xs text-muted">Ente: {item.authority}</p>
-        <p className="mt-1 text-xs font-medium">{item.available ? "Fonti verificate" : "In preparazione"}</p>
-        <Link href={`/pratiche/${item.slug}`} className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-dark">{item.available ? "Inizia la pratica" : "Dettagli"}</Link>
+        <p className="mt-3 text-xs text-muted">Chi gestisce la richiesta: {item.authority}</p>
+        <p className="mt-1 text-xs font-medium">{item.available ? "Informazioni ufficiali controllate" : "Guida in preparazione"}</p>
+        <Link href={`/pratiche/${item.slug}`} className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-dark">{item.available ? "Apri la guida" : "Leggi i dettagli"}</Link>
       </article>)}
     </div>}
   </>;

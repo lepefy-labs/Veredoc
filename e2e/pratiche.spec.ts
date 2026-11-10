@@ -35,11 +35,11 @@ test("percorso Pratiche salva, riprende e protegge la proprietà", async ({ page
   await expect(page.getByRole("heading", { name: "Serve un documento aggiuntivo?" })).toBeVisible();
   await page.getByRole("button", { name: "Avanti" }).click();
   await expect(page.getByRole("heading", { name: "Prepara i dati" })).toBeVisible();
-  await page.getByLabel("Ho completato questa attività su Veredoc").click();
-  await expect(page.getByLabel("Ho completato questa attività su Veredoc")).toBeChecked();
+  await page.getByLabel("Ho fatto questo passaggio").click();
+  await expect(page.getByLabel("Ho fatto questo passaggio")).toBeChecked();
   await page.getByRole("button", { name: "Avanti" }).click();
   await expect(page.getByRole("heading", { name: "Apri il portale INPS" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Ho presentato la pratica" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Ho inviato la richiesta" })).toBeVisible();
   const invalid = await page.request.patch(`/api/pratiche/cases/${caseId}`, { data: { kind: "answer", questionId: "opzione", value: "invalid", expectedRevision: 3 } });
   expect([400, 409]).toContain(invalid.status());
   const stale = await page.request.patch(`/api/pratiche/cases/${caseId}`, { data: { kind: "step", stepId: "base", done: false, expectedRevision: 0 } });

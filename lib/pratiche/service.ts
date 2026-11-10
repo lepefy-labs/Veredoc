@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { applies, parseWorkflow, progress, validateAnswer, type Answer } from "./engine";
 import { hasVerifiedCoverage } from "./publication";
 import { praticheEnabled } from "./feature";
+import { plainDetails, plainPreparation, plainTitle, plainWorkflow } from "./plain-language";
 
 export { praticheEnabled };
 
@@ -38,13 +39,16 @@ export async function catalog() {
   return rows.map((procedure) => {
     const { versions } = procedure;
     const published = procedure.status === "PUBLISHED" ? versions.find(isPublishable) : undefined;
+    const details = plainDetails(published?.id ?? versions[0]?.id, procedure);
+    const workflow = published ? plainWorkflow(published.id, parseWorkflow(published.definition)) : null;
     return {
-      slug: procedure.slug, title: procedure.title, description: procedure.description,
-      category: procedure.category, audience: procedure.audience, scope: procedure.scope,
-      authority: procedure.authority,
+      slug: procedure.slug, title: details.title, description: details.description,
+      category: procedure.category, audience: details.audience, scope: details.scope,
+      authority: details.authority,
       available: Boolean(published),
       versionId: published?.id ?? null,
-      workflow: published ? parseWorkflow(published.definition) : null,
+      workflow,
+      preparation: workflow ? plainPreparation(published?.id, workflow) : null,
       sources: published?.citations.map(({ source, revision }) => ({ authority: source.authority, title: source.title, url: source.url, scope: source.scope, verifiedAt: source.verifiedAt, revision: revision.version })) ?? [],
     };
   });
@@ -81,14 +85,15 @@ export async function readCase(userId: string, id: string) {
 }
 
 export function caseView(record: NonNullable<Awaited<ReturnType<typeof readCase>>>) {
-  const workflow = parseWorkflow(record.procedureVersion.definition);
+  const workflow = plainWorkflow(record.procedureVersion.id, parseWorkflow(record.procedureVersion.definition));
   const answers = Object.fromEntries(record.answers.map((answer) => [answer.questionId, answer.value])) as Record<string, Answer>;
   const completed = new Set(record.steps.filter((step) => step.status === "DONE").map((step) => step.stepId));
   const state = progress(workflow, answers, completed);
   return {
-    id: record.id, title: record.title, status: record.status, revision: record.revision,
+    id: record.id, title: plainTitle(record.procedureVersion.id, record.title), status: record.status, revision: record.revision,
     profileId: record.profileId, procedure: record.procedureVersion.procedure,
     version: record.procedureVersion.version, answers, completed: [...completed], workflow,
+    preparation: plainPreparation(record.procedureVersion.id, workflow),
     progress: { required: state.required, done: state.done, ready: state.ready, blocked: state.blocked, missing: [...state.missingQuestions.map((q) => q.title), ...state.missingSteps.map((s) => s.title)] },
     sources: record.procedureVersion.citations.map(({ source, revision }) => ({ title: source.title, authority: source.authority, url: source.url, verifiedAt: source.verifiedAt, version: revision.version })),
     updatedAt: record.updatedAt,

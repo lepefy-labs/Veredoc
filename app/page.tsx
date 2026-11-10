@@ -4,14 +4,14 @@ import { TEXTS } from "@/lib/config/texts";
 import { praticheEnabled } from "@/lib/pratiche/feature";
 
 const procedures = [
-  { title: "Cambio di residenza", description: "Prepara la dichiarazione per il Comune competente.", href: "/pratiche/cambio-residenza", category: "Anagrafe" },
-  { title: "Certificati anagrafici", description: "Organizza la richiesta di un certificato tramite ANPR.", href: "/pratiche/certificati-anagrafici", category: "Anagrafe" },
-  { title: "Preparazione DSU/ISEE", description: "Raccogli i dati prima di compilare la DSU sul portale INPS.", href: "/pratiche/preparazione-dsu-isee", category: "Famiglia" },
+  { title: "Cambio di residenza", description: "Scopri quali dati preparare per comunicare il nuovo indirizzo al Comune.", href: "/pratiche/cambio-residenza", category: "Anagrafe" },
+  { title: "Certificati anagrafici", description: "Scopri come chiedere online il certificato che ti serve.", href: "/pratiche/certificati-anagrafici", category: "Anagrafe" },
+  { title: "Prepara i dati per l'ISEE", description: "Tieni pronti i dati della famiglia, dei redditi e dei beni.", href: "/pratiche/preparazione-dsu-isee", category: "Famiglia" },
 ];
 
 const practiceSteps = [
   "Verifica il tuo caso",
-  "Prepara le informazioni richieste",
+  "Tieni pronti dati e documenti",
   "Segui i passaggi sul portale ufficiale",
 ];
 
@@ -40,7 +40,7 @@ export default function Home() {
               <div className="p-5 sm:p-6">
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Esempio di percorso</p>
                 <h2 className="mt-2 text-2xl font-bold tracking-tight text-ink">Cambio di residenza</h2>
-                <p className="mt-2 text-sm leading-6 text-muted">Dalla verifica del caso alla preparazione della dichiarazione.</p>
+                <p className="mt-2 text-sm leading-6 text-muted">Scopri cosa ti serve prima di comunicare il nuovo indirizzo.</p>
                 <ol className="mt-6 space-y-3">
                   {practiceSteps.map((step, index) => <li key={step} className="flex items-center gap-3 rounded-xl border border-line bg-page px-4 py-3 text-sm font-medium text-ink"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-xs font-bold text-brand shadow-sm">{index + 1}</span>{step}</li>)}
                 </ol>
@@ -57,9 +57,9 @@ export default function Home() {
         <div className={`mt-8 grid gap-5 ${praticheAvailable ? "lg:grid-cols-2" : ""}`}>
           {praticheAvailable && <article className="flex flex-col rounded-3xl border border-brand/20 bg-brand-soft p-7 sm:p-9">
             <span className="self-start rounded-full bg-brand px-3 py-1 text-xs font-bold uppercase tracking-wide text-white">Pratiche</span>
-            <h3 className="mt-6 text-2xl font-bold tracking-tight text-ink">Organizza una procedura, passo dopo passo</h3>
-            <p className="mt-3 leading-7 text-muted">Scegli la pratica, rispondi alle domande pertinenti e tieni traccia delle attività da completare. Le fonti ufficiali sono sempre a portata di mano.</p>
-            <ul className="mt-6 space-y-2 text-sm font-medium text-ink"><li>✓ Percorsi guidati per il tuo caso</li><li>✓ Attività mancanti e avanzamento</li><li>✓ Collegamenti ai portali ufficiali</li></ul>
+            <h3 className="mt-6 text-2xl font-bold tracking-tight text-ink">Prepara una pratica, passo dopo passo</h3>
+            <p className="mt-3 leading-7 text-muted">Scegli la pratica, scopri quali dati e documenti tenere pronti e segui i passaggi per il tuo caso. Puoi aprire le informazioni ufficiali quando vuoi.</p>
+            <ul className="mt-6 space-y-2 text-sm font-medium text-ink"><li>✓ Indicazioni chiare per il tuo caso</li><li>✓ Elenco di dati e documenti da preparare</li><li>✓ Link ai siti ufficiali</li></ul>
             <Link href="/pratiche" className="mt-8 inline-flex min-h-12 items-center justify-center self-start rounded-xl bg-brand px-5 font-semibold text-white transition-colors hover:bg-brand-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">Vai a Pratiche <span aria-hidden="true" className="ml-2">→</span></Link>
           </article>}
           <article className="flex flex-col rounded-3xl border border-line bg-white p-7 sm:p-9">

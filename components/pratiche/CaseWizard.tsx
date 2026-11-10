@@ -4,11 +4,24 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { applies, type Answer, type Workflow } from "@/lib/pratiche/engine";
+import type { Preparation } from "@/lib/pratiche/plain-language";
+import PreparationList from "./PreparationList";
 
 type CaseView = {
   id: string; title: string; status: string; revision: number; answers: Record<string, Answer>;
   completed: string[]; workflow: Workflow; progress: { required: number; done: number; ready: boolean; blocked: boolean; missing: string[] };
+  preparation: Preparation | null;
   sources: { title: string; authority: string; url: string; verifiedAt: string | Date | null; version: number }[];
+};
+
+const statusLabels: Record<string, string> = {
+  DRAFT: "Da iniziare",
+  IN_PROGRESS: "In corso",
+  BLOCKED: "Serve aiuto",
+  READY_TO_SUBMIT: "Pronta da inviare",
+  USER_REPORTED_SUBMITTED: "Invio segnato da te",
+  COMPLETED: "Conclusa",
+  CANCELLED: "Annullata",
 };
 
 export default function CaseWizard({ initial }: { initial: CaseView }) {
@@ -52,7 +65,7 @@ export default function CaseWizard({ initial }: { initial: CaseView }) {
   }
 
   async function removeCase() {
-    if (!window.confirm("Eliminare definitivamente questa pratica e le sue risposte?")) return;
+    if (!window.confirm("Vuoi eliminare questa pratica e tutte le tue risposte? Non potrai recuperarle.")) return;
     setBusy(true); setError("");
     try {
       const response = await fetch(`/api/pratiche/cases/${current.id}`, { method: "DELETE" });
@@ -62,11 +75,12 @@ export default function CaseWizard({ initial }: { initial: CaseView }) {
   }
 
   return <div className="mx-auto w-full max-w-3xl px-4 pb-36 pt-8 sm:pb-12">
-    <div className="flex items-center justify-between gap-3"><Link href="/pratiche/mie" className="text-sm font-semibold text-brand">← Le mie pratiche</Link><span className="text-xs font-semibold text-muted">{current.status.replaceAll("_", " ")}</span></div>
+    <div className="flex items-center justify-between gap-3"><Link href="/pratiche/mie" className="text-sm font-semibold text-brand">← Le mie pratiche</Link><span className="text-xs font-semibold text-muted">{statusLabels[current.status] ?? current.status}</span></div>
     <h1 className="mt-5 text-2xl font-bold">{current.title}</h1>
-    <p className="mt-2 text-sm text-muted">{current.progress.done} di {current.progress.required} attività obbligatorie completate</p>
+    <p className="mt-2 text-sm text-muted">Hai completato {current.progress.done} passaggi su {current.progress.required}</p>
     <div className="mt-3 h-2 overflow-hidden rounded-full bg-line" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} aria-label="Avanzamento"><div className="h-full bg-brand" style={{ width: `${percent}%` }} /></div>
-    {current.progress.blocked && <div className="mt-5 rounded-xl border border-line bg-white p-5" role="status"><p className="font-semibold">Questo percorso richiede il Comune competente</p><p className="mt-2 text-sm text-muted">Le risposte indicano un caso che la guida online non copre. Puoi tornare alle domande e correggerle oppure chiedere istruzioni al Comune.</p></div>}
+    {current.preparation && <div className="mt-6"><PreparationList preparation={current.preparation} /></div>}
+    {current.progress.blocked && <div className="mt-5 rounded-xl border border-line bg-white p-5" role="status"><p className="font-semibold">Per questo caso, chiedi al Comune</p><p className="mt-2 text-sm text-muted">Questa guida online non copre la tua situazione. Se hai sbagliato una risposta, torna indietro e correggila. Altrimenti, chiedi al Comune come fare.</p></div>}
     {active && <section className="mt-8 rounded-2xl border border-line bg-white p-5 sm:p-7">
       <p className="text-xs font-semibold uppercase tracking-wide text-brand">Passaggio {index + 1} di {items.length}</p>
       <h2 className="mt-3 text-xl font-bold">{active.item.title}</h2>
@@ -78,16 +92,16 @@ export default function CaseWizard({ initial }: { initial: CaseView }) {
         })}
       </fieldset> : <>
         <p className="mt-4 text-sm leading-6 text-muted">{active.item.description}</p>
-        {active.item.kind === "portal" && active.item.url && <a href={active.item.url} target="_blank" rel="noopener noreferrer" className="mt-4 inline-block font-semibold text-brand underline">Apri il portale ufficiale ↗</a>}
-        {active.item.kind !== "portal" && <label className="mt-6 flex min-h-12 items-center gap-3 rounded-xl border border-line p-3"><input type="checkbox" checked={current.completed.includes(active.item.id)} disabled={busy || ["COMPLETED", "CANCELLED"].includes(current.status)} onChange={(event) => void save({ kind: "step", stepId: active.item.id, done: event.target.checked }, false)} />Ho completato questa attività su Veredoc</label>}
+        {active.item.kind === "portal" && active.item.url && <a href={active.item.url} target="_blank" rel="noopener noreferrer" className="mt-4 inline-block font-semibold text-brand underline">Vai al sito ufficiale ↗</a>}
+        {active.item.kind !== "portal" && <label className="mt-6 flex min-h-12 items-center gap-3 rounded-xl border border-line p-3"><input type="checkbox" checked={current.completed.includes(active.item.id)} disabled={busy || ["COMPLETED", "CANCELLED"].includes(current.status)} onChange={(event) => void save({ kind: "step", stepId: active.item.id, done: event.target.checked }, false)} />Ho fatto questo passaggio</label>}
       </>}
       {error && <p role="alert" className="mt-4 text-sm text-danger">{error}</p>}
       <div className="sticky bottom-[calc(4.7rem+env(safe-area-inset-bottom))] z-20 -mx-5 mt-6 flex justify-between gap-3 border-t border-line bg-white px-5 py-3 sm:static sm:mx-0 sm:border-0 sm:px-0"><button type="button" disabled={busy || index === 0} onClick={() => { setPosition(index - 1); setDraft(undefined); setError(""); }} className="min-h-11 rounded-lg border border-line px-4 disabled:opacity-40">Indietro</button><button type="button" disabled={busy || index === items.length - 1 || ["COMPLETED", "CANCELLED"].includes(current.status)} onClick={next} className="min-h-11 rounded-lg bg-brand px-5 font-semibold text-white disabled:opacity-40">{busy ? "Salvataggio..." : "Avanti"}</button></div>
     </section>}
-    <section className="mt-6 rounded-xl border border-line bg-white p-5"><h2 className="font-semibold">Attività mancanti</h2>{current.progress.missing.length ? <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-muted">{current.progress.missing.map((name) => <li key={name}>{name}</li>)}</ul> : <p className="mt-2 text-sm text-muted">Nessuna attività obbligatoria rimasta.</p>}</section>
-    {current.progress.ready && current.status === "READY_TO_SUBMIT" && <div className="mt-6 rounded-xl border border-line bg-white p-5"><h2 className="font-semibold">Pronta per la presentazione</h2><p className="mt-2 text-sm text-muted">La preparazione su Veredoc è completa. La presentazione va eseguita sul portale ufficiale.</p><button type="button" disabled={busy} onClick={() => void save({ kind: "status", status: "USER_REPORTED_SUBMITTED" }, false)} className="mt-4 rounded-lg bg-brand px-4 py-3 font-semibold text-white">Ho presentato la pratica</button></div>}
-    {current.status === "USER_REPORTED_SUBMITTED" && <div className="mt-6 rounded-xl border border-line bg-white p-5"><p className="text-sm">Presentazione dichiarata da te. Veredoc non ha conferma dall’ente.</p><button type="button" disabled={busy} onClick={() => void save({ kind: "status", status: "COMPLETED" }, false)} className="mt-4 rounded-lg bg-brand px-4 py-3 font-semibold text-white">Chiudi la pratica</button></div>}
-    <section className="mt-6 rounded-xl border border-line bg-white p-5"><h2 className="font-semibold">Fonti ufficiali</h2><ul className="mt-3 space-y-2 text-sm">{current.sources.map((source) => <li key={source.url}><a href={source.url} target="_blank" rel="noopener noreferrer" className="text-brand underline">{source.title}</a><span className="block text-xs text-muted">{source.authority}, verificata {source.verifiedAt ? new Date(source.verifiedAt).toLocaleDateString("it-IT") : "data non disponibile"}</span></li>)}</ul></section>
+    <section className="mt-6 rounded-xl border border-line bg-white p-5"><h2 className="font-semibold">Cosa ti manca</h2>{current.progress.missing.length ? <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-muted">{current.progress.missing.map((name) => <li key={name}>{name}</li>)}</ul> : <p className="mt-2 text-sm text-muted">Hai completato tutti i passaggi richiesti.</p>}</section>
+    {current.progress.ready && current.status === "READY_TO_SUBMIT" && <div className="mt-6 rounded-xl border border-line bg-white p-5"><h2 className="font-semibold">Puoi inviare la richiesta</h2><p className="mt-2 text-sm text-muted">Hai preparato tutto. Ora apri il sito ufficiale e invia la richiesta lì.</p><button type="button" disabled={busy} onClick={() => void save({ kind: "status", status: "USER_REPORTED_SUBMITTED" }, false)} className="mt-4 rounded-lg bg-brand px-4 py-3 font-semibold text-white">Ho inviato la richiesta</button></div>}
+    {current.status === "USER_REPORTED_SUBMITTED" && <div className="mt-6 rounded-xl border border-line bg-white p-5"><p className="text-sm">Hai segnato di averla inviata. Veredoc non può sapere se l’ente l’ha ricevuta.</p><button type="button" disabled={busy} onClick={() => void save({ kind: "status", status: "COMPLETED" }, false)} className="mt-4 rounded-lg bg-brand px-4 py-3 font-semibold text-white">Segna come conclusa</button></div>}
+    <section className="mt-6 rounded-xl border border-line bg-white p-5"><h2 className="font-semibold">Da dove vengono queste informazioni</h2><ul className="mt-3 space-y-2 text-sm">{current.sources.map((source) => <li key={source.url}><a href={source.url} target="_blank" rel="noopener noreferrer" className="text-brand underline">{source.title}</a><span className="block text-xs text-muted">{source.authority}. Controllata il {source.verifiedAt ? new Date(source.verifiedAt).toLocaleDateString("it-IT") : "data non disponibile"}.</span></li>)}</ul></section>
     <button type="button" disabled={busy} onClick={() => void removeCase()} className="mt-6 min-h-11 text-sm font-semibold text-danger underline disabled:opacity-50">Elimina la pratica</button>
   </div>;
 }

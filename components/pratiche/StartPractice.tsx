@@ -22,7 +22,7 @@ export default function StartPractice({ slug, profiles }: { slug: string; profil
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Errore di rete."); setBusy(false); }
   }
   return <div className="space-y-3">
-    <label htmlFor="practice-profile" className="block text-sm font-semibold">Profilo</label>
+    <label htmlFor="practice-profile" className="block text-sm font-semibold">Per chi stai preparando questa pratica?</label>
     <select id="practice-profile" value={profileId} onChange={(event) => { setProfileId(event.target.value); requestKey.current = null; }} className="w-full rounded-lg border border-line bg-white p-3">{profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.label}</option>)}</select>
     <button type="button" onClick={start} disabled={!profileId || busy} className="min-h-12 w-full rounded-xl bg-brand px-5 font-semibold text-white disabled:opacity-50 sm:w-auto">{busy ? "Avvio..." : "Inizia la pratica"}</button>
     {error && <p role="alert" className="text-sm text-danger">{error}</p>}
