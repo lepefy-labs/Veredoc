@@ -12,6 +12,18 @@ test.describe("accesso e account", () => {
     await expect(page).toHaveURL(/\/analyze\?id=documento-di-prova$/);
   });
 
+  test("landing: Pratiche si apre dopo il login", async ({ page }) => {
+    const email = uniqueEmail("pratiche-redirect");
+    await register(page, email);
+
+    await page.goto("/");
+    await page.getByRole("link", { name: "Esplora Pratiche" }).click();
+    await expect(page).toHaveURL(/\/login\?callbackUrl=%2Fpratiche$/);
+    await login(page, email);
+    await expect(page).toHaveURL(/\/pratiche$/);
+    await expect(page.getByRole("heading", { name: "Cosa devi fare?" })).toBeVisible();
+  });
+
   test("registrazione, login con maiuscole e pagina account con email e stato", async ({ page }) => {
     const email = uniqueEmail("account");
     await register(page, email);
@@ -19,7 +31,8 @@ test.describe("accesso e account", () => {
 
     await login(page, email.toUpperCase());
     await expect(page).toHaveURL(/\/dashboard$/);
-    await expect(page.getByText("Carica il tuo primo documento per iniziare")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Cosa vuoi fare oggi?" })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Prepara una pratica/ })).toBeVisible();
 
     await page.goto("/account");
     await expect(page.getByRole("heading", { name: "Account", level: 1 })).toBeVisible();
