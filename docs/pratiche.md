@@ -2,7 +2,7 @@
 
 ## Stato
 
-Il codice del modulo è protetto da `PRATICHE_ENABLED=true`. Il valore predefinito è disabilitato. La migrazione 006 e il seed pilota non sono applicati dal deploy. Tutte le procedure del seed sono bozze e non possono essere avviate prima della revisione autorizzata.
+Il codice del modulo è protetto da `PRATICHE_ENABLED=true`. Il valore predefinito è disabilitato. La migrazione 006 e il seed pilota non sono applicati dal deploy. Il seed crea bozze; nel progetto di produzione, le tre fonti e le tre procedure sono state verificate e pubblicate il 2026-11-10 su richiesta del proprietario, con audit che identifica Codex come esecutore. Il flag di produzione abilita il catalogo dopo il deploy di questa revisione.
 
 ## Sequenza di attivazione
 
@@ -29,10 +29,10 @@ Il passaggio verso il portale ufficiale è informativo e non conta come attivit�
 Le fonti iniziali sono:
 
 * Guida ANPR alla [dichiarazione di residenza](https://sc.anpr.interno.it/serviziCittadino/dist/docs/guida_compilazione_cambio_residenza.pdf).
-* Guida del Ministero dell'Interno ai [certificati online](https://www.interno.gov.it/sites/default/files/2021-11/guida_richiesta_certificati_online.pdf).
+* Guida del Ministero dell'Interno ai [certificati online](https://sc.anpr.interno.it/serviziCittadino/dist/docs/guida_richiesta_certificato.pdf).
 * Scheda INPS sul [Portale unico ISEE](https://www.inps.it/it/it/dettaglio-scheda.it.schede-servizio-strumento.schede-servizi.Portale-unico-ISEE.html).
 
-I testi normalizzati nel seed sono sintesi per la revisione, non copie integrali né prova di verifica umana. La guida dei certificati del 2021 contiene informazioni storiche sui costi: l'MVP non mostra importi né scadenze tratti da quella guida. Il revisore deve verificare percorso attuale, autorità, eventuali condizioni locali, data di aggiornamento e link di accesso. Se le fonti non bastano, lasciare la procedura in bozza.
+I testi normalizzati nel seed sono sintesi per la revisione, non copie integrali né prova di verifica umana. La guida dei certificati tratta anche bollo e pagamento: l'MVP non mostra importi né scadenze tratti da quella guida. Prima di una nuova pubblicazione il revisore deve verificare percorso attuale, autorità, eventuali condizioni locali, data di aggiornamento e link di accesso. Se le fonti non bastano, lasciare la procedura in bozza.
 
 L'adapter `stageSourceRevision` non effettua scraping. Accetta contenuto normalizzato da un processo già autorizzato, controlla la allowlist degli URL, deduplica tramite hash e limita la frequenza per fonte. Ogni variazione crea una revisione `PENDING_REVIEW` e rende `STALE` la fonte verificata. Non è collegato a n8n o a uno scheduler. Prima dell'attivazione occorre verificare condizioni di accesso, limiti di frequenza, formato dei contenuti e gestione degli errori. Non inviare dati personali nel contenuto o nei log.
 
