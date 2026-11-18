@@ -73,8 +73,9 @@ test("dashboard: riepiloghi paginati, nessun dato completo dell'analisi nella pa
     const otherEmail = uniqueEmail("dashboard-stranger");
     await register(other, otherEmail);
     await login(other, otherEmail);
+    await expect(other).toHaveURL(/\/dashboard$/);
     const foreign = await other.request.get(url);
-    expect(foreign.ok()).toBe(true);
+    await expect(foreign).toBeOK();
     expect(await foreign.json()).toEqual({ documents: [], nextCursor: null });
   } finally {
     await stranger.close();

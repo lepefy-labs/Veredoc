@@ -84,6 +84,7 @@ test("@mobile riprende dalla dashboard il primo passaggio ancora da fare", async
   const email = uniqueEmail("riprendi");
   await register(page, email);
   await login(page, email);
+  await expect(page).toHaveURL(/\/dashboard$/);
   await expect(page.getByRole("link", { name: "Riprendi pratica" })).toHaveCount(0);
   await page.goto(`/pratiche/${slug}`);
   await page.getByRole("button", { name: "Inizia la pratica" }).click();
