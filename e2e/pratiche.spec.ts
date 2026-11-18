@@ -2,7 +2,13 @@ import { expect, test } from "@playwright/test";
 import { prisma } from "../lib/prisma";
 import { login, register, uniqueEmail } from "./helpers";
 
-async function createPublishedFixture() {
+async function createPublishedFixture(versionId?: string) {
+  if (versionId) {
+    const fixture = await prisma.procedureVersion.findUnique({
+      where: { id: versionId }, select: { procedure: { select: { slug: true } } },
+    });
+    if (fixture) return fixture.procedure.slug;
+  }
   const suffix = `${Date.now()}${Math.random().toString(36).slice(2, 8)}`;
   const source = await prisma.knowledgeSource.upsert({
     where: { url: "https://www.inps.it/it/it/dettaglio-scheda.it.schede-servizio-strumento.schede-servizi.Portale-unico-ISEE.html" },
@@ -11,7 +17,7 @@ async function createPublishedFixture() {
   });
   const revision = await prisma.knowledgeRevision.findFirst({ where: { sourceId: source.id } }) ?? await prisma.knowledgeRevision.create({ data: { sourceId: source.id, version: 1, content: "Fixture di test per il flusso Pratiche", contentHash: `test-${suffix}`, status: "VERIFIED" } });
   const procedure = await prisma.procedureDefinition.create({ data: { slug: `test-pratica-${suffix}`, title: "Pratica di prova", description: "Percorso di test con un passaggio condizionale.", category: "Test", audience: "Utenti di test", scope: "Nazionale", authority: "INPS", status: "PUBLISHED" } });
-  const version = await prisma.procedureVersion.create({ data: { procedureId: procedure.id, version: 1, status: "PUBLISHED", approvedAt: new Date(), definition: { questions: [{ id: "opzione", title: "Serve un documento aggiuntivo?", type: "boolean", required: true }], steps: [{ id: "base", title: "Prepara i dati", description: "Raccogli le informazioni necessarie.", kind: "task", required: true }, { id: "extra", title: "Prepara il documento aggiuntivo", description: "Documento richiesto per questo caso.", kind: "document", required: true, when: { questionId: "opzione", equals: true } }, { id: "portale", title: "Apri il portale INPS", description: "Presenta la pratica sul sito ufficiale.", kind: "portal", required: false, url: "https://www.inps.it/" }] } } });
+  const version = await prisma.procedureVersion.create({ data: { id: versionId, procedureId: procedure.id, version: 1, status: "PUBLISHED", approvedAt: new Date(), definition: { questions: [{ id: "opzione", title: "Serve un documento aggiuntivo?", type: "boolean", required: true }], steps: [{ id: "base", title: "Prepara i dati", description: "Raccogli le informazioni necessarie.", kind: "task", required: true }, { id: "extra", title: "Prepara il documento aggiuntivo", description: "Documento richiesto per questo caso.", kind: "document", required: true, when: { questionId: "opzione", equals: true } }, { id: "portale", title: "Apri il portale INPS", description: "Presenta la pratica sul sito ufficiale.", kind: "portal", required: false, url: "https://www.inps.it/" }] } } });
   await prisma.procedureCitation.create({ data: { procedureVersionId: version.id, sourceId: source.id, revisionId: revision.id, instructionIds: ["opzione", "base", "extra", "portale"] } });
   return procedure.slug;
 }
@@ -26,7 +32,7 @@ test("percorso Pratiche salva, riprende e protegge la proprietà", async ({ page
   await expect(page.getByText("Documento richiesto per questo caso.")).toBeHidden();
   await page.getByRole("button", { name: "Spiegazione: In alcuni casi: Prepara il documento aggiuntivo" }).click();
   await expect(page.getByText("Documento richiesto per questo caso.")).toBeVisible();
-  await page.getByRole("button", { name: "Inizia la pratica" }).click();
+  await page.getByRole("button", { name: "Avvia la checklist" }).click();
   await expect(page).toHaveURL(/\/pratiche\/caso\//);
   const caseId = page.url().split("/").pop()!;
   const ownProfiles = await (await page.request.get("/api/profiles")).json();
@@ -87,7 +93,7 @@ test("@mobile riprende dalla dashboard il primo passaggio ancora da fare", async
   await expect(page).toHaveURL(/\/dashboard$/);
   await expect(page.getByRole("link", { name: "Riprendi pratica" })).toHaveCount(0);
   await page.goto(`/pratiche/${slug}`);
-  await page.getByRole("button", { name: "Inizia la pratica" }).click();
+  await page.getByRole("button", { name: "Avvia la checklist" }).click();
   await expect(page).toHaveURL(/\/pratiche\/caso\//);
   await page.getByLabel("No").check();
   await page.getByRole("button", { name: "Avanti" }).click();
@@ -107,4 +113,44 @@ test("@mobile riprende dalla dashboard il primo passaggio ancora da fare", async
   await page.getByLabel("Ho fatto questo passaggio").click();
   expect((await (await saved).json()).advanced).toBe(true);
   await expect(page.getByLabel("Ho fatto questo passaggio")).toBeChecked();
+});
+
+test("@mobile mostra documenti, passaggi e servizio ANPR prima della checklist", async ({ page }) => {
+  const slug = await createPublishedFixture("pv_residenza_1");
+  const otherGuides = [
+    {
+      slug: await createPublishedFixture("pv_certificati_1"),
+      name: "Vai ai certificati su ANPR",
+      url: "https://www.anagrafenazionale.interno.it/area-cittadino/certificati/",
+    },
+    {
+      slug: await createPublishedFixture("pv_isee_1"),
+      name: "Apri il Portale unico ISEE dell’INPS",
+      url: "https://servizi2.inps.it/servizi/ISEEPrecompilato/",
+    },
+  ];
+  const email = uniqueEmail("guida-residenza");
+  await register(page, email);
+  await login(page, email);
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await page.goto(`/pratiche/${slug}`);
+
+  await expect(page.getByRole("heading", { name: "Cambio di residenza", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Vai al cambio di residenza su ANPR" }))
+    .toHaveAttribute("href", "https://www.anagrafenazionale.interno.it/area-cittadino/cambio-di-residenza/");
+  const documents = page.getByRole("region", { name: "Documenti e dati da preparare" });
+  await expect(documents.getByText("Se sei in affitto o in comodato registrato", { exact: true })).toBeVisible();
+  await expect(documents.getByText(/gli estremi di registrazione/)).toBeVisible();
+  const steps = page.getByRole("region", { name: "Passaggi sul portale ufficiale" });
+  await expect(steps.getByRole("listitem")).toHaveCount(5);
+  await expect(steps.getByText(/dopo tutte le convalide/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Avvia la checklist" })).toBeVisible();
+  await expect(page).toHaveURL(`/pratiche/${slug}`);
+
+  for (const guide of otherGuides) {
+    await page.goto(`/pratiche/${guide.slug}`);
+    await expect(page.getByRole("link", { name: guide.name })).toHaveAttribute("href", guide.url);
+    await expect(page.getByRole("heading", { name: "Documenti e dati da preparare" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Passaggi sul portale ufficiale" })).toBeVisible();
+  }
 });

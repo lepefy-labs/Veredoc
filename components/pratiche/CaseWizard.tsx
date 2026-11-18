@@ -10,6 +10,7 @@ import { PRACTICE_STATUS_LABELS } from "@/lib/pratiche/status";
 
 type CaseView = {
   id: string; title: string; status: string; revision: number; answers: Record<string, Answer>;
+  procedure: { slug: string };
   completed: string[]; workflow: Workflow; progress: { required: number; done: number; ready: boolean; blocked: boolean; missing: string[] };
   preparation: Preparation | null;
   sources: { title: string; authority: string; url: string; verifiedAt: string | Date | null; version: number }[];
@@ -93,6 +94,9 @@ export default function CaseWizard({ initial, resumeVisit }: { initial: CaseView
   return <div className="mx-auto w-full max-w-3xl px-4 pb-36 pt-8 sm:pb-12">
     <div className="flex items-center justify-between gap-3"><Link href="/pratiche/mie" className="text-sm font-semibold text-brand">← Le mie pratiche</Link><span className="text-xs font-semibold text-muted">{PRACTICE_STATUS_LABELS[current.status] ?? current.status}</span></div>
     <h1 className="mt-5 text-2xl font-bold">{current.title}</h1>
+    <Link href={`/pratiche/${current.procedure.slug}`} className="inline-flex min-h-11 items-center text-sm font-semibold text-brand underline">
+      Documenti e istruzioni
+    </Link>
     <p className="mt-2 text-sm text-muted">Hai completato {current.progress.done} passaggi su {current.progress.required}</p>
     <div className="mt-3 h-2 overflow-hidden rounded-full bg-line" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} aria-label="Avanzamento"><div className="h-full bg-brand" style={{ width: `${percent}%` }} /></div>
     {current.preparation && <details className="mt-5 rounded-xl border border-line bg-white p-4"><summary className="cursor-pointer text-sm font-semibold text-brand">Rivedi dati e documenti</summary><div className="mt-4"><PreparationList preparation={current.preparation} embedded /></div></details>}

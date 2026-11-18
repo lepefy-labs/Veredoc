@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { catalog, praticheEnabled, praticheSchemaReady } from "@/lib/pratiche/service";
 import StartPractice from "@/components/pratiche/StartPractice";
 import PreparationList from "@/components/pratiche/PreparationList";
+import PracticalGuide from "@/components/pratiche/PracticalGuide";
+import { practicalGuide } from "@/lib/pratiche/guide-content";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 
@@ -13,14 +15,21 @@ export default async function ProcedurePage({ params }: { params: Promise<{ slug
   const { slug } = await params;
   const item = (await catalog()).find((candidate) => candidate.slug === slug);
   if (!item) notFound();
+  const guide = item.available ? practicalGuide(item.versionId) : undefined;
   const profiles = item.available ? await prisma.analysisProfile.findMany({ where: { userId: session.user.id }, select: { id: true, label: true, kind: true }, orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }] }) : [];
   return <main className="mx-auto w-full max-w-3xl px-4 pb-28 pt-8 sm:pb-12">
     <Link href="/pratiche" className="text-sm font-semibold text-brand">← Tutte le pratiche</Link>
     <p className="mt-6 text-sm font-semibold text-brand">{item.category}</p><h1 className="mt-1 text-3xl font-bold">{item.title}</h1>
     <p className="mt-3 text-muted">{item.description}</p>
     {item.available && item.workflow ? <>
-      {item.preparation && <div className="mt-5"><PreparationList preparation={item.preparation} /></div>}
-      <div className="mt-6"><StartPractice slug={slug} profiles={profiles} /></div>
+      {guide
+        ? <PracticalGuide guide={guide} />
+        : item.preparation && <div className="mt-5"><PreparationList preparation={item.preparation} /></div>}
+      <section aria-labelledby="guide-checklist" className="mt-6 rounded-xl border border-line bg-white p-5">
+        <h2 id="guide-checklist" className="text-lg font-semibold">Checklist di Veredoc</h2>
+        <p className="mt-1 text-sm text-muted">Tieni traccia di ciò che hai preparato e dei passaggi che hai completato.</p>
+        <div className="mt-4"><StartPractice slug={slug} profiles={profiles} /></div>
+      </section>
       <details className="mt-6 rounded-xl border border-line bg-white p-5">
         <summary className="cursor-pointer font-semibold text-brand">Informazioni e fonti ufficiali</summary>
         <div className="mt-4 space-y-2 text-sm text-muted"><p>{item.audience}</p><p>Chi gestisce la richiesta: {item.authority}</p><p>{item.scope}</p></div>
