@@ -6,6 +6,7 @@ import Link from "next/link";
 import { applies, type Answer, type Workflow } from "@/lib/pratiche/engine";
 import type { Preparation } from "@/lib/pratiche/plain-language";
 import PreparationList from "./PreparationList";
+import { PRACTICE_STATUS_LABELS } from "@/lib/pratiche/status";
 
 type CaseView = {
   id: string; title: string; status: string; revision: number; answers: Record<string, Answer>;
@@ -14,28 +15,40 @@ type CaseView = {
   sources: { title: string; authority: string; url: string; verifiedAt: string | Date | null; version: number }[];
 };
 
-const statusLabels: Record<string, string> = {
-  DRAFT: "Da iniziare",
-  IN_PROGRESS: "In corso",
-  BLOCKED: "Serve aiuto",
-  READY_TO_SUBMIT: "Pronta da inviare",
-  USER_REPORTED_SUBMITTED: "Invio segnato da te",
-  COMPLETED: "Conclusa",
-  CANCELLED: "Annullata",
-};
+function visibleItems(current: CaseView) {
+  return [
+    ...current.workflow.questions.filter((question) => applies(question.when, current.answers)).map((question) => ({ kind: "question" as const, item: question })),
+    ...(current.progress.blocked ? [] : current.workflow.steps.filter((step) => applies(step.when, current.answers)).map((step) => ({ kind: "step" as const, item: step }))),
+  ];
+}
 
-export default function CaseWizard({ initial }: { initial: CaseView }) {
+function resumePosition(initial: CaseView): number {
+  const items = visibleItems(initial);
+  if (initial.progress.blocked) {
+    const blocker = items.findIndex(({ kind, item }) => kind === "question" && item.blockedValues?.some((value) => {
+      const answer = initial.answers[item.id];
+      return Array.isArray(answer) ? answer.includes(String(value)) : answer === value;
+    }));
+    return Math.max(0, blocker);
+  }
+  const next = items.findIndex(({ kind, item }) => item.required && (
+    kind === "question" ? !(item.id in initial.answers) : !initial.completed.includes(item.id)
+  ));
+  if (next >= 0) return next;
+  const portal = items.findIndex(({ kind, item }) => kind === "step" && item.kind === "portal");
+  return portal >= 0 ? portal : Math.max(0, items.length - 1);
+}
+
+export default function CaseWizard({ initial, resumeVisit }: { initial: CaseView; resumeVisit?: string }) {
   const router = useRouter();
   const [current, setCurrent] = useState(initial);
-  const [position, setPosition] = useState(0);
+  const [position, setPosition] = useState(() => resumeVisit ? resumePosition(initial) : 0);
+  const [pendingResumeVisit, setPendingResumeVisit] = useState(resumeVisit);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [draft, setDraft] = useState<Answer | undefined>();
   const [helpFor, setHelpFor] = useState<string | null>(null);
-  const items = useMemo(() => [
-    ...current.workflow.questions.filter((question) => applies(question.when, current.answers)).map((question) => ({ kind: "question" as const, item: question })),
-    ...(current.progress.blocked ? [] : current.workflow.steps.filter((step) => applies(step.when, current.answers)).map((step) => ({ kind: "step" as const, item: step }))),
-  ], [current]);
+  const items = useMemo(() => visibleItems(current), [current]);
   const index = Math.min(position, Math.max(items.length - 1, 0));
   const active = items[index];
   const percent = current.progress.required ? Math.round(100 * current.progress.done / current.progress.required) : 100;
@@ -43,12 +56,14 @@ export default function CaseWizard({ initial }: { initial: CaseView }) {
   async function save(payload: Record<string, unknown>, next = true) {
     setBusy(true); setError("");
     try {
-      const response = await fetch(`/api/pratiche/cases/${current.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...payload, expectedRevision: current.revision }) });
+      const response = await fetch(`/api/pratiche/cases/${current.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...payload, expectedRevision: current.revision, resumeVisit: pendingResumeVisit }) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "Salvataggio non riuscito.");
-      setCurrent(body.case);
+      const saved: CaseView = body.case;
+      setCurrent(saved);
+      if (body.advanced) setPendingResumeVisit(undefined);
       setDraft(undefined);
-      if (next) setPosition(Math.min(index + 1, items.length - 1));
+      if (next) setPosition(Math.min(index + 1, Math.max(visibleItems(saved).length - 1, 0)));
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Errore di rete. Riprova."); }
     finally { setBusy(false); }
   }
@@ -76,7 +91,7 @@ export default function CaseWizard({ initial }: { initial: CaseView }) {
   }
 
   return <div className="mx-auto w-full max-w-3xl px-4 pb-36 pt-8 sm:pb-12">
-    <div className="flex items-center justify-between gap-3"><Link href="/pratiche/mie" className="text-sm font-semibold text-brand">← Le mie pratiche</Link><span className="text-xs font-semibold text-muted">{statusLabels[current.status] ?? current.status}</span></div>
+    <div className="flex items-center justify-between gap-3"><Link href="/pratiche/mie" className="text-sm font-semibold text-brand">← Le mie pratiche</Link><span className="text-xs font-semibold text-muted">{PRACTICE_STATUS_LABELS[current.status] ?? current.status}</span></div>
     <h1 className="mt-5 text-2xl font-bold">{current.title}</h1>
     <p className="mt-2 text-sm text-muted">Hai completato {current.progress.done} passaggi su {current.progress.required}</p>
     <div className="mt-3 h-2 overflow-hidden rounded-full bg-line" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} aria-label="Avanzamento"><div className="h-full bg-brand" style={{ width: `${percent}%` }} /></div>
@@ -99,7 +114,7 @@ export default function CaseWizard({ initial }: { initial: CaseView }) {
         {active.item.kind !== "portal" && <label className="mt-6 flex min-h-12 items-center gap-3 rounded-xl border border-line p-3"><input type="checkbox" checked={current.completed.includes(active.item.id)} disabled={busy || ["COMPLETED", "CANCELLED"].includes(current.status)} onChange={(event) => void save({ kind: "step", stepId: active.item.id, done: event.target.checked }, false)} />Ho fatto questo passaggio</label>}
       </>}
       {error && <p role="alert" className="mt-4 text-sm text-danger">{error}</p>}
-      <div className="sticky bottom-[calc(4.7rem+env(safe-area-inset-bottom))] z-20 -mx-5 mt-6 flex justify-between gap-3 border-t border-line bg-white px-5 py-3 sm:static sm:mx-0 sm:border-0 sm:px-0"><button type="button" disabled={busy || index === 0} onClick={() => { setPosition(index - 1); setDraft(undefined); setError(""); }} className="min-h-11 rounded-lg border border-line px-4 disabled:opacity-40">Indietro</button><button type="button" disabled={busy || index === items.length - 1 || ["COMPLETED", "CANCELLED"].includes(current.status)} onClick={next} className="min-h-11 rounded-lg bg-brand px-5 font-semibold text-white disabled:opacity-40">{busy ? "Salvataggio..." : "Avanti"}</button></div>
+      <div className="sticky bottom-[calc(4.7rem+env(safe-area-inset-bottom))] z-20 -mx-5 mt-6 flex justify-between gap-3 border-t border-line bg-white px-5 py-3 sm:static sm:mx-0 sm:border-0 sm:px-0"><button type="button" disabled={busy || index === 0} onClick={() => { setPosition(index - 1); setDraft(undefined); setError(""); }} className="min-h-11 rounded-lg border border-line px-4 disabled:opacity-40">Indietro</button><button type="button" disabled={busy || (index === items.length - 1 && active.kind !== "question") || ["COMPLETED", "CANCELLED"].includes(current.status)} onClick={next} className="min-h-11 rounded-lg bg-brand px-5 font-semibold text-white disabled:opacity-40">{busy ? "Salvataggio..." : "Avanti"}</button></div>
     </section>}
     {!current.progress.ready && !current.progress.blocked && current.progress.missing.length > 0 && <details className="mt-6 rounded-xl border border-line bg-white p-5"><summary className="cursor-pointer font-semibold text-brand">Passaggi da fare: {current.progress.missing.length}</summary><ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-muted">{current.progress.missing.map((name) => <li key={name}>{name}</li>)}</ul></details>}
     {current.progress.ready && current.status === "READY_TO_SUBMIT" && <div className="mt-6 rounded-xl border border-line bg-white p-5"><h2 className="font-semibold">Puoi inviare la richiesta</h2><p className="mt-2 text-sm text-muted">Inviala sul sito ufficiale.</p><button type="button" disabled={busy} onClick={() => void save({ kind: "status", status: "USER_REPORTED_SUBMITTED" }, false)} className="mt-4 rounded-lg bg-brand px-4 py-3 font-semibold text-white">Ho inviato la richiesta</button></div>}

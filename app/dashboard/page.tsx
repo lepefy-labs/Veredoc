@@ -13,54 +13,63 @@ import { startOfCurrentMonthUtc } from "@/lib/account/usage";
 import { AnalysisStatus, UserPlan } from "@prisma/client";
 import { buildLongitudinalInsights } from "@/lib/insights/history";
 import { buildMultiPeriodTrends } from "@/lib/insights/trends";
-import { summarizeDocument } from "@/lib/dashboard/summary";
-import { praticheEnabled } from "@/lib/pratiche/feature";
+import { documentPage, readFirstDocumentPages, readInsightDocuments } from "@/lib/dashboard/documents";
+import { praticheEnabled, praticheSchemaReady } from "@/lib/pratiche/service";
+import { OPEN_PRACTICE_STATUSES, PRACTICE_STATUS_LABELS } from "@/lib/pratiche/status";
+import { plainTitle } from "@/lib/pratiche/plain-language";
+
+async function getPracticeShortcut(userId: string) {
+  if (!praticheEnabled() || !await praticheSchemaReady()) return null;
+  return prisma.userCase.findFirst({
+    where: { userId, status: { in: OPEN_PRACTICE_STATUSES } },
+    orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+    select: { id: true, title: true, procedureVersionId: true, status: true, profile: { select: { label: true } } },
+  });
+}
 
 export default async function DashboardPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
   const startOfMonth = startOfCurrentMonthUtc();
-  const [profiles, usedThisMonth] = await Promise.all([
+  const userId = session.user.id;
+  const [profiles, usedThisMonth, pages, insightDocuments, practice] = await Promise.all([
     prisma.analysisProfile.findMany({
-      where: { userId: session.user.id },
+      where: { userId },
       orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
       select: {
         id: true,
         label: true,
         kind: true,
         isDefault: true,
-        documents: {
-          where: { status: { not: AnalysisStatus.DELETED } },
-          orderBy: { createdAt: "desc" },
-          // Solo le colonne necessarie: niente rawExtracted, testo anonimizzato o mappe.
-          select: { id: true, profileId: true, type: true, fileName: true, status: true, createdAt: true, analysis: true },
-        },
+        _count: { select: { documents: { where: { userId, status: { not: AnalysisStatus.DELETED } } } } },
       },
     }),
     prisma.document.count({
       where: {
-        userId: session.user.id,
+        userId,
         createdAt: { gte: startOfMonth },
       },
     }),
+    readFirstDocumentPages(userId),
+    readInsightDocuments(userId),
+    getPracticeShortcut(userId),
   ]);
 
-  const documentsCount = profiles.reduce((total, profile) => total + profile.documents.length, 0);
+  const documentsCount = profiles.reduce((total, profile) => total + profile._count.documents, 0);
   const plan = session.user.plan === "PRO" ? UserPlan.PRO : UserPlan.FREE;
   const monthlyLimit = ANALYSIS_LIMITS[plan];
   const profileOptions = profiles.map(({ id, label, kind, isDefault }) => ({ id, label, kind, isDefault }));
-  // Storico e trend calcolati sul server: al client arrivano risultati e riepiloghi,
-  // non le analisi complete di tutti i documenti.
-  const dashboardProfiles = profiles.map((profile) => ({
-    id: profile.id,
-    label: profile.label,
-    kind: profile.kind,
-    isDefault: profile.isDefault,
-    insights: buildLongitudinalInsights(profile.documents),
-    trends: buildMultiPeriodTrends(profile.documents, profile.id),
-    documents: profile.documents.map(summarizeDocument),
-  }));
+  const dashboardProfiles = profiles.map(({ id, label, kind, isDefault, _count }) => {
+    const sample = insightDocuments.get(id) ?? [];
+    return {
+      id, label, kind, isDefault,
+      insights: buildLongitudinalInsights(sample),
+      trends: buildMultiPeriodTrends(sample, id),
+      documentPage: documentPage(pages.get(id) ?? []),
+      documentCount: _count.documents,
+    };
+  });
   const defaultProfile = profiles.find((profile) => profile.isDefault) ?? profiles[0];
   const analyzeHref = defaultProfile ? `/analyze?profile=${encodeURIComponent(defaultProfile.id)}` : "/analyze";
   const praticheAvailable = praticheEnabled();
@@ -80,6 +89,25 @@ export default async function DashboardPage() {
             <Button size="md">{TEXTS.dashboard.newAnalysis}</Button>
           </Link>}
         </div>
+
+        {practice && (
+          <section aria-label="Pratica da riprendere" className="flex flex-col gap-4 rounded-2xl border border-line bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-ink">{plainTitle(practice.procedureVersionId, practice.title)}</h2>
+              <p className="mt-1 text-sm text-muted">
+                {practice.profile ? `${practice.profile.label} · ` : ""}{PRACTICE_STATUS_LABELS[practice.status]}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <Link href={`/pratiche/caso/${practice.id}?from=dashboard`} prefetch={false} className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-dark">
+                Riprendi pratica
+              </Link>
+              <Link href="/pratiche/mie" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand hover:underline">
+                Vedi tutte le pratiche
+              </Link>
+            </div>
+          </section>
+        )}
 
         {praticheAvailable ? <section aria-label="Scegli una funzione" className="grid gap-4 sm:grid-cols-2">
           <Link href="/pratiche" className="group flex min-h-44 flex-col justify-between rounded-2xl bg-brand p-6 text-white shadow-sm transition-colors hover:bg-brand-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">

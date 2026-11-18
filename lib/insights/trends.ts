@@ -1,3 +1,5 @@
+export const INSIGHT_DOCUMENT_LIMIT = 4;
+
 export type TrendTone = "positive" | "warning" | "neutral";
 
 export interface TrendDocument {
@@ -136,7 +138,7 @@ function setDifferenceSize(left: Set<string>, right: Set<string>): number {
 function buildBillTrend(documents: TrendDocument[], type: string): TrendInsight | null {
   const sample = documents
     .filter((document) => document.type === type)
-    .slice(0, 4);
+    .slice(0, INSIGHT_DOCUMENT_LIMIT);
   if (sample.length < 3) return null;
 
   const current = sample[0];
@@ -203,7 +205,7 @@ function buildBillTrend(documents: TrendDocument[], type: string): TrendInsight 
 }
 
 function buildPayrollTrend(documents: TrendDocument[]): TrendInsight | null {
-  const sample = documents.filter((document) => document.type === "BUSTA_PAGA").slice(0, 4);
+  const sample = documents.filter((document) => document.type === "BUSTA_PAGA").slice(0, INSIGHT_DOCUMENT_LIMIT);
   if (sample.length < 3) return null;
 
   const current = sample[0];

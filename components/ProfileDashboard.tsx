@@ -6,7 +6,7 @@ import DocumentList from "@/components/DocumentList";
 import HistoricalInsights from "@/components/HistoricalInsights";
 import type { LongitudinalInsight } from "@/lib/insights/history";
 import type { TrendInsight } from "@/lib/insights/trends";
-import type { DashboardDocumentSummary } from "@/lib/dashboard/summary";
+import type { DashboardDocumentPage } from "@/lib/dashboard/summary";
 import { ProfileKind } from "@prisma/client";
 
 interface DashboardProfile {
@@ -14,7 +14,8 @@ interface DashboardProfile {
   label: string;
   kind: ProfileKind;
   isDefault: boolean;
-  documents: DashboardDocumentSummary[];
+  documentPage: DashboardDocumentPage;
+  documentCount: number;
   insights: LongitudinalInsight[];
   trends: TrendInsight[];
 }
@@ -74,7 +75,7 @@ export default function ProfileDashboard({ profiles, profileOptions }: { profile
                   {profile.isDefault && <span className="text-[11px] rounded-full bg-brand-soft text-brand px-2 py-0.5 font-semibold">predefinito</span>}
                 </div>
                 <p className="text-xs text-muted mt-1">
-                  {profile.documents.length === 1 ? "1 documento" : `${profile.documents.length} documenti`} · storico isolato in questo profilo
+                  {profile.documentCount === 1 ? "1 documento" : `${profile.documentCount} documenti`} · storico isolato in questo profilo
                 </p>
               </div>
               <Link
@@ -86,7 +87,13 @@ export default function ProfileDashboard({ profiles, profileOptions }: { profile
             </div>
 
             <HistoricalInsights insights={profile.insights} trends={profile.trends} />
-            <DocumentList initialDocuments={profile.documents} profiles={profileOptions} currentProfileId={profile.id} />
+            <DocumentList
+              key={JSON.stringify([profile.documentCount, profile.documentPage.documents.map((document) => document.id)])}
+              initialPage={profile.documentPage}
+              documentCount={profile.documentCount}
+              profiles={profileOptions}
+              currentProfileId={profile.id}
+            />
           </section>
         );
       })}

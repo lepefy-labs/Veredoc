@@ -78,3 +78,32 @@ test("@mobile catalogo e navigazione Pratiche", async ({ page }) => {
   if (test.info().project.name === "mobile") await expect(page.getByRole("navigation", { name: "Navigazione app" }).getByRole("link", { name: "Pratiche" })).toBeVisible();
   else await expect(page.getByRole("navigation", { name: "Principale" }).getByRole("link", { name: "Pratiche", exact: true })).toBeVisible();
 });
+
+test("@mobile riprende dalla dashboard il primo passaggio ancora da fare", async ({ page }) => {
+  const slug = await createPublishedFixture();
+  const email = uniqueEmail("riprendi");
+  await register(page, email);
+  await login(page, email);
+  await expect(page.getByRole("link", { name: "Riprendi pratica" })).toHaveCount(0);
+  await page.goto(`/pratiche/${slug}`);
+  await page.getByRole("button", { name: "Inizia la pratica" }).click();
+  await expect(page).toHaveURL(/\/pratiche\/caso\//);
+  await page.getByLabel("No").check();
+  await page.getByRole("button", { name: "Avanti" }).click();
+  await expect(page.getByRole("heading", { name: "Prepara i dati" })).toBeVisible();
+  const caseUrl = new URL(page.url());
+  await page.goto("/dashboard");
+
+  const shortcut = page.getByRole("region", { name: "Pratica da riprendere" });
+  await expect(shortcut.getByText("Io · In corso")).toBeVisible();
+  await expect(shortcut.getByRole("link", { name: "Vedi tutte le pratiche" })).toHaveAttribute("href", "/pratiche/mie");
+  await shortcut.getByRole("link", { name: "Riprendi pratica" }).click();
+  await expect(page).toHaveURL(`${caseUrl.toString()}?from=dashboard`);
+  await expect(page.getByRole("heading", { name: "Prepara i dati" })).toBeVisible();
+  const saved = page.waitForResponse((response) =>
+    response.request().method() === "PATCH" && response.url().includes("/api/pratiche/cases/")
+  );
+  await page.getByLabel("Ho fatto questo passaggio").click();
+  expect((await (await saved).json()).advanced).toBe(true);
+  await expect(page.getByLabel("Ho fatto questo passaggio")).toBeChecked();
+});

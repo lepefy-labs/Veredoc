@@ -7,12 +7,7 @@ import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import { DOCUMENTO_LABEL } from "@/lib/config/constants";
 import { AnalysisStatus, ProfileKind } from "@prisma/client";
-import type { DashboardDocumentSummary } from "@/lib/dashboard/summary";
-
-type DocumentItem = DashboardDocumentSummary;
-
-// Documenti mostrati inizialmente per profilo; gli altri con "Mostra altri".
-const PAGE_SIZE = 10;
+import { DASHBOARD_DOCUMENT_PAGE_SIZE, type DashboardDocumentPage } from "@/lib/dashboard/summary";
 
 interface ProfileOption {
   id: string;
@@ -22,7 +17,8 @@ interface ProfileOption {
 }
 
 interface DocumentListProps {
-  initialDocuments: DocumentItem[];
+  initialPage: DashboardDocumentPage;
+  documentCount: number;
   profiles: ProfileOption[];
   currentProfileId: string;
 }
@@ -41,17 +37,40 @@ function ConfirmDialog({ onConfirm, onCancel, loading }: { onConfirm: () => void
   );
 }
 
-export default function DocumentList({ initialDocuments, profiles, currentProfileId }: DocumentListProps) {
+export default function DocumentList({ initialPage, documentCount, profiles, currentProfileId }: DocumentListProps) {
   const router = useRouter();
   const [hiddenIds, setHiddenIds] = useState<string[]>([]);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [movingId, setMovingId] = useState<string | null>(null);
   const [rowError, setRowError] = useState<Record<string, string>>({});
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const allDocuments = initialDocuments.filter((doc) => !hiddenIds.includes(doc.id));
-  const documents = allDocuments.slice(0, visibleCount);
-  const remaining = allDocuments.length - documents.length;
+  const [extra, setExtra] = useState<DashboardDocumentPage>({ documents: [], nextCursor: initialPage.nextCursor });
+  const [loadingPage, setLoadingPage] = useState(false);
+  const [pageError, setPageError] = useState("");
+  const allDocuments = [...initialPage.documents, ...extra.documents];
+  const documents = allDocuments.filter((doc) => !hiddenIds.includes(doc.id));
+  const remaining = Math.max(0, documentCount - allDocuments.length);
+
+  async function loadMore() {
+    if (!extra.nextCursor || loadingPage) return;
+    setLoadingPage(true);
+    setPageError("");
+    try {
+      const query = new URLSearchParams({ cursor: extra.nextCursor });
+      const response = await fetch(`/api/profiles/${encodeURIComponent(currentProfileId)}/documents?${query}`);
+      if (!response.ok) throw new Error("Pagina non disponibile");
+      const page: DashboardDocumentPage = await response.json();
+      const loadedIds = new Set(allDocuments.map((document) => document.id));
+      setExtra((previous) => ({
+        documents: [...previous.documents, ...page.documents.filter((document) => !loadedIds.has(document.id))],
+        nextCursor: page.nextCursor,
+      }));
+    } catch {
+      setPageError("Impossibile caricare altri documenti. Riprova.");
+    } finally {
+      setLoadingPage(false);
+    }
+  }
 
   async function handleDelete(id: string) {
     setDeleting(true);
@@ -62,6 +81,7 @@ export default function DocumentList({ initialDocuments, profiles, currentProfil
         setRowError((prev) => ({ ...prev, [id]: data.error ?? "Errore durante l'eliminazione." }));
       } else {
         setHiddenIds((prev) => [...prev, id]);
+        router.refresh();
       }
     } catch {
       setRowError((prev) => ({ ...prev, [id]: "Errore di rete." }));
@@ -95,7 +115,7 @@ export default function DocumentList({ initialDocuments, profiles, currentProfil
     }
   }
 
-  if (documents.length === 0) {
+  if (documents.length === 0 && !extra.nextCursor) {
     return <p className="py-4 text-sm text-muted">Nessun documento in questo profilo.</p>;
   }
 
@@ -146,13 +166,16 @@ export default function DocumentList({ initialDocuments, profiles, currentProfil
           );
         })}
       </div>
-      {remaining > 0 && (
+      {pageError && <p role="alert" className="mt-3 text-sm text-danger">{pageError}</p>}
+      {extra.nextCursor && (
         <button
           type="button"
-          onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}
+          type="button"
+          onClick={loadMore}
+          disabled={loadingPage || deleting || movingId !== null}
           className="mt-3 min-h-11 w-full rounded-xl border border-line bg-white px-4 text-sm font-medium text-brand hover:bg-brand-soft"
         >
-          Mostra altri {Math.min(remaining, PAGE_SIZE)} di {remaining}
+          {loadingPage ? "Caricamento…" : remaining > 0 ? `Mostra altri ${Math.min(remaining, DASHBOARD_DOCUMENT_PAGE_SIZE)} di ${remaining}` : "Mostra altri documenti"}
         </button>
       )}
     </>

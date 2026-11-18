@@ -1,6 +1,13 @@
 // Riepilogo dei documenti per la dashboard: al browser arrivano solo i campi mostrati
 // nella lista (niente analisi completa, dati estratti o testo anonimizzato).
 
+export const DASHBOARD_DOCUMENT_PAGE_SIZE = 10;
+
+export interface DashboardDocumentPage {
+  documents: DashboardDocumentSummary[];
+  nextCursor: string | null;
+}
+
 export interface DashboardDocumentSummary {
   id: string;
   profileId: string;

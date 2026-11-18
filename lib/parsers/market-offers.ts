@@ -44,3 +44,16 @@ export function validOfferWhere(category: string, latestScrapedAt: Date, now: Da
 export function isMarketDataStale(latestScrapedAt: Date | null, now: Date): boolean {
   return !latestScrapedAt || now.getTime() - latestScrapedAt.getTime() > MARKET_DATA_STALE_AFTER_MS;
 }
+
+export function getMarketFreshness(
+  snapshot: string | null | undefined,
+  offers: ReadonlyArray<{ offerta_fine?: string | null }>,
+  now: Date
+) {
+  const parsed = snapshot ? new Date(snapshot) : null;
+  const snapshotAt = parsed && Number.isFinite(parsed.getTime()) ? parsed : null;
+  const expiredCount = offers.filter((offer) =>
+    offer.offerta_fine && new Date(offer.offerta_fine).getTime() <= now.getTime()
+  ).length;
+  return { snapshotAt, expiredCount, stale: isMarketDataStale(snapshotAt, now) };
+}

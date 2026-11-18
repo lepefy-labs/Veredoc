@@ -91,6 +91,8 @@ export interface ConfrontoMercato {
 
 export interface BollettaAnalysis extends BollettaRaw {
   confronto_mercato: ConfrontoMercato | null;
+  /** Ultimo snapshot noto quando non ci sono offerte confrontabili. */
+  ultimo_aggiornamento_mercato?: string | null;
   /** Presente solo quando l'arricchimento è fallito: l'estrazione resta valida e consultabile. */
   confronto_mercato_stato?: "non_disponibile";
 }

@@ -35,7 +35,7 @@ In questo modo ogni notte:
 2. Tutti i documenti bolletta già analizzati ricevono il confronto aggiornato
    senza rieseguire l'analisi AI
 
-5. (Opzionale) Aggiungi un nodo **Send Email** o **Slack** per ricevere notifiche in caso di errori.
+5. Configura il workflow per trattare HTTP 502 come errore. L'endpoint registra anche un evento di errore per ciascuna categoria non aggiornata. Veredoc usa l'avviso operativo via email se `OPS_ALERT_EMAIL` è configurata.
 
 ## Variabili da impostare
 
@@ -54,7 +54,7 @@ In questo modo ogni notte:
 }
 ```
 
-Se `errors` non è vuoto, controllare i log Vercel per dettagli.
+Il campo `categories` indica per luce e gas la data del file trovato, l'ultimo snapshot salvato, i conteggi e l'eventuale errore. Se una categoria fallisce, la risposta è HTTP 502. Nel workflow lineare il ricalcolo delle bollette si ferma per quella esecuzione. Il confronto resta aggiornabile dal documento e il database conserva gli ultimi snapshot validi; controllare nei log Vercel `job.scrape_market_rates.luce` e `job.scrape_market_rates.gas`.
 
 ---
 
@@ -74,7 +74,7 @@ Riprendere automaticamente i documenti rimasti in coda (`PENDING`) o con lease s
 4. Esegui manualmente una volta (*Execute workflow*) e verifica la risposta.
 5. Attiva il workflow.
 
-Frequenza: ogni 5 minuti. Il lease dura 6 minuti e ogni esecuzione non avvia nuove analisi dopo 60 s, quindi le esecuzioni non si sovrappongono in modo utile; anche se accadesse, il claim atomico impedisce doppie elaborazioni.
+Frequenza: ogni 5 minuti. È stata osservata nei log di produzione il 18 novembre 2026. Il lease dura 6 minuti e ogni esecuzione non avvia nuove analisi dopo 60 s, quindi le esecuzioni non si sovrappongono in modo utile; anche se accadesse, il claim atomico impedisce doppie elaborazioni.
 
 ## Risposta attesa
 

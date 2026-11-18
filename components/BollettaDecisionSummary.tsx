@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { getMarketFreshness } from "@/lib/parsers/market-offers";
 import type { BollettaAnalysis } from "@/types/bolletta";
 import { RISPARMIO_MINIMO_BANNER_EURO } from "@/lib/config/constants";
 
@@ -11,6 +13,10 @@ function eur(value: number): string {
 
 export default function BollettaDecisionSummary({ data }: Props) {
   const confronto = data.confronto_mercato;
+  const [now] = useState(() => new Date());
+  const freshness = getMarketFreshness(confronto?.offerte_aggiornate_al, confronto?.offerte ?? [], now);
+  const isEnergy = data.tipo === "luce" || data.tipo === "gas";
+  const outdated = (isEnergy && freshness.stale) || freshness.expiredCount > 0;
   const pct = confronto?.percentuale_sopra_media ?? null;
   const savingMonth = confronto?.miglior_risparmio_mensile ?? null;
   const savingYear = confronto?.miglior_risparmio_annuo ?? null;
@@ -23,7 +29,13 @@ export default function BollettaDecisionSummary({ data }: Props) {
   let action: string | null = null;
 
   if (confronto && confronto.prezzo_kwh_attuale !== null) {
-    if (actionableSaving) {
+    if (outdated) {
+      tone = "border-amber-300 bg-amber-50 text-amber-950";
+      label = "Dati di mercato da verificare";
+      title = "Aggiorna il confronto delle offerte";
+      body = "Le offerte della stima potrebbero essere cambiate. Verifica le alternative disponibili prima di decidere.";
+      action = "Vai al confronto mercato";
+    } else if (actionableSaving) {
       tone = "border-amber-300 bg-amber-50 text-amber-950";
       label = "Azione consigliata";
       title = `Vale la pena confrontare altre offerte`;
@@ -56,8 +68,8 @@ export default function BollettaDecisionSummary({ data }: Props) {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
         <Metric label="Totale bolletta" value={eur(data.importo_totale)} />
         {data.materia_energia?.totale_eur != null && <Metric label="Parte negoziabile" value={eur(data.materia_energia.totale_eur)} />}
-        {savingMonth != null && savingMonth > 0 && <Metric label="Risparmio potenziale" value={`${eur(savingMonth)}/mese`} />}
-        {savingYear != null && savingYear > 0 && <Metric label="Stima annuale" value={eur(savingYear)} />}
+        {!outdated && savingMonth != null && savingMonth > 0 && <Metric label="Risparmio potenziale" value={`${eur(savingMonth)}/mese`} />}
+        {!outdated && savingYear != null && savingYear > 0 && <Metric label="Stima annuale" value={eur(savingYear)} />}
       </div>
       {action && (
         <a

@@ -83,7 +83,11 @@ export async function arricchisciConFrontoMercato(
   const { offerte: tariffe, aggiornatoAl } = await getOfferteBilanciate(categoria, 20);
 
   if (tariffe.length === 0) {
-    return { ...rawExtracted, confronto_mercato: null };
+    return {
+      ...rawExtracted,
+      confronto_mercato: null,
+      ultimo_aggiornamento_mercato: aggiornatoAl?.toISOString() ?? null,
+    };
   }
 
   const offerteSenzaBreakEven = tariffe

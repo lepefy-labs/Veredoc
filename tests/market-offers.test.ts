@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   MARKET_SNAPSHOT_WINDOW_MS,
+  getMarketFreshness,
   isMarketDataStale,
   isOfferCurrentlyValid,
   validOfferWhere,
@@ -59,4 +60,12 @@ test("dati di mercato più vecchi di 7 giorni sono segnalati", () => {
   assert.equal(isMarketDataStale(LATEST, NOW), true);
   assert.equal(isMarketDataStale(new Date("2026-10-09T00:00:00.000Z"), NOW), false);
   assert.equal(isMarketDataStale(null, NOW), true);
+});
+
+test("la data del confronto distingue snapshot recenti, scaduti e mancanti", () => {
+  const date = "2026-10-09T00:00:00.000Z";
+  const current = getMarketFreshness(date, [{ offerta_fine: NOW.toISOString() }, {}], NOW);
+  assert.deepEqual(current, { snapshotAt: new Date(date), expiredCount: 1, stale: false });
+  assert.equal(getMarketFreshness(LATEST.toISOString(), [], NOW).stale, true);
+  assert.deepEqual(getMarketFreshness("data non valida", [], NOW), { snapshotAt: null, expiredCount: 0, stale: true });
 });

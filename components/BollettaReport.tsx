@@ -6,7 +6,7 @@ import { BollettaAnalysis, OffertaMercato } from "@/types/bolletta";
 import { RISPARMIO_MINIMO_BANNER_EURO } from "@/lib/config/constants";
 import { TEXTS } from "@/lib/config/texts";
 import { getProviderDisplay } from "@/lib/utils/provider";
-import { isMarketDataStale } from "@/lib/parsers/market-offers";
+import { getMarketFreshness } from "@/lib/parsers/market-offers";
 
 interface BollettaReportProps {
   data: BollettaAnalysis;
@@ -56,7 +56,12 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
 
   const confronto = data.confronto_mercato;
   const risparmiAnnuo = confronto?.miglior_risparmio_annuo ?? 0;
-  const mostraBanner = confronto?.miglior_risparmio_mensile !== null &&
+  const [marketNow] = useState(() => new Date());
+  const isEnergy = data.tipo === "luce" || data.tipo === "gas";
+  const freshness = getMarketFreshness(
+    confronto?.offerte_aggiornate_al ?? data.ultimo_aggiornamento_mercato, confronto?.offerte ?? [], marketNow
+  );
+  const mostraBanner = (!isEnergy || !freshness.stale) && freshness.expiredCount === 0 && confronto?.miglior_risparmio_mensile !== null &&
     (confronto?.miglior_risparmio_mensile ?? 0) > 0 &&
     risparmiAnnuo > 0 &&
     risparmiAnnuo >= RISPARMIO_MINIMO_BANNER_EURO;
@@ -188,7 +193,7 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
       {confronto && confronto.prezzo_kwh_attuale !== null && (
         <Card>
           <h3 className="font-semibold text-ink mb-1">Confronto con il mercato</h3>
-          <MarketFreshness aggiornatoAl={confronto.offerte_aggiornate_al} offerte={confronto.offerte} />
+          <MarketFreshness {...freshness} showSource={isEnergy} />
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 mb-4">
             {confronto.costo_materia_mensile_attuale !== null && (
               <Stat label="Materia energia/mese" value={fmt(confronto.costo_materia_mensile_attuale)} mono />
@@ -274,6 +279,9 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
               ? "Il confronto con le offerte di mercato è temporaneamente non disponibile. La lettura della bolletta è completa; il confronto verrà aggiornato automaticamente oppure puoi aggiornarlo ora."
               : TEXTS.analysis.noMarketData}
           </p>
+          {isEnergy && freshness.snapshotAt && <p className="mt-2 text-xs text-muted">
+            Ultimi dati ARERA disponibili del {formatSnapshotDate(freshness.snapshotAt)}.
+          </p>}
         </Card>
       )}
 
@@ -290,24 +298,24 @@ export default function BollettaReport({ data, documentId }: BollettaReportProps
   );
 }
 
-function MarketFreshness({ aggiornatoAl, offerte }: { aggiornatoAl?: string | null; offerte: OffertaMercato[] }) {
-  const [now] = useState(() => Date.now());
-  const scadute = offerte.filter((o) => o.offerta_fine && new Date(o.offerta_fine).getTime() <= now).length;
-  const aggiornato = aggiornatoAl ? new Date(aggiornatoAl) : null;
-  const datiVecchi = aggiornato !== null && isMarketDataStale(aggiornato, new Date(now));
+function formatSnapshotDate(date: Date) {
+  return date.toLocaleDateString("it-IT", { timeZone: "UTC" });
+}
 
+function MarketFreshness({ snapshotAt, expiredCount, stale, showSource }: ReturnType<typeof getMarketFreshness> & { showSource: boolean }) {
   return (
     <div className="mb-4 space-y-2">
-      {aggiornato && (
-        <p className="text-xs text-muted">
-          Offerte valide del portale ARERA aggiornate al {aggiornato.toLocaleDateString("it-IT")}.
+      {showSource && snapshotAt && (
+        <p className="text-xs text-muted">Data dei dati ARERA usati nel confronto · {formatSnapshotDate(snapshotAt)}</p>
+      )}
+      {expiredCount > 0 && (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          {expiredCount === 1 ? "Un’offerta di questo confronto è scaduta." : `${expiredCount} offerte di questo confronto sono scadute.`} Aggiorna il confronto per vedere le offerte disponibili.
         </p>
       )}
-      {(scadute > 0 || datiVecchi) && (
+      {showSource && stale && (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-          {scadute > 0
-            ? `${scadute === 1 ? "Un'offerta" : `${scadute} offerte`} di questo confronto ${scadute === 1 ? "è scaduta" : "sono scadute"}: aggiorna il confronto mercato per ricalcolare il risparmio sulle offerte disponibili oggi.`
-            : "I dati di mercato non sono aggiornati da più di una settimana: le offerte potrebbero essere cambiate."}
+          {snapshotAt ? "Il file ARERA risale a più di una settimana fa. Le offerte potrebbero essere cambiate." : "La data dei dati di mercato non è disponibile per questo confronto. Aggiornalo per verificare le offerte."}
         </p>
       )}
     </div>

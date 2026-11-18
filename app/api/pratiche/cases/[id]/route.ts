@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { apiError, apiUser, smallJson } from "@/lib/pratiche/api";
 import { caseView, readCase, updateCase } from "@/lib/pratiche/service";
 import { prisma } from "@/lib/prisma";
+import { logOperationalEvent } from "@/lib/observability/operations";
+
+const RESUME_VISIT_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -28,9 +31,13 @@ export async function PATCH(request: Request, context: Context) {
     else if (body.kind === "step" && typeof body.stepId === "string" && typeof body.done === "boolean") mutation = { kind: "step" as const, stepId: body.stepId, done: body.done };
     else if (body.kind === "status" && ["USER_REPORTED_SUBMITTED", "COMPLETED", "CANCELLED"].includes(String(body.status))) mutation = { kind: "status" as const, status: body.status as "USER_REPORTED_SUBMITTED" | "COMPLETED" | "CANCELLED" };
     else return NextResponse.json({ error: "Operazione non valida." }, { status: 400 });
-    await updateCase(user.userId, id, body.expectedRevision, mutation);
+    const { advanced } = await updateCase(user.userId, id, body.expectedRevision, mutation);
+    const resumeVisit = body.resumeVisit;
+    if (advanced && typeof resumeVisit === "string" && RESUME_VISIT_PATTERN.test(resumeVisit)) {
+      logOperationalEvent("pratiche.dashboard_resume_advanced", { resumeVisit });
+    }
     const record = await readCase(user.userId, id);
-    return NextResponse.json({ case: record ? caseView(record) : null }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ case: record ? caseView(record) : null, advanced }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return apiError(error); }
 }
 

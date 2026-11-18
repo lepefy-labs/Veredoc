@@ -33,12 +33,13 @@ async function seedBills(email: string, count: number) {
       [`e2e-${userId}-${index}`, userId, profileId, `bolletta-${index + 1}.pdf`, JSON.stringify(analysis), String(30 * index)]
     );
   }
+  return { userId, profileId };
 }
 
-test("dashboard: riepiloghi paginati, nessun dato completo dell'analisi nella pagina", async ({ page }) => {
+test("dashboard: riepiloghi paginati, nessun dato completo dell'analisi nella pagina", async ({ page, browser }) => {
   const email = uniqueEmail("dashboard");
   await register(page, email);
-  await seedBills(email, 12);
+  const { userId, profileId } = await seedBills(email, 12);
   await login(page, email);
   await expect(page).toHaveURL(/\/dashboard$/);
 
@@ -48,9 +49,34 @@ test("dashboard: riepiloghi paginati, nessun dato completo dell'analisi nella pa
   await expect(page.getByText("50,00 €").first()).toBeVisible();
   await expect(page.getByText("bolletta-11.pdf")).toHaveCount(0);
 
+  expect(await page.content()).not.toContain("bolletta-11.pdf");
+  const loadPage = page.waitForResponse((response) =>
+    response.url().includes(`/api/profiles/${profileId}/documents?`)
+  );
   await page.getByRole("button", { name: "Mostra altri 2 di 2" }).click();
+  const response = await loadPage;
+  expect(response.ok()).toBe(true);
+  const pagination = await response.json();
+  expect(pagination.documents.map((document: { fileName: string }) => document.fileName))
+    .toEqual(["bolletta-11.pdf", "bolletta-12.pdf"]);
+  expect(JSON.stringify(pagination)).not.toContain(SENSITIVE_MARKER);
   await expect(page.getByText("bolletta-12.pdf")).toBeVisible();
 
   // L'HTML e il payload RSC non contengono campi dell'analisi non mostrati.
   expect(await page.content()).not.toContain(SENSITIVE_MARKER);
+
+  const stranger = await browser.newContext();
+  try {
+    const url = `/api/profiles/${profileId}/documents?cursor=e2e-${userId}-9`;
+    expect((await stranger.request.get(new URL(url, page.url()).toString())).status()).toBe(401);
+    const other = await stranger.newPage();
+    const otherEmail = uniqueEmail("dashboard-stranger");
+    await register(other, otherEmail);
+    await login(other, otherEmail);
+    const foreign = await other.request.get(url);
+    expect(foreign.ok()).toBe(true);
+    expect(await foreign.json()).toEqual({ documents: [], nextCursor: null });
+  } finally {
+    await stranger.close();
+  }
 });

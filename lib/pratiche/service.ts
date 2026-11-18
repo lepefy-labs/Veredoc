@@ -114,6 +114,7 @@ export async function updateCase(userId: string, id: string, expectedRevision: n
     const workflow = parseWorkflow(record.procedureVersion.definition);
     const answers = Object.fromEntries(record.answers.map((answer) => [answer.questionId, answer.value])) as Record<string, Answer>;
     const completed = new Set(record.steps.filter((step) => step.status === "DONE").map((step) => step.stepId));
+    const previousDone = progress(workflow, answers, completed).done;
     let value: Answer | undefined;
     if (mutation.kind === "answer") {
       const index = workflow.questions.findIndex((question) => question.id === mutation.questionId);
@@ -148,6 +149,6 @@ export async function updateCase(userId: string, id: string, expectedRevision: n
     }
     if (mutation.kind === "step") await tx.caseStep.upsert({ where: { caseId_stepId: { caseId: id, stepId: mutation.stepId } }, create: { caseId: id, stepId: mutation.stepId, status: mutation.done ? "DONE" : "PENDING", completedAt: mutation.done ? new Date() : null }, update: { status: mutation.done ? "DONE" : "PENDING", completedAt: mutation.done ? new Date() : null } });
     await tx.caseEvent.create({ data: { caseId: id, actorId: userId, type: mutation.kind === "status" ? mutation.status : mutation.kind === "answer" ? "ANSWERED" : "STEP_UPDATED", metadata: mutation.kind === "answer" ? { questionId: mutation.questionId } : mutation.kind === "step" ? { stepId: mutation.stepId } : undefined } });
-    return { revision: expectedRevision + 1 };
+    return { revision: expectedRevision + 1, advanced: state.done > previousDone };
   });
 }
