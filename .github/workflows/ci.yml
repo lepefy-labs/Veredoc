@@ -58,6 +58,9 @@ jobs:
   e2e:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.1-noble@sha256:05dd3db430e2e4191e787e88168673c71683856c7ffebcb63ad8b033783c28e5
+      options: --ipc=host
     services:
       postgres:
         image: postgres:16
@@ -65,8 +68,6 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: veredoc_e2e
-        ports:
-          - 5432:5432
         options: >-
           --health-cmd "pg_isready -U postgres"
           --health-interval 5s
@@ -74,8 +75,8 @@ jobs:
           --health-retries 10
     env:
       CI: "true"
-      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/veredoc_e2e
-      DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/veredoc_e2e
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/veredoc_e2e
+      DIRECT_URL: postgresql://postgres:postgres@postgres:5432/veredoc_e2e
       NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
       NEXT_PUBLIC_SUPABASE_ANON_KEY: test-anon-key
       SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
@@ -100,9 +101,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Install Chromium
-        run: pnpm exec playwright install --with-deps chromium
 
       - name: Create database schema
         run: pnpm prisma db push
