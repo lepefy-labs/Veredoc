@@ -170,7 +170,6 @@ export default function DocumentList({ initialPage, documentCount, profiles, cur
       {extra.nextCursor && (
         <button
           type="button"
-          type="button"
           onClick={loadMore}
           disabled={loadingPage || deleting || movingId !== null}
           className="mt-3 min-h-11 w-full rounded-xl border border-line bg-white px-4 text-sm font-medium text-brand hover:bg-brand-soft"
