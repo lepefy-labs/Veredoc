@@ -4,7 +4,8 @@ import { defineConfig, devices } from "@playwright/test";
 // e Postgres reale con schema da `prisma db push` (vedi scripts/e2e-env.sh e CI).
 // Nessuna dipendenza esterna: Storage, AI ed email non vengono chiamati da questi flussi.
 const PORT = Number(process.env.E2E_PORT ?? 3100);
-const baseURL = `http://127.0.0.1:${PORT}`;
+// Next.js/Auth.js usa localhost nei redirect del server di test. Mantieni la stessa origine dei cookie.
+const baseURL = `http://localhost:${PORT}`;
 
 export default defineConfig({
   testDir: "./e2e",
