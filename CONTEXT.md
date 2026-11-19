@@ -1,6 +1,6 @@
 # CONTEXT.md — Veredoc
 
-> Aggiornato: 2026-11-18. Ripresa Pratiche dalla dashboard, paginazione documenti lato server e controllo degli aggiornamenti ARERA.
+> Aggiornato: 2026-11-19. Guide pubbliche, acquisizione organica e pilota CAF per la preparazione ISEE.
 
 ---
 
@@ -399,7 +399,9 @@ Il pagamento PRO non esiste: i testi dicono di scrivere a `ciao@veredoc.it` e il
 - **Stato sessione** (`lib/account/state.ts`): il callback `jwt` usa una cache per istanza di 15 s (massimo 5.000 utenti). Le scritture della stessa istanza la invalidano; tra istanze diverse un cambio di piano/email o la revoca delle sessioni dopo un cambio password si propagano entro 15 s. Login, pagina account, API email e dispatcher notifiche leggono senza cache.
 - **Avvisi operativi** (`instrumentation.ts`, `lib/observability/alerts.ts`): con `OPS_ALERT_EMAIL` configurata, ogni evento di log di livello `error` (escluso `analysis.failed`, coperto da `analysis.attempts_exhausted`) e ogni errore server non gestito (`onRequestError`, solo percorso senza query string, tipo e digest) inviano un'email via Brevo. Massimo un'email all'ora per tipo di evento (rate limit su Postgres, condiviso tra istanze); senza rate limit verificabile l'avviso non parte. Nessun contenuto dei documenti.
 - **Dominio canonico**: `https://www.veredoc.it` per metadati (`metadataBase`, canonical, Open Graph), link delle email (`getAppBaseUrl()`, incluso il reset password), workflow n8n e documentazione.
-- **Home** (`app/page.tsx`): presenta Pratiche come percorso principale quando `PRATICHE_ENABLED=true`, con accesso alle tre guide pubblicate, e distingue il modulo dall'analisi documenti e dai relativi piani. Senza il flag mostra solo l'analisi documenti. Gli utenti con sessione vengono reindirizzati dal middleware alla dashboard. I link a Pratiche conservano il percorso richiesto dopo il login, tramite la lista di ritorni interni consentiti in `lib/security/redirect.ts`.
+- **Home** (`app/page.tsx`): con `PRATICHE_ENABLED=true`, porta alle guide pubbliche e distingue la consultazione gratuita dalla checklist salvata. La checklist conserva la destinazione dopo il login tramite `lib/security/redirect.ts`. Gli utenti con sessione che aprono la home vengono reindirizzati alla dashboard.
+- **Guide pubbliche** (`/guide` e `/guide/[slug]`): l’elenco e il dettaglio usano solo le edizioni pilota esplicitamente associate ai relativi slug. Il contenuto viene mostrato solo se la versione è pubblicata e le fonti soddisfano i controlli correnti del catalogo. La sitemap include solo le guide effettivamente disponibili. Il flusso salvato resta in `/pratiche`.
+- **Pilota CAF** (`/per-i-caf`): pagina con proposta commerciale e contatto email. Il link ISEE condiviso dal CAF usa `?da=caf`. L’avvio salva `caf_pilot` o `public_guide` nel campo `metadata.entryPoint` dell’evento `CREATED`, conservando l’idempotenza. Il valore indica un canale di ingresso. La conferma di completezza, i tempi e i risultati economici vengono raccolti con la sede secondo il [piano operativo](docs/pilota-caf.md).
 
 ---
 

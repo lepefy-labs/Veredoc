@@ -56,14 +56,16 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const praticheAvailable = praticheEnabled();
+
   return (
     <html lang="it" className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-page text-ink">
         <Providers>
-          <Navbar praticheAvailable={praticheEnabled()} />
+          <Navbar praticheAvailable={praticheAvailable} />
           {children}
         </Providers>
-        <Footer />
+        <Footer praticheAvailable={praticheAvailable} />
         <PwaRegistration />
         <Analytics />
       </body>

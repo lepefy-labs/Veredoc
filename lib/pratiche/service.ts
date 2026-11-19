@@ -1,3 +1,4 @@
+import type { PracticeEntryPoint } from "./entry-point";
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
@@ -31,9 +32,16 @@ export function isPublishable(version: Prisma.ProcedureVersionGetPayload<{ inclu
   return hasVerifiedCoverage(version);
 }
 
-export async function catalog() {
+export async function catalog(publishedSlugs?: string[]) {
   const rows = await prisma.procedureDefinition.findMany({
-    include: { versions: { include: versionInclude, orderBy: { version: "desc" } } },
+    where: publishedSlugs ? { slug: { in: publishedSlugs }, status: "PUBLISHED" } : undefined,
+    include: {
+      versions: {
+        where: publishedSlugs ? { status: "PUBLISHED" } : undefined,
+        include: versionInclude,
+        orderBy: { version: "desc" },
+      },
+    },
     orderBy: { title: "asc" },
   });
   return rows.map((procedure) => {
@@ -54,7 +62,7 @@ export async function catalog() {
   });
 }
 
-export async function startCase(userId: string, slug: string, profileId: string, idempotencyKey?: string) {
+export async function startCase(userId: string, slug: string, profileId: string, idempotencyKey?: string, entryPoint?: PracticeEntryPoint) {
   const profile = await prisma.analysisProfile.findFirst({ where: { id: profileId, userId }, select: { id: true } });
   if (!profile) throw new PracticeError("Profilo non valido.", 403);
   const procedure = (await catalog()).find((item) => item.slug === slug);
@@ -66,7 +74,7 @@ export async function startCase(userId: string, slug: string, profileId: string,
   try {
     return await prisma.userCase.create({
       data: { userId, profileId, procedureVersionId: procedure.versionId, title: procedure.title, status: "IN_PROGRESS", idempotencyKey: idempotencyKey || null,
-        events: { create: { type: "CREATED", actorId: userId } } },
+        events: { create: { type: "CREATED", actorId: userId, metadata: entryPoint ? { entryPoint } : undefined } } },
     });
   } catch (error) {
     if (idempotencyKey && error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {

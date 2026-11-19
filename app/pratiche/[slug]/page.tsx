@@ -1,4 +1,6 @@
+import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
+import { practiceEntryPoint } from "@/lib/pratiche/entry-point";
 import { prisma } from "@/lib/prisma";
 import { catalog, praticheEnabled, praticheSchemaReady } from "@/lib/pratiche/service";
 import StartPractice from "@/components/pratiche/StartPractice";
@@ -8,11 +10,17 @@ import { practicalGuide } from "@/lib/pratiche/guide-content";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 
-export default async function ProcedurePage({ params }: { params: Promise<{ slug: string }> }) {
+export const metadata: Metadata = { robots: { index: false, follow: false } };
+
+export default async function ProcedurePage({ params, searchParams }: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ da?: string | string[] }>;
+}) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   if (!praticheEnabled() || !await praticheSchemaReady()) notFound();
-  const { slug } = await params;
+  const [{ slug }, { da }] = await Promise.all([params, searchParams]);
+  const entryPoint = practiceEntryPoint(da, slug);
   const item = (await catalog()).find((candidate) => candidate.slug === slug);
   if (!item) notFound();
   const guide = item.available ? practicalGuide(item.versionId) : undefined;
@@ -28,7 +36,7 @@ export default async function ProcedurePage({ params }: { params: Promise<{ slug
       <section aria-labelledby="guide-checklist" className="mt-6 rounded-xl border border-line bg-white p-5">
         <h2 id="guide-checklist" className="text-lg font-semibold">Checklist di Veredoc</h2>
         <p className="mt-1 text-sm text-muted">Tieni traccia di ciò che hai preparato e dei passaggi che hai completato.</p>
-        <div className="mt-4"><StartPractice slug={slug} profiles={profiles} /></div>
+        <div className="mt-4"><StartPractice slug={slug} profiles={profiles} entryPoint={entryPoint} /></div>
       </section>
       <details className="mt-6 rounded-xl border border-line bg-white p-5">
         <summary className="cursor-pointer font-semibold text-brand">Informazioni e fonti ufficiali</summary>

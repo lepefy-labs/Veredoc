@@ -12,12 +12,11 @@ test.describe("accesso e account", () => {
     await expect(page).toHaveURL(/\/analyze\?id=documento-di-prova$/);
   });
 
-  test("landing: Pratiche si apre dopo il login", async ({ page }) => {
+  test("il catalogo privato Pratiche si apre dopo il login", async ({ page }) => {
     const email = uniqueEmail("pratiche-redirect");
     await register(page, email);
 
-    await page.goto("/");
-    await page.getByRole("link", { name: "Esplora Pratiche" }).click();
+    await page.goto("/pratiche");
     await expect(page).toHaveURL(/\/login\?callbackUrl=%2Fpratiche$/);
     await login(page, email);
     await expect(page).toHaveURL(/\/pratiche$/);

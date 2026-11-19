@@ -1,11 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import type { PracticeEntryPoint } from "@/lib/pratiche/entry-point";
 import { useRef, useState } from "react";
 
 type Profile = { id: string; label: string; kind: string };
 
-export default function StartPractice({ slug, profiles }: { slug: string; profiles: Profile[] }) {
+export default function StartPractice({ slug, profiles, entryPoint }: { slug: string; profiles: Profile[]; entryPoint?: PracticeEntryPoint }) {
   const router = useRouter();
   const [profileId, setProfileId] = useState(profiles[0]?.id ?? "");
   const [busy, setBusy] = useState(false);
@@ -15,7 +16,7 @@ export default function StartPractice({ slug, profiles }: { slug: string; profil
     setBusy(true); setError("");
     try {
       requestKey.current ??= crypto.randomUUID();
-      const response = await fetch("/api/pratiche/cases", { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": requestKey.current }, body: JSON.stringify({ slug, profileId }) });
+      const response = await fetch("/api/pratiche/cases", { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": requestKey.current }, body: JSON.stringify({ slug, profileId, entryPoint }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "Non è stato possibile avviare la pratica.");
       router.push(`/pratiche/caso/${data.id}`);
