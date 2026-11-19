@@ -61,11 +61,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       // Riletto a ogni richiesta: piano ed email aggiornati, account eliminato e
       // sessioni emesse prima di un cambio/reset password non più valide.
       // Al login lettura senza cache: la versione di sessione salvata nel token deve essere attuale.
-      const state = await getAccountSessionState(token.id as string, { fresh: Boolean(user) });
+      const userId = token.id as string;
+      const tokenVersion = (token.sv as number | undefined) ?? 0;
+      let state = await getAccountSessionState(userId, { fresh: Boolean(user) });
+      // Dopo il login un'altra istanza può avere ancora in cache la versione precedente.
+      // Verifica sul database prima di respingere un token appena emesso.
+      if (!user && state?.sessionVersion != null && tokenVersion > state.sessionVersion) {
+        state = await getAccountSessionState(userId, { fresh: true });
+      }
       if (!state) return null;
       if (user) {
         token.sv = state.sessionVersion ?? 0;
-      } else if (state.sessionVersion !== null && state.sessionVersion !== ((token.sv as number | undefined) ?? 0)) {
+      } else if (state.sessionVersion !== null && state.sessionVersion !== tokenVersion) {
         return null;
       }
       token.plan = state.plan === "PRO" ? "PRO" : "FREE";
