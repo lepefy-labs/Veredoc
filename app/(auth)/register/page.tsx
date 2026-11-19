@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useState, FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState, FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import { TEXTS } from "@/lib/config/texts";
 import VeredocLogo from "@/components/ui/VeredocLogo";
+import { safeCallbackPath } from "@/lib/security/redirect";
 
-export default function RegisterPage() {
-  const router = useRouter();
+function RegisterContent() {
+  const callbackPath = safeCallbackPath(useSearchParams().get("callbackUrl"), "");
+  const loginHref = callbackPath ? `/login?callbackUrl=${encodeURIComponent(callbackPath)}` : "/login";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -20,8 +22,8 @@ export default function RegisterPage() {
   const { status } = useSession();
 
   useEffect(() => {
-    if (status === "authenticated") router.replace("/dashboard");
-  }, [status, router]);
+    if (status === "authenticated") window.location.replace(callbackPath || "/dashboard");
+  }, [status, callbackPath]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -47,7 +49,9 @@ export default function RegisterPage() {
       return;
     }
 
-    router.push("/login?registered=1");
+    const query = new URLSearchParams({ registered: "1" });
+    if (callbackPath) query.set("callbackUrl", callbackPath);
+    window.location.replace(`/login?${query}`);
   }
 
   return (
@@ -60,7 +64,7 @@ export default function RegisterPage() {
         </div>
         <p className="text-sm text-center text-muted mb-6">
           {TEXTS.auth.hasAccount}{" "}
-          <Link href="/login" className="text-brand font-medium hover:underline">{TEXTS.auth.signIn}</Link>
+          <Link href={loginHref} className="text-brand font-medium hover:underline">{TEXTS.auth.signIn}</Link>
         </p>
 
         <Card>
@@ -138,5 +142,13 @@ export default function RegisterPage() {
         </Card>
       </div>
     </main>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<main className="flex min-h-screen items-center justify-center px-4 text-muted">Caricamento...</main>}>
+      <RegisterContent />
+    </Suspense>
   );
 }

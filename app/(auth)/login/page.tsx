@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState, FormEvent } from "react";
 import { signIn, useSession } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -11,19 +11,20 @@ import VeredocLogo from "@/components/ui/VeredocLogo";
 import { safeCallbackPath } from "@/lib/security/redirect";
 
 function LoginContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const justRegistered = searchParams.get("registered") === "1";
   const passwordChanged = searchParams.get("passwordChanged") === "1";
   const { status } = useSession();
   const callbackUrl = searchParams.get("callbackUrl");
+  const registrationCallback = safeCallbackPath(callbackUrl, "");
+  const registerHref = registrationCallback ? `/register?callbackUrl=${encodeURIComponent(registrationCallback)}` : "/register";
 
   // Sessione già valida (verificata dal server): niente form di accesso.
   useEffect(() => {
     if (status === "authenticated") {
-      router.replace(safeCallbackPath(callbackUrl, "/dashboard", window.location.origin));
+      window.location.replace(safeCallbackPath(callbackUrl, "/dashboard", window.location.origin));
     }
-  }, [status, callbackUrl, router]);
+  }, [status, callbackUrl]);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -50,7 +51,7 @@ function LoginContent() {
       return;
     }
 
-    router.push(safeCallbackPath(callbackUrl, "/dashboard", window.location.origin));
+    window.location.replace(safeCallbackPath(callbackUrl, "/dashboard", window.location.origin));
   }
 
   return (
@@ -63,7 +64,7 @@ function LoginContent() {
         </div>
         <p className="text-sm text-center text-muted mb-6">
           {TEXTS.auth.noAccount}{" "}
-          <Link href="/register" className="text-brand font-medium hover:underline">{TEXTS.auth.signUp}</Link>
+          <Link href={registerHref} className="text-brand font-medium hover:underline">{TEXTS.auth.signUp}</Link>
         </p>
 
         {justRegistered && (

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { prisma } from "../lib/prisma";
-import { login, register, uniqueEmail } from "./helpers";
+import { login, PASSWORD, register, testIp, uniqueEmail } from "./helpers";
 
 async function createPublishedFixture(versionId?: string, publicSlug?: string) {
   if (versionId) {
@@ -158,7 +158,7 @@ test("@mobile mostra documenti, passaggi e servizio ANPR prima della checklist",
 test("@mobile le guide sono pubbliche e il link CAF conserva il percorso dopo il login", async ({ page }) => {
   const slug = await createPublishedFixture("pv_isee_1", "preparazione-dsu-isee");
   const email = uniqueEmail("isee-caf");
-  await register(page, email);
+  await page.setExtraHTTPHeaders({ "x-forwarded-for": testIp() });
   await page.goto("/");
   await page.getByRole("link", { name: "Leggi le guide gratuite" }).click();
   await expect(page).toHaveURL(/\/guide$/);
@@ -182,6 +182,13 @@ test("@mobile le guide sono pubbliche e il link CAF conserva il percorso dopo il
 
   await page.getByRole("link", { name: "Continua con la checklist" }).click();
   await expect(page).toHaveURL(/\/login\?callbackUrl=%2Fpratiche%2Fpreparazione-dsu-isee%3Fda%3Dcaf_pilot$/);
+  await page.getByRole("main").getByRole("link", { name: /registrati/i }).click();
+  await expect(page).toHaveURL(/\/register\?callbackUrl=%2Fpratiche%2Fpreparazione-dsu-isee%3Fda%3Dcaf_pilot$/);
+  await page.getByLabel(/email/i).fill(email);
+  await page.getByLabel(/^password/i).fill(PASSWORD);
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: /registr|crea/i }).click();
+  await expect(page).toHaveURL(/\/login\?registered=1&callbackUrl=%2Fpratiche%2Fpreparazione-dsu-isee%3Fda%3Dcaf_pilot$/);
   await login(page, email);
   await expect(page).toHaveURL(/\/pratiche\/preparazione-dsu-isee\?da=caf_pilot$/);
   await page.getByRole("button", { name: "Avvia la checklist" }).click();
