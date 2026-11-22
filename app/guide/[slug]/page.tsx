@@ -6,7 +6,17 @@ import { publicGuide, publicGuides } from "@/lib/pratiche/public-guides";
 
 export const dynamic = "force-dynamic";
 
-const familyGuideSlugs = new Set(["preparazione-dsu-isee", "assegno-unico", "bonus-asilo-nido"]);
+const relatedSlugs: Readonly<Record<string, readonly string[]>> = {
+  "cambio-residenza": ["voltura-o-subentro-luce-gas"],
+  "preparazione-dsu-isee": ["assegno-unico", "bonus-asilo-nido", "isee-corrente", "bonus-sociale-luce-gas-acqua", "bonus-nuovi-nati-2026"],
+  "assegno-unico": ["preparazione-dsu-isee", "bonus-asilo-nido", "bonus-nuovi-nati-2026"],
+  "bonus-asilo-nido": ["preparazione-dsu-isee", "assegno-unico", "bonus-nuovi-nati-2026"],
+  "bonus-sociale-luce-gas-acqua": ["preparazione-dsu-isee", "isee-corrente", "come-leggere-bolletta-luce-gas"],
+  "come-leggere-bolletta-luce-gas": ["bonus-sociale-luce-gas-acqua", "voltura-o-subentro-luce-gas"],
+  "voltura-o-subentro-luce-gas": ["cambio-residenza", "come-leggere-bolletta-luce-gas"],
+  "isee-corrente": ["preparazione-dsu-isee", "bonus-sociale-luce-gas-acqua"],
+  "bonus-nuovi-nati-2026": ["preparazione-dsu-isee", "assegno-unico", "bonus-asilo-nido"],
+};
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -32,9 +42,8 @@ export default async function PublicGuidePage({ params, searchParams }: Props) {
   const [{ slug }, { da }] = await Promise.all([params, searchParams]);
   const item = await publicGuide(slug);
   if (!item) notFound();
-  const related = familyGuideSlugs.has(slug)
-    ? (await publicGuides()).filter((candidate) => candidate.slug !== slug && familyGuideSlugs.has(candidate.slug))
-    : [];
+  const related = (await publicGuides()).filter((candidate) => relatedSlugs[slug]?.includes(candidate.slug));
+  const isBillGuide = slug === "come-leggere-bolletta-luce-gas";
   const entryPoint = slug === "preparazione-dsu-isee" && da === "caf" ? "caf_pilot" : "public_guide";
 
   return (
@@ -44,10 +53,16 @@ export default async function PublicGuidePage({ params, searchParams }: Props) {
       <p className="mt-3 leading-7 text-muted">{item.description}</p>
       <PracticalGuide guide={item.guide} checklistEdition={item.versionId} />
       <section aria-labelledby="save-checklist" className="mt-6 rounded-xl border border-line bg-white p-5 sm:p-6 print:hidden">
-        <h2 id="save-checklist" className="text-lg font-semibold text-ink">Apri la pratica guidata</h2>
-        <p className="mt-2 text-sm leading-6 text-muted">Accedi per rispondere alle domande della pratica e salvare i passaggi nel tuo account. Le spunte di questa pagina restano nel browser.</p>
-        <Link href={`/pratiche/${item.slug}?da=${entryPoint}`} prefetch={false} className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark">
-          Continua con la checklist
+        <h2 id="save-checklist" className="text-lg font-semibold text-ink">
+          {isBillGuide ? "Analizza la tua bolletta" : "Apri la pratica guidata"}
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-muted">
+          {isBillGuide
+            ? "Accedi per caricare una bolletta e vedere un riepilogo di costi, consumi e condizioni."
+            : "Accedi per salvare i passaggi della pratica nel tuo account. Le spunte di questa pagina restano nel browser."}
+        </p>
+        <Link href={isBillGuide ? "/analyze" : `/pratiche/${item.slug}?da=${entryPoint}`} prefetch={false} className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark">
+          {isBillGuide ? "Vai all’analisi della bolletta" : "Continua con la checklist"}
         </Link>
       </section>
       {related.length > 0 && <section aria-labelledby="related-guides" className="mt-6 rounded-xl border border-line bg-white p-5 print:hidden">

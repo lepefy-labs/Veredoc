@@ -8,6 +8,11 @@ const PUBLIC_EDITIONS = [
   { slug: "preparazione-dsu-isee", versionId: "pv_isee_1" },
   { slug: "assegno-unico", versionId: "pv_assegno_unico_1" },
   { slug: "bonus-asilo-nido", versionId: "pv_bonus_nido_1" },
+  { slug: "bonus-sociale-luce-gas-acqua", versionId: "pv_bonus_sociale_1" },
+  { slug: "come-leggere-bolletta-luce-gas", versionId: "pv_lettura_bolletta_1" },
+  { slug: "voltura-o-subentro-luce-gas", versionId: "pv_voltura_subentro_1" },
+  { slug: "isee-corrente", versionId: "pv_isee_corrente_1" },
+  { slug: "bonus-nuovi-nati-2026", versionId: "pv_bonus_nuovi_nati_2026_1" },
 ];
 
 export const publicGuides = cache(async () => {

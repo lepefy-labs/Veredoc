@@ -253,3 +253,39 @@ test("le nuove guide INPS sono pubbliche, collegate all’ISEE e incluse nella s
   expect(xml).toContain("https://www.veredoc.it/guide/assegno-unico");
   expect(xml).toContain("https://www.veredoc.it/guide/bonus-asilo-nido");
 });
+
+test("le guide su bollette, casa e agevolazioni sono accessibili senza account", async ({ page }) => {
+  const editions = [
+    ["pv_bonus_sociale_1", "bonus-sociale-luce-gas-acqua"],
+    ["pv_lettura_bolletta_1", "come-leggere-bolletta-luce-gas"],
+    ["pv_voltura_subentro_1", "voltura-o-subentro-luce-gas"],
+    ["pv_isee_corrente_1", "isee-corrente"],
+    ["pv_bonus_nuovi_nati_2026_1", "bonus-nuovi-nati-2026"],
+  ];
+
+  for (const [versionId, slug] of editions) {
+    await createPublishedFixture(versionId, slug);
+  }
+  await createPublishedFixture("pv_isee_1", "preparazione-dsu-isee");
+
+  await page.goto("/guide");
+  const index = page.getByRole("main");
+  const sitemap = await page.request.get("/sitemap.xml");
+  await expect(sitemap).toBeOK();
+  const xml = await sitemap.text();
+
+  for (const [, slug] of editions) {
+    const path = `/guide/${slug}`;
+    await expect(index.locator(`a[href="${path}"]`)).toBeVisible();
+    const guide = await page.request.get(path);
+    await expect(guide).toBeOK();
+    expect(xml).toContain(`https://www.veredoc.it${path}`);
+  }
+
+  await page.goto("/guide/come-leggere-bolletta-luce-gas");
+  const example = page.getByRole("table", { name: "Esempio di lettura dello scontrino luce" });
+  await expect(example.getByRole("row", { name: /Subtotale dell’esempio/ })).toContainText("39,40 €");
+  await expect(page.getByRole("link", { name: "Vai all’analisi della bolletta" })).toHaveAttribute("href", "/analyze");
+  await page.getByRole("region", { name: "Guide collegate" }).locator('a[href="/guide/bonus-sociale-luce-gas-acqua"]').click();
+  await expect(page.getByRole("region", { name: "Guide collegate" }).locator('a[href="/guide/preparazione-dsu-isee"]')).toBeVisible();
+});

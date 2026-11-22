@@ -5,7 +5,7 @@ export default function PracticalGuide({ guide, checklistEdition }: { guide: Gui
   return (
     <div className="mt-6 space-y-5">
       <section aria-labelledby="guide-destination" className="rounded-xl border border-brand/20 bg-brand-soft p-5 sm:p-6">
-        <h2 id="guide-destination" className="text-lg font-semibold text-ink">Dove presentare la richiesta</h2>
+        <h2 id="guide-destination" className="text-lg font-semibold text-ink">{guide.destinationHeading ?? "Dove presentare la richiesta"}</h2>
         <p className="mt-2 text-sm leading-6 text-ink">{guide.destination}</p>
         <a href={guide.link.href} data-guide-print-url={guide.link.href} className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark">
           {guide.link.label}
@@ -28,7 +28,7 @@ export default function PracticalGuide({ guide, checklistEdition }: { guide: Gui
       </section>
 
       <section aria-labelledby="guide-steps" className="rounded-xl border border-line bg-white p-5 sm:p-6">
-        <h2 id="guide-steps" className="text-lg font-semibold text-ink">Passaggi sul portale ufficiale</h2>
+        <h2 id="guide-steps" className="text-lg font-semibold text-ink">{guide.stepsHeading ?? "Passaggi sul portale ufficiale"}</h2>
         <ol className="mt-4 list-decimal space-y-4 pl-5 marker:font-semibold marker:text-brand">
           {guide.steps.map(({ title, detail }) => (
             <li key={title} className="pl-1 print:break-inside-avoid">
@@ -41,6 +41,30 @@ export default function PracticalGuide({ guide, checklistEdition }: { guide: Gui
           {guide.source.label}
         </a>
       </section>
+      {guide.example && (
+        <section aria-labelledby="guide-example" className="rounded-xl border border-line bg-white p-5 sm:p-6">
+          <h2 id="guide-example" className="text-lg font-semibold text-ink">{guide.example.title}</h2>
+          <p id="guide-example-details" className="mt-2 text-sm leading-6 text-muted">{guide.example.detail}</p>
+          <table aria-labelledby="guide-example" aria-describedby="guide-example-details" className="mt-4 w-full text-left text-sm text-ink">
+            <thead>
+              <tr className="border-b border-line">
+                <th scope="col" className="py-2 pr-2">Voce</th>
+                <th scope="col" className="py-2 pr-2">Calcolo</th>
+                <th scope="col" className="py-2 text-right">Importo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {guide.example.rows.map(({ label, calculation, amount }) => (
+                <tr key={label} className="border-b border-line last:border-0 last:bg-brand-soft print:break-inside-avoid">
+                  <th scope="row" className="py-2 pr-2 font-semibold">{label}</th>
+                  <td className="py-2 pr-2">{calculation}</td>
+                  <td className="whitespace-nowrap py-2 text-right font-semibold">{amount}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
     </div>
   );
 }

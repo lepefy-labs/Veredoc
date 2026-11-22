@@ -1,14 +1,253 @@
 export type PracticalGuide = {
   destination: string;
+  destinationHeading?: string;
+  stepsHeading?: string;
   link: { label: string; href: string };
   alternative: string;
   documents: { title: string; detail: string }[];
   steps: { title: string; detail: string }[];
   source: { label: string; href: string };
+  example?: {
+    title: string;
+    detail: string;
+    rows: { label: string; calculation: string; amount: string }[];
+  };
 };
 
 // Riepiloghi per le versioni pilota pubblicate. Una nuova versione richiede una propria revisione dei testi.
 const guides: Readonly<Record<string, PracticalGuide>> = {
+  pv_bonus_sociale_1: {
+    destination: "Presenta la DSU per ottenere un ISEE valido. Se la famiglia e la fornitura soddisfano i requisiti, il bonus per disagio economico viene riconosciuto automaticamente.",
+    destinationHeading: "Come ottenere il bonus",
+    stepsHeading: "Cosa controllare e quando",
+    link: {
+      label: "Controlla requisiti e soglie su ARERA",
+      href: "https://www.arera.it/consumatori/bonus-sociale/bonus-sociale-per-disagio-economico/quali-sono-i-requisiti"
+    },
+    alternative: "Puoi presentare la DSU dal Portale unico ISEE o farti aiutare da un CAF. Per alcune forniture condominiali il percorso è diverso.",
+    documents: [
+      {
+        title: "ISEE valido",
+        detail: "Verifica la soglia ARERA dell’anno della DSU e quella applicabile in base ai figli a carico."
+      },
+      {
+        title: "Una bolletta recente",
+        detail: "Se l’utenza è individuale, controlla intestatario e codice della fornitura. L’intestatario deve appartenere al nucleo ISEE e la fornitura deve rispettare i requisiti ARERA."
+      },
+      {
+        title: "Dati dell’utenza condominiale, se applicabile",
+        detail: "Per il gas centralizzato, se ricevi la lettera per comunicare il PDR, chiedi il codice all’amministratore e segui le istruzioni della lettera."
+      }
+    ],
+    steps: [
+      {
+        title: "Presenta o rinnova la DSU",
+        detail: "Controlla che l’attestazione ISEE sia disponibile e confrontala con le soglie pubblicate per l’anno."
+      },
+      {
+        title: "Verifica come arriva lo sconto",
+        detail: "Per le utenze individuali il bonus viene normalmente applicato in bolletta. Consulta le modalità previste da ARERA per gas e acqua condominiali."
+      },
+      {
+        title: "Se il bonus manca, controlla in quest’ordine",
+        detail: "Verifica la data dell’attestazione, i tempi previsti per la fornitura, la corrispondenza dell’intestatario con il nucleo e l’eventuale comunicazione per il gas condominiale. Se i tempi risultano superati, usa i contatti di assistenza indicati da ARERA."
+      }
+    ],
+    source: {
+      label: "ARERA — Come e quando si ricevono i bonus",
+      href: "https://www.arera.it/consumatori/bonus-sociale/bonus-sociale-per-disagio-economico/come-e-quando-si-ricevono"
+    }
+  },
+  pv_lettura_bolletta_1: {
+    destination: "Apri il PDF del fornitore. Nel formato introdotto da ARERA, il frontespizio mostra l’importo da pagare. Nelle pagine successive cerca lo scontrino dell’energia e il box dell’offerta.",
+    destinationHeading: "Dove trovare le informazioni",
+    stepsHeading: "Come leggere la bolletta in tre passaggi",
+    link: {
+      label: "Consulta il formato della bolletta su ARERA",
+      href: "https://www.arera.it/nuova-bolletta"
+    },
+    alternative: "Per verificare come si compone una singola voce, consulta gli elementi di dettaglio indicati dal fornitore.",
+    documents: [
+      {
+        title: "Bolletta completa",
+        detail: "Tieni disponibile il PDF con tutte le pagine, il periodo fatturato e le eventuali informazioni sui ricalcoli."
+      },
+      {
+        title: "Bolletta precedente, se vuoi confrontare i consumi",
+        detail: "Usa un periodo confrontabile e controlla se la bolletta riporta letture effettive, autoletture o consumi stimati."
+      }
+    ],
+    steps: [
+      {
+        title: "Frontespizio — verifica periodo, totale e scadenza",
+        detail: "Controlla i riferimenti della fornitura e i dati di pagamento prima di confrontare due bollette."
+      },
+      {
+        title: "Scontrino dell’energia — separa consumi e quote fisse",
+        detail: "Confronta quantità e unità di misura (kWh per la luce, Smc per il gas). Per la luce controlla anche la quota potenza. Considera le altre voci, le imposte e l’IVA quando ricostruisci il totale."
+      },
+      {
+        title: "Box dell’offerta — verifica le condizioni contrattuali",
+        detail: "Leggi il nome dell’offerta, il tipo di prezzo e le informazioni sulla durata o sulla scadenza delle condizioni economiche. Usa gli elementi di dettaglio se vuoi approfondire un importo."
+      }
+    ],
+    source: {
+      label: "ARERA — La nuova bolletta",
+      href: "https://www.arera.it/nuova-bolletta"
+    },
+    example: {
+      title: "Esempio di lettura dello scontrino luce",
+      detail: "Importi illustrativi per un mese. Per ricostruire il totale della tua bolletta devi considerare anche gli eventuali altri importi, le imposte e l’IVA.",
+      rows: [
+        {
+          label: "Quota consumi",
+          calculation: "150 kWh × 0,16 €/kWh",
+          amount: "24,00 €"
+        },
+        {
+          label: "Quota fissa",
+          calculation: "1 mese × 10,00 €/mese",
+          amount: "10,00 €"
+        },
+        {
+          label: "Quota potenza",
+          calculation: "3 kW × 1,80 €/kW per un mese",
+          amount: "5,40 €"
+        },
+        {
+          label: "Subtotale dell’esempio",
+          calculation: "24,00 € + 10,00 € + 5,40 €",
+          amount: "39,40 €"
+        }
+      ]
+    }
+  },
+  pv_voltura_subentro_1: {
+    destination: "Se la fornitura è attiva, chiedi una voltura al venditore secondo il percorso previsto per quella fornitura. Se il precedente contratto è cessato e la fornitura è disattivata, chiedi un subentro al venditore con cui vuoi stipulare il contratto.",
+    destinationHeading: "A chi chiedere voltura o subentro",
+    stepsHeading: "Come scegliere la pratica e inviare la richiesta",
+    link: {
+      label: "Consulta le pratiche per la luce su ARERA",
+      href: "https://www.arera.it/single-digital-gateway-elettricita"
+    },
+    alternative: "Per il gas trovi il percorso dedicato nella fonte qui sotto. Se l’immobile non è collegato alla rete o il contatore non è mai stato attivato, verifica se serve un allacciamento o una prima attivazione.",
+    documents: [
+      {
+        title: "POD per la luce o PDR per il gas",
+        detail: "Cerca il codice su una bolletta della fornitura precedente. Se non ce l’hai, chiedi al proprietario o al venditore quali dati usare per identificare la fornitura."
+      },
+      {
+        title: "Dati del nuovo intestatario e indirizzo",
+        detail: "Prepara documento di identità, codice fiscale e indirizzo esatto. Chiedi al venditore quali informazioni richiede sul titolo di occupazione dell’immobile."
+      },
+      {
+        title: "Dati del contatore e del pagamento, se richiesti",
+        detail: "Tieni disponibili matricola e lettura del contatore. Prepara l’IBAN se scegli la domiciliazione."
+      }
+    ],
+    steps: [
+      {
+        title: "La fornitura è ancora attiva?",
+        detail: "Sì: chiedi la voltura per cambiare intestatario. No, perché il precedente contratto è cessato: chiedi il subentro per riattivarla. Verifica lo stato separatamente per luce e gas."
+      },
+      {
+        title: "Invia la richiesta al venditore",
+        detail: "Usa il canale indicato dal venditore, seleziona la pratica corretta e comunica POD o PDR con i dati richiesti. Fatti indicare i costi e i tempi per il tuo caso."
+      },
+      {
+        title: "Conserva conferma e controlla l’esito",
+        detail: "Tieni la ricevuta della richiesta. Verifica l’intestazione sulla prima bolletta e, per il subentro, attendi le indicazioni sulla riattivazione."
+      }
+    ],
+    source: {
+      label: "ARERA — Voltura e subentro per il gas",
+      href: "https://www.arera.it/single-digital-gateway-gas"
+    }
+  },
+  pv_isee_corrente_1: {
+    destination: "Apri il Portale unico ISEE di INPS e accedi per compilare la DSU per l’ISEE corrente dopo aver verificato i requisiti del tuo caso.",
+    link: {
+      label: "Apri il Portale unico ISEE",
+      href: "https://www.inps.it/it/it/dettaglio-scheda.it.schede-servizio-strumento.schede-servizi.Portale-unico-ISEE.html"
+    },
+    alternative: "Puoi rivolgerti a un CAF con l’ISEE ordinario e la documentazione della variazione.",
+    documents: [
+      {
+        title: "ISEE ordinario valido",
+        detail: "Recupera l’attestazione e il protocollo della DSU ordinaria."
+      },
+      {
+        title: "Documenti su lavoro, redditi o trattamenti",
+        detail: "Se la variazione è lavorativa o reddituale, prepara le prove pertinenti, ad esempio la comunicazione di cessazione e i documenti sui redditi o trattamenti del periodo richiesto da INPS."
+      },
+      {
+        title: "Dati patrimoniali aggiornati, se pertinenti",
+        detail: "Se chiedi l’aggiornamento per variazione patrimoniale, raccogli i dati del patrimonio mobiliare e immobiliare del nucleo relativi all’anno precedente."
+      }
+    ],
+    steps: [
+      {
+        title: "Individua quale variazione vuoi dichiarare",
+        detail: "Verifica i casi previsti per perdita o variazione del lavoro o dei trattamenti, una variazione dell’indicatore reddituale superiore al 25% o dell’indicatore patrimoniale superiore al 20%. Le soglie si riferiscono agli indicatori del nucleo rispetto all’ISEE ordinario."
+      },
+      {
+        title: "Controlla periodo da documentare e data di presentazione",
+        detail: "Per i redditi il periodo dipende dal caso. Per la componente patrimoniale si può presentare la richiesta dal 1° aprile e si considerano i dati dell’anno precedente."
+      },
+      {
+        title: "Presenta la DSU e controlla la validità della nuova attestazione",
+        detail: "Scarica l’attestazione da INPS. Verifica la durata applicabile e se un successivo cambiamento di occupazione o di trattamenti richiede un aggiornamento."
+      }
+    ],
+    source: {
+      label: "INPS — Tipologie di ISEE e requisiti dell’ISEE corrente",
+      href: "https://www.inps.it/it/it/dettaglio-approfondimento.schede-informative.49936.tipologie-di-isee.html"
+    }
+  },
+  pv_bonus_nuovi_nati_2026_1: {
+    destination: "Apri la scheda INPS del Bonus nuovi nati e seleziona «Utilizza il servizio». Per gli eventi del 2026 il contributo è di 1.000 euro una tantum, se sussistono i requisiti.",
+    link: {
+      label: "Apri il servizio Bonus nuovi nati su INPS",
+      href: "https://www.inps.it/it/it/dettaglio-scheda.it.schede-servizio-strumento.schede-servizi.bonus-nuovi-nati.html"
+    },
+    alternative: "Puoi usare anche i canali di assistenza indicati dall’INPS, incluso il patronato.",
+    documents: [
+      {
+        title: "Accesso a MyINPS",
+        detail: "Prepara SPID, CIE o CNS per presentare la domanda online."
+      },
+      {
+        title: "Dati del minore",
+        detail: "Tieni a portata di mano codice fiscale e data di nascita o dell’evento riconosciuto dall’INPS. Per adozione o affido preadottivo verifica i dati richiesti dal servizio."
+      },
+      {
+        title: "ISEE applicabile al minore",
+        detail: "Per il 2026 verifica l’ISEE per specifiche prestazioni familiari e per l’inclusione applicabile al minore. La soglia è di 40.000 euro, al netto degli importi dell’Assegno unico secondo le regole INPS."
+      },
+      {
+        title: "Modalità di pagamento",
+        detail: "Prepara i dati necessari per la modalità di pagamento che scegli sul portale."
+      }
+    ],
+    steps: [
+      {
+        title: "Controlla chi può presentare la domanda",
+        detail: "Verifica cittadinanza o titolo di soggiorno, residenza e ISEE sulla scheda ufficiale. Se i genitori non convivono, la richiesta è presentata dal genitore che risiede con il minore."
+      },
+      {
+        title: "Invia la domanda entro 120 giorni dall’evento",
+        detail: "Conta 120 giorni dalla nascita o dall’ingresso in famiglia del minore. Per gli eventi del 2026 precedenti all’apertura del servizio INPS il termine transitorio era il 12 agosto 2026."
+      },
+      {
+        title: "Conserva la ricevuta e segui lo stato",
+        detail: "Torna nel servizio INPS per verificare l’esito della domanda e leggere eventuali comunicazioni."
+      }
+    ],
+    source: {
+      label: "INPS — Requisiti e termini del Bonus nuovi nati",
+      href: "https://www.inps.it/it/it/dettaglio-scheda.it.schede-servizio-strumento.schede-servizi.bonus-nuovi-nati.html"
+    }
+  },
   pv_assegno_unico_1: {
     destination: "Apri la scheda INPS dell’Assegno unico e seleziona «Utilizza il servizio». Da lì puoi controllare una domanda già presentata, aggiornarla o avviarne una nuova.",
     link: {

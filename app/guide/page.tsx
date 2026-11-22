@@ -7,7 +7,7 @@ import { publicGuides } from "@/lib/pratiche/public-guides";
 export const dynamic = "force-dynamic";
 
 const title = "Guide per le pratiche | Veredoc";
-const description = "Scopri cosa preparare, dove presentare la richiesta e quali passaggi seguire per residenza, certificati, ISEE e prestazioni per le famiglie.";
+const description = "Guide gratuite su bollette e utenze, residenza, certificati, ISEE e prestazioni per le famiglie. Trova documenti, passaggi e fonti ufficiali.";
 
 export const metadata: Metadata = {
   title, description,
@@ -22,7 +22,7 @@ export default async function GuidesPage() {
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-10 sm:px-6 sm:py-14">
       <h1 className="text-3xl font-bold tracking-tight text-ink sm:text-4xl">Guide per le pratiche</h1>
-      <p className="mt-3 max-w-2xl leading-7 text-muted">Controlla i documenti da preparare, i passaggi da seguire e il servizio ufficiale a cui inviare la richiesta. Consulta le guide gratuitamente, senza account.</p>
+      <p className="mt-3 max-w-2xl leading-7 text-muted">Controlla i documenti da preparare, i passaggi da seguire e i servizi ufficiali da consultare. Consulta le guide gratuitamente, senza account.</p>
       {guides.length ? (
         <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {guides.map(({ slug, title, description }) => (
