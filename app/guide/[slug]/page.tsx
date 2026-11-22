@@ -33,14 +33,14 @@ export default async function PublicGuidePage({ params, searchParams }: Props) {
   const entryPoint = slug === "preparazione-dsu-isee" && da === "caf" ? "caf_pilot" : "public_guide";
 
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 px-4 pb-24 pt-8 sm:px-6 sm:pb-12">
-      <Link href="/guide" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand">← Tutte le guide</Link>
+    <main className="public-guide-print mx-auto w-full max-w-3xl flex-1 px-4 pb-24 pt-8 sm:px-6 sm:pb-12 print:max-w-none print:p-0">
+      <Link href="/guide" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand print:hidden">← Tutte le guide</Link>
       <h1 className="mt-3 text-3xl font-bold tracking-tight text-ink sm:text-4xl">{item.title}</h1>
       <p className="mt-3 leading-7 text-muted">{item.description}</p>
-      <PracticalGuide guide={item.guide} />
-      <section aria-labelledby="save-checklist" className="mt-6 rounded-xl border border-line bg-white p-5 sm:p-6">
-        <h2 id="save-checklist" className="text-lg font-semibold text-ink">Salva la tua checklist</h2>
-        <p className="mt-2 text-sm leading-6 text-muted">Accedi a Veredoc per spuntare ciò che hai preparato e riprendere da dove eri arrivato.</p>
+      <PracticalGuide guide={item.guide} checklistEdition={item.versionId} />
+      <section aria-labelledby="save-checklist" className="mt-6 rounded-xl border border-line bg-white p-5 sm:p-6 print:hidden">
+        <h2 id="save-checklist" className="text-lg font-semibold text-ink">Apri la pratica guidata</h2>
+        <p className="mt-2 text-sm leading-6 text-muted">Accedi per rispondere alle domande della pratica e salvare i passaggi nel tuo account. Le spunte di questa pagina restano nel browser.</p>
         <Link href={`/pratiche/${item.slug}?da=${entryPoint}`} prefetch={false} className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark">
           Continua con la checklist
         </Link>

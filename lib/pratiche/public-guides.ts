@@ -16,7 +16,7 @@ export const publicGuides = cache(async () => {
     const item = entries.find((entry) => entry.slug === slug);
     const guide = practicalGuide(versionId);
     if (!item?.available || item.versionId !== versionId || !guide) return [];
-    return [{ slug, title: item.title, description: item.description, guide }];
+    return [{ slug, versionId, title: item.title, description: item.description, guide }];
   });
 });
 

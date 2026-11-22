@@ -41,3 +41,31 @@ body {
   background: var(--color-brand);
   color: #fff;
 }
+
+@media print {
+  body:has(.public-guide-print) :is(nav[aria-label="Principale"], :has(> nav[aria-label="Navigazione app"]), footer) {
+    display: none;
+  }
+
+  body:has(.public-guide-print) {
+    display: block;
+    background: white;
+    color: black;
+  }
+
+  .public-guide-print a[data-guide-print-url] {
+    display: block;
+    min-height: auto;
+    padding: 0;
+    color: inherit;
+    background: transparent;
+  }
+
+  .public-guide-print a[data-guide-print-url]::after {
+    content: attr(data-guide-print-url);
+    display: block;
+    font-size: 9pt;
+    font-weight: normal;
+    overflow-wrap: anywhere;
+  }
+}

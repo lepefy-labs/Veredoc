@@ -211,3 +211,24 @@ test("una guida ritirata esce dal sito pubblico e dalla sitemap", async ({ page 
     await prisma.procedureDefinition.update({ where: { slug }, data: { status: "PUBLISHED" } });
   }
 });
+
+test("@mobile la guida pubblica conserva le spunte e si può stampare", async ({ page }) => {
+  const slug = await createPublishedFixture("pv_residenza_1", "cambio-residenza");
+  await page.goto(`/guide/${slug}`);
+
+  const documents = page.getByRole("region", { name: "Documenti e dati da preparare" });
+  const rental = documents.getByRole("checkbox", { name: "Se sei in affitto o in comodato registrato" });
+  await expect(rental).not.toBeChecked();
+  await rental.check();
+  await expect(documents.getByRole("status")).toContainText("1 voce spuntata");
+  await page.reload();
+  await expect(rental).toBeChecked();
+  await expect(page.getByRole("button", { name: "Stampa la guida" })).toBeVisible();
+
+  await page.emulateMedia({ media: "print" });
+  await expect(page.getByRole("button", { name: "Stampa la guida" })).toBeHidden();
+  await expect(page.getByRole("link", { name: "Continua con la checklist" })).toBeHidden();
+  await expect(documents.getByText("[✓]", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Vai al cambio di residenza su ANPR" }))
+    .toHaveAttribute("data-guide-print-url", "https://www.anagrafenazionale.interno.it/area-cittadino/cambio-di-residenza/");
+});
