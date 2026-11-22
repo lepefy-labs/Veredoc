@@ -7,7 +7,7 @@ import { publicGuides } from "@/lib/pratiche/public-guides";
 export const dynamic = "force-dynamic";
 
 const title = "Guide per le pratiche | Veredoc";
-const description = "Scopri cosa preparare, dove presentare la richiesta e quali passaggi seguire per residenza, certificati anagrafici e ISEE.";
+const description = "Scopri cosa preparare, dove presentare la richiesta e quali passaggi seguire per residenza, certificati, ISEE e prestazioni per le famiglie.";
 
 export const metadata: Metadata = {
   title, description,

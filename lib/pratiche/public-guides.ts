@@ -6,6 +6,8 @@ const PUBLIC_EDITIONS = [
   { slug: "cambio-residenza", versionId: "pv_residenza_1" },
   { slug: "certificati-anagrafici", versionId: "pv_certificati_1" },
   { slug: "preparazione-dsu-isee", versionId: "pv_isee_1" },
+  { slug: "assegno-unico", versionId: "pv_assegno_unico_1" },
+  { slug: "bonus-asilo-nido", versionId: "pv_bonus_nido_1" },
 ];
 
 export const publicGuides = cache(async () => {

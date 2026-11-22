@@ -9,6 +9,98 @@ export type PracticalGuide = {
 
 // Riepiloghi per le versioni pilota pubblicate. Una nuova versione richiede una propria revisione dei testi.
 const guides: Readonly<Record<string, PracticalGuide>> = {
+  pv_assegno_unico_1: {
+    destination: "Apri la scheda INPS dell’Assegno unico e seleziona «Utilizza il servizio». Da lì puoi controllare una domanda già presentata, aggiornarla o avviarne una nuova.",
+    link: {
+      label: "Apri il servizio Assegno unico su INPS",
+      href: "https://www.inps.it/it/it/dettaglio-scheda.it.schede-servizio-strumento.schede-servizi.assegno-unico-e-universale-per-i-figli-a-carico-55984.assegno-unico-e-universale-per-i-figli-a-carico.html"
+    },
+    alternative: "Puoi farti assistere da un patronato. Se vivi fuori dall’Italia o la tua famiglia ha una situazione transfrontaliera, controlla le istruzioni specifiche dell’INPS.",
+    documents: [
+      {
+        title: "Accesso a MyINPS",
+        detail: "Tieni a portata di mano SPID, CIE o CNS se presenti o consulti la domanda online."
+      },
+      {
+        title: "Dati dei figli e informazioni sul pagamento",
+        detail: "Prepara i codici fiscali dei figli da includere, gli eventuali dati richiesti dell’altro genitore e l’IBAN se scegli l’accredito su conto."
+      },
+      {
+        title: "ISEE valido, se disponibile",
+        detail: "L’INPS usa l’ISEE per determinare l’importo. In assenza di un ISEE valido si può presentare domanda, con l’importo minimo previsto per il caso."
+      }
+    ],
+    steps: [
+      {
+        title: "Controlla se hai già una domanda accolta",
+        detail: "Per il percorso ordinario, se la domanda è ancora valida, controlla lo stato e aggiorna i dati quando cambiano, per esempio dopo una nascita."
+      },
+      {
+        title: "Presenta la domanda se necessaria",
+        detail: "Apri il servizio con la tua identità digitale, indica i figli per cui chiedi la prestazione e completa le informazioni sul pagamento."
+      },
+      {
+        title: "Segui l’esito",
+        detail: "Consulta la domanda sul portale INPS e controlla eventuali richieste di integrazione o comunicazioni sul pagamento."
+      }
+    ],
+    source: {
+      label: "Istruzioni ufficiali INPS sull’Assegno unico",
+      href: "https://www.inps.it/it/it/dettaglio-scheda.it.schede-servizio-strumento.schede-servizi.assegno-unico-e-universale-per-i-figli-a-carico-55984.assegno-unico-e-universale-per-i-figli-a-carico.html"
+    }
+  },
+  pv_bonus_nido_1: {
+    destination: "Apri la scheda INPS e scegli «Utilizza il servizio» per il Bonus asilo nido. Il portale consente di inviare la domanda, indicare le mensilità e allegare i documenti di spesa.",
+    link: {
+      label: "Apri il servizio Bonus asilo nido su INPS",
+      href: "https://www.inps.it/it/it/dettaglio-scheda.it.schede-servizio-strumento.schede-servizi.bonus-asilo-nido-e-forme-di-supporto-presso-la-propria-abitazione-51105.bonus-asilo-nido-e-forme-di-supporto-presso-la-propria-abitazione.html"
+    },
+    alternative: "Puoi rivolgerti a un patronato. Questa guida riguarda le rette del nido. Per il supporto presso l’abitazione, consulta nella stessa scheda INPS le istruzioni dedicate.",
+    documents: [
+      {
+        title: "Dati del bambino e dell’asilo nido",
+        detail: "Prepara il codice fiscale del bambino e le informazioni sulla struttura che il servizio richiede, compresi gli estremi dell’autorizzazione se pertinenti."
+      },
+      {
+        title: "Mesi per cui chiedi il contributo",
+        detail: "Segna le mensilità da indicare nella domanda o da aggiornare per l’anno in corso."
+      },
+      {
+        title: "Documenti di spesa per ogni mese",
+        detail: "Conserva la fattura. Quando la struttura non è tenuta a fatturare, verifica sulla scheda INPS se puoi usare una ricevuta o un avviso di pagamento."
+      },
+      {
+        title: "Prova del pagamento tracciabile",
+        detail: "Per ogni mese conserva anche il giustificativo, per esempio la ricevuta del bonifico. Tienilo insieme al documento della retta."
+      },
+      {
+        title: "ISEE applicabile alla prestazione",
+        detail: "Controlla sulla scheda INPS quale indicatore per il minore si applica al tuo anno di domanda. L’indicatore incide sull’importo del contributo."
+      }
+    ],
+    steps: [
+      {
+        title: "Verifica chi presenta la domanda",
+        detail: "Per la retta, la domanda è presentata dal genitore che sostiene il pagamento. Se chiedi il contributo per più figli, serve una domanda per ciascuno."
+      },
+      {
+        title: "Avvia o aggiorna la domanda su INPS",
+        detail: "Se hai già una domanda valida, verifica nel servizio come aggiornare le mensilità per l’anno in corso. Se serve una nuova domanda, seleziona il contributo per la frequenza del nido."
+      },
+      {
+        title: "Allega i documenti per ogni mensilità",
+        detail: "Associa alla mensilità il documento di spesa e la prova del pagamento. Controlla nel servizio le scadenze e le istruzioni aggiornate per gli allegati."
+      },
+      {
+        title: "Controlla esito e pagamenti",
+        detail: "Torna alla domanda nel servizio INPS per verificare lo stato, i documenti acquisiti e le eventuali richieste di integrazione."
+      }
+    ],
+    source: {
+      label: "Istruzioni ufficiali INPS per il Bonus asilo nido",
+      href: "https://www.inps.it/it/it/dettaglio-scheda.it.schede-servizio-strumento.schede-servizi.bonus-asilo-nido-e-forme-di-supporto-presso-la-propria-abitazione-51105.bonus-asilo-nido-e-forme-di-supporto-presso-la-propria-abitazione.html"
+    }
+  },
   pv_residenza_1: {
     destination: "Accedi ad ANPR con SPID, CIE o CNS e apri il servizio Cambio di residenza. La dichiarazione viene ricevuta dal Comune della nuova abitazione.",
     link: {

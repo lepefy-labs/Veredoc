@@ -16,7 +16,7 @@ async function createPublishedFixture(versionId?: string, publicSlug?: string) {
     create: { authority: "INPS", title: "Portale unico ISEE", url: "https://www.inps.it/it/it/dettaglio-scheda.it.schede-servizio-strumento.schede-servizi.Portale-unico-ISEE.html", sourceType: "SERVIZIO", scope: "Nazionale", status: "VERIFIED", verifiedAt: new Date() },
   });
   const revision = await prisma.knowledgeRevision.findFirst({ where: { sourceId: source.id } }) ?? await prisma.knowledgeRevision.create({ data: { sourceId: source.id, version: 1, content: "Fixture di test per il flusso Pratiche", contentHash: `test-${suffix}`, status: "VERIFIED" } });
-  const procedure = await prisma.procedureDefinition.create({ data: { slug: publicSlug ?? `test-pratica-${suffix}`, title: "Pratica di prova", description: "Percorso di test con un passaggio condizionale.", category: "Test", audience: "Utenti di test", scope: "Nazionale", authority: "INPS", status: "PUBLISHED" } });
+  const procedure = await prisma.procedureDefinition.create({ data: { slug: publicSlug ?? `test-pratica-${suffix}`, title: publicSlug === "assegno-unico" ? "Assegno unico per i figli" : publicSlug === "bonus-asilo-nido" ? "Bonus asilo nido" : "Pratica di prova", description: "Percorso di test con un passaggio condizionale.", category: "Test", audience: "Utenti di test", scope: "Nazionale", authority: "INPS", status: "PUBLISHED" } });
   const version = await prisma.procedureVersion.create({ data: { id: versionId, procedureId: procedure.id, version: 1, status: "PUBLISHED", approvedAt: new Date(), definition: { questions: [{ id: "opzione", title: "Serve un documento aggiuntivo?", type: "boolean", required: true }], steps: [{ id: "base", title: "Prepara i dati", description: "Raccogli le informazioni necessarie.", kind: "task", required: true }, { id: "extra", title: "Prepara il documento aggiuntivo", description: "Documento richiesto per questo caso.", kind: "document", required: true, when: { questionId: "opzione", equals: true } }, { id: "portale", title: "Apri il portale INPS", description: "Presenta la pratica sul sito ufficiale.", kind: "portal", required: false, url: "https://www.inps.it/" }] } } });
   await prisma.procedureCitation.create({ data: { procedureVersionId: version.id, sourceId: source.id, revisionId: revision.id, instructionIds: ["opzione", "base", "extra", "portale"] } });
   return procedure.slug;
@@ -231,4 +231,25 @@ test("@mobile la guida pubblica conserva le spunte e si può stampare", async ({
   await expect(documents.getByText("[✓]", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Vai al cambio di residenza su ANPR" }))
     .toHaveAttribute("data-guide-print-url", "https://www.anagrafenazionale.interno.it/area-cittadino/cambio-di-residenza/");
+});
+
+test("le nuove guide INPS sono pubbliche, collegate all’ISEE e incluse nella sitemap", async ({ page }) => {
+  await createPublishedFixture("pv_isee_1", "preparazione-dsu-isee");
+  await createPublishedFixture("pv_assegno_unico_1", "assegno-unico");
+  await createPublishedFixture("pv_bonus_nido_1", "bonus-asilo-nido");
+
+  await page.goto("/guide/preparazione-dsu-isee");
+  const related = page.getByRole("region", { name: "Guide collegate" });
+  await related.getByRole("link", { name: "Assegno unico per i figli" }).click();
+  await expect(page.getByRole("heading", { name: "Assegno unico per i figli", level: 1 })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Apri il servizio Assegno unico su INPS" })).toHaveAttribute("href", /^https:\/\/www\.inps\.it\//);
+
+  await page.getByRole("region", { name: "Guide collegate" }).getByRole("link", { name: "Bonus asilo nido" }).click();
+  await expect(page.getByRole("heading", { name: "Bonus asilo nido", level: 1 })).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: "Prova del pagamento tracciabile" })).toBeVisible();
+  const sitemap = await page.request.get("/sitemap.xml");
+  await expect(sitemap).toBeOK();
+  const xml = await sitemap.text();
+  expect(xml).toContain("https://www.veredoc.it/guide/assegno-unico");
+  expect(xml).toContain("https://www.veredoc.it/guide/bonus-asilo-nido");
 });

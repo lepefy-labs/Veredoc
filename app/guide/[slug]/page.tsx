@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import PracticalGuide from "@/components/pratiche/PracticalGuide";
-import { publicGuide } from "@/lib/pratiche/public-guides";
+import { publicGuide, publicGuides } from "@/lib/pratiche/public-guides";
 
 export const dynamic = "force-dynamic";
+
+const familyGuideSlugs = new Set(["preparazione-dsu-isee", "assegno-unico", "bonus-asilo-nido"]);
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -30,6 +32,9 @@ export default async function PublicGuidePage({ params, searchParams }: Props) {
   const [{ slug }, { da }] = await Promise.all([params, searchParams]);
   const item = await publicGuide(slug);
   if (!item) notFound();
+  const related = familyGuideSlugs.has(slug)
+    ? (await publicGuides()).filter((candidate) => candidate.slug !== slug && familyGuideSlugs.has(candidate.slug))
+    : [];
   const entryPoint = slug === "preparazione-dsu-isee" && da === "caf" ? "caf_pilot" : "public_guide";
 
   return (
@@ -45,6 +50,16 @@ export default async function PublicGuidePage({ params, searchParams }: Props) {
           Continua con la checklist
         </Link>
       </section>
+      {related.length > 0 && <section aria-labelledby="related-guides" className="mt-6 rounded-xl border border-line bg-white p-5 print:hidden">
+        <h2 id="related-guides" className="text-lg font-semibold text-ink">Guide collegate</h2>
+        <ul className="mt-2">
+          {related.map((candidate) => <li key={candidate.slug}>
+            <Link href={`/guide/${candidate.slug}`} className="inline-flex min-h-11 items-center text-sm font-semibold text-brand underline">
+              {candidate.title}
+            </Link>
+          </li>)}
+        </ul>
+      </section>}
     </main>
   );
 }
