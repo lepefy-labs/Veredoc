@@ -7,11 +7,21 @@ export const dynamic = "force-dynamic";
 const origin = "https://www.veredoc.it";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const urls = ["/", "/privacy", "/termini"];
+  const entries: MetadataRoute.Sitemap = ["/", "/privacy", "/termini"].map((pathname) => ({
+    url: new URL(pathname, origin).href,
+  }));
+
   if (praticheEnabled()) {
     const guides = await publicGuides();
-    if (guides.length) urls.push("/guide", ...guides.map(({ slug }) => `/guide/${slug}`));
-    urls.push("/per-i-caf");
+    if (guides.length) entries.push({ url: new URL("/guide", origin).href });
+    for (const { slug, lastModified } of guides) {
+      entries.push({
+        url: new URL(`/guide/${slug}`, origin).href,
+        ...(lastModified ? { lastModified } : {}),
+      });
+    }
+    entries.push({ url: new URL("/per-i-caf", origin).href });
   }
-  return urls.map((pathname) => ({ url: new URL(pathname, origin).href }));
+
+  return entries;
 }

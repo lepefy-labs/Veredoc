@@ -279,10 +279,23 @@ test("le guide su bollette, casa e agevolazioni sono accessibili senza account",
     await expect(index.locator(`a[href="${path}"]`)).toBeVisible();
     const guide = await page.request.get(path);
     await expect(guide).toBeOK();
-    expect(xml).toContain(`https://www.veredoc.it${path}`);
+    const entry = xml.match(new RegExp("<url>\\s*<loc>https://www\\.veredoc\\.it" + path + "</loc>\\s*<lastmod>([^<]+)</lastmod>"))?.[1];
+    expect(entry).toBe("2026-11-23");
   }
 
   await page.goto("/guide/come-leggere-bolletta-luce-gas");
+  const canonical = "https://www.veredoc.it/guide/come-leggere-bolletta-luce-gas";
+  const description = /Trova consumi, quote fisse e prezzo/;
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", canonical);
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", description);
+  await expect(page.getByText("Fonti verificate il", { exact: false })).toContainText("23 novembre 2026");
+  const jsonLd = await page.locator('script[type="application/ld+json"]').textContent();
+  expect(JSON.parse(jsonLd ?? "")).toMatchObject({
+    "@type": "Article",
+    url: canonical,
+    description: expect.stringMatching(description),
+    dateModified: "2026-11-23",
+  });
   const example = page.getByRole("table", { name: "Esempio di lettura dello scontrino luce" });
   await expect(example.getByRole("row", { name: /Subtotale dell’esempio/ })).toContainText("39,40 €");
   await expect(page.getByRole("link", { name: "Vai all’analisi della bolletta" })).toHaveAttribute("href", "/analyze");

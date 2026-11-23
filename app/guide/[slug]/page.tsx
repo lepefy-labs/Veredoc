@@ -6,6 +6,9 @@ import { publicGuide, publicGuides } from "@/lib/pratiche/public-guides";
 
 export const dynamic = "force-dynamic";
 
+const origin = "https://www.veredoc.it";
+const reviewDateFormat = new Intl.DateTimeFormat("it-IT", { dateStyle: "long", timeZone: "UTC" });
+
 const relatedSlugs: Readonly<Record<string, readonly string[]>> = {
   "cambio-residenza": ["voltura-o-subentro-luce-gas"],
   "preparazione-dsu-isee": ["assegno-unico", "bonus-asilo-nido", "isee-corrente", "bonus-sociale-luce-gas-acqua", "bonus-nuovi-nati-2026"],
@@ -33,7 +36,12 @@ export async function generateMetadata({ params }: Pick<Props, "params">): Promi
   return {
     title, description: item.description,
     alternates: { canonical: url },
-    openGraph: { title, description: item.description, url, type: "website" },
+    openGraph: {
+      title, description: item.description, url, siteName: "Veredoc", locale: "it_IT",
+      ...(item.lastModified
+        ? { type: "article", modifiedTime: item.lastModified }
+        : { type: "website" }),
+    },
     twitter: { card: "summary", title, description: item.description },
   };
 }
@@ -44,6 +52,20 @@ export default async function PublicGuidePage({ params, searchParams }: Props) {
   if (!item) notFound();
   const related = (await publicGuides()).filter((candidate) => relatedSlugs[slug]?.includes(candidate.slug));
   const isBillGuide = slug === "come-leggere-bolletta-luce-gas";
+  const url = new URL(`/guide/${item.slug}`, origin).href;
+  const publisher = { "@type": "Organization", name: "Veredoc", url: origin };
+  const article = item.lastModified ? {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: item.title,
+    description: item.description,
+    url,
+    mainEntityOfPage: url,
+    inLanguage: "it",
+    dateModified: item.lastModified,
+    author: publisher,
+    publisher,
+  } : null;
   const entryPoint = slug === "preparazione-dsu-isee" && da === "caf" ? "caf_pilot" : "public_guide";
 
   return (
@@ -51,6 +73,17 @@ export default async function PublicGuidePage({ params, searchParams }: Props) {
       <Link href="/guide" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand print:hidden">← Tutte le guide</Link>
       <h1 className="mt-3 text-3xl font-bold tracking-tight text-ink sm:text-4xl">{item.title}</h1>
       <p className="mt-3 leading-7 text-muted">{item.description}</p>
+      {item.reviewedOn && (
+        <p className="mt-2 text-sm text-muted">
+          Fonti verificate il <time dateTime={item.reviewedOn}>{reviewDateFormat.format(new Date(item.reviewedOn))}</time>
+        </p>
+      )}
+      {article && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(article).replace(/</g, "\\u003c") }}
+        />
+      )}
       <PracticalGuide guide={item.guide} checklistEdition={item.versionId} />
       <section aria-labelledby="save-checklist" className="mt-6 rounded-xl border border-line bg-white p-5 sm:p-6 print:hidden">
         <h2 id="save-checklist" className="text-lg font-semibold text-ink">
