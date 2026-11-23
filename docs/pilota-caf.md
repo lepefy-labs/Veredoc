@@ -14,6 +14,18 @@
 - Consegnare alla sede il link `/guide/preparazione-dsu-isee?da=caf` da aggiungere alla conferma di prenotazione. Il CAF riceve e controlla i documenti tramite i suoi canali esistenti.
 - Gestire il primo lotto con un conteggio manuale tra le parti. Il contatto dal sito avviene per email. Il pagamento va concordato con la sede.
 
+### Collaudo operativo con una sede
+
+1. Concordare un referente, due settimane di prova e una data di revisione. Come punto di partenza, raccogliere circa 20 appuntamenti comparabili con partecipante presente, metà per gruppo.
+2. Alternare i gruppi nello stesso periodo. Il gruppo abituale riceve le istruzioni della sede. Il gruppo guida riceve anche il [link ISEE tracciato](https://www.veredoc.it/guide/preparazione-dsu-isee?da=caf) alla conferma. I cittadini consegnano i documenti tramite i canali abituali della sede.
+3. Compilare una riga settimanale per gruppo e sommare i minuti delle integrazioni alla chiusura dello stesso periodo di osservazione. La sede gestisce i singoli appuntamenti nei propri strumenti. Veredoc riceve soltanto i totali settimanali.
+
+| Settimana | Gruppo | Presenti | Assenti | Guida consultata su dichiarazione | Procedibili al primo incontro | Con integrazione | Minuti primo incontro | Minuti integrazioni |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+|  | Abituale o guida |  |  |  |  |  |  |  |
+
+Per ciascun gruppo calcolare la quota di procedibili al primo incontro, la quota di integrazioni e i minuti totali per persona presente. Tenere a parte le assenze. Prolungare il confronto se i gruppi sono troppo piccoli o poco comparabili. Rivedere con la sede le richieste ricorrenti prima di definire lo spazio digitale.
+
 ## 3. Misurare il pilota e decidere
 
 - Obiettivo di partenza 100 appuntamenti comparabili tra due sedi. In ciascuna sede alternare, quando possibile, preparazione abituale e invio della guida. Distinguere i casi con requisiti particolari e registrare le assenze separatamente.

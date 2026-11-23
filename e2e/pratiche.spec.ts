@@ -456,7 +456,7 @@ test("@mobile recupera la pratica dopo un salvataggio concorrente", async ({ pag
   await expect(page.getByText("Risposta salvata", { exact: true })).toBeVisible();
 });
 
-test("collega un originale del proprio profilo e rimuove il collegamento dopo lo spostamento", async ({ page }) => {
+test("@mobile l’assistente DSU segue i file collegati e il profilo", async ({ page }) => {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   try {
     const connection = await pool.connect();
@@ -470,7 +470,7 @@ test("collega un originale del proprio profilo e rimuove il collegamento dopo lo
     await pool.end();
   }
 
-  const slug = await createPublishedFixture();
+  const slug = await createPublishedFixture("pv_isee_1", "preparazione-dsu-isee");
   const email = uniqueEmail("fascicolo");
   await register(page, email);
   await login(page, email);
@@ -487,6 +487,9 @@ test("collega un originale del proprio profilo e rimuove il collegamento dopo lo
   await page.goto(`/pratiche/${slug}`);
   await page.getByRole("button", { name: "Avvia la checklist" }).click();
   await expect(page).toHaveURL(/\/pratiche\/caso\//);
+  const assistant = page.getByRole("region", { name: "Cosa manca alla mia DSU?" });
+  await expect(assistant.getByText("Serve un documento aggiuntivo?", { exact: true })).toBeVisible();
+  await expect(assistant.getByRole("heading", { name: "Requisiti documentali" })).toHaveCount(0);
   const casePath = new URL(page.url()).pathname;
   const endpoint = casePath.replace("/pratiche/caso/", "/api/pratiche/cases/") + "/documenti";
   await page.getByLabel("Sì", { exact: true }).check();
@@ -499,17 +502,27 @@ test("collega un originale del proprio profilo e rimuove il collegamento dopo lo
 
   const invalid = await page.request.post(endpoint, { data: { action: "link", step: "extra", documentId: otherDocument.id } });
   expect(invalid.status()).toBe(404);
+  await expect(assistant.getByText(/Da completare · Nessun file collegato/)).toBeVisible();
   const evidence = page.getByRole("region", { name: "Documenti collegati" });
   await evidence.getByRole("combobox").selectOption(document.id);
   await evidence.getByRole("button", { name: "Collega documento" }).click();
   await expect(evidence.getByRole("button", { name: "Scollega cedolino.pdf" })).toBeVisible();
+  await expect(assistant.getByText(/Da completare · File collegato/)).toBeVisible();
   await expect(page.getByLabel("Ho fatto questo passaggio")).not.toBeChecked();
   await page.reload();
   await expect(evidence.getByRole("button", { name: "Scollega cedolino.pdf" })).toBeVisible();
 
+  await expect(assistant.getByText(/Da completare · File collegato/)).toBeVisible();
+  await evidence.getByRole("button", { name: "Scollega cedolino.pdf" }).click();
+  await expect(assistant.getByText(/Da completare · Nessun file collegato/)).toBeVisible();
+  await evidence.getByRole("combobox").selectOption(document.id);
+  await evidence.getByRole("button", { name: "Collega documento" }).click();
+  await expect(assistant.getByText(/Da completare · File collegato/)).toBeVisible();
+
   await prisma.document.update({ where: { id: document.id }, data: { profileId: differentProfile.id } });
   await page.reload();
   await expect(evidence.getByText("Nessun documento collegato.")).toBeVisible();
+  await expect(assistant.getByText(/Da completare · Nessun file collegato/)).toBeVisible();
   expect(await prisma.caseDocument.count({ where: { documentId: document.id } })).toBe(0);
 });
 

@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { applies, type Answer, type Workflow } from "@/lib/pratiche/engine";
 import type { Preparation } from "@/lib/pratiche/plain-language";
+import { dsuPreparation, DSU_PROCEDURE_SLUG } from "@/lib/pratiche/dsu-preparation";
 import CaseEvidence from "./CaseEvidence";
+import DsuPreparation from "./DsuPreparation";
 import PreparationList from "./PreparationList";
 import { PRACTICE_STATUS_LABELS } from "@/lib/pratiche/status";
 
@@ -14,6 +16,7 @@ type CaseView = {
   procedure: { slug: string };
   completed: string[]; workflow: Workflow; progress: { required: number; done: number; ready: boolean; blocked: boolean; missing: string[] };
   preparation: Preparation | null;
+  dsuLinkedSteps?: string[] | null;
   history?: { id: string; type: string; createdAt: string | Date }[];
   sources: { title: string; authority: string; url: string; verifiedAt: string | Date | null; version: number }[];
 };
@@ -67,6 +70,26 @@ export default function CaseWizard({ initial, resumeVisit, evidenceEnabled }: { 
   const items = useMemo(() => visibleItems(current), [current]);
   const index = Math.min(position, Math.max(items.length - 1, 0));
   const active = items[index];
+  const isDsu = current.procedure.slug === DSU_PROCEDURE_SLUG;
+  const dsu = isDsu ? dsuPreparation(current.workflow, current.answers, current.completed, current.dsuLinkedSteps ?? null) : null;
+  const nextPosition = isDsu && !readOnly ? resumePosition(current) : -1;
+  const nextStep = items[nextPosition]?.item.title;
+  const syncDsuFile = useCallback((stepId: string, linked: boolean) => {
+    setCurrent((value) => {
+      const steps = value.dsuLinkedSteps;
+      if (!steps || steps.includes(stepId) === linked) return value;
+      return { ...value, dsuLinkedSteps: linked ? [...steps, stepId] : steps.filter((id) => id !== stepId) };
+    });
+  }, []);
+
+  function continueDsu() {
+    if (nextPosition !== index) {
+      setPosition(nextPosition);
+      setDraft(undefined);
+      setError("");
+    }
+    document.getElementById("case-current-step")?.focus();
+  }
   const officialPortal = current.workflow.steps.find((item) => item.kind === "portal" && item.url && applies(item.when, current.answers));
   const percent = current.progress.required ? Math.round(100 * current.progress.done / current.progress.required) : 100;
 
@@ -139,10 +162,23 @@ export default function CaseWizard({ initial, resumeVisit, evidenceEnabled }: { 
       Documenti e istruzioni
     </Link>
     <p className="mt-2 text-sm text-muted">Hai completato {current.progress.done} passaggi su {current.progress.required}</p>
+    {dsu && (
+      <DsuPreparation
+        preparation={dsu}
+        nextStep={nextStep}
+        sources={current.sources}
+        message={readOnly ? "Qui puoi consultare lo stato salvato della preparazione." :
+          current.progress.blocked ? "Rivedi la risposta che richiede attenzione prima di proseguire." :
+          dsu.questions.length ? "Rispondi alle domande per vedere i documenti richiesti nel tuo caso." :
+          current.progress.ready ? "Hai completato la checklist di preparazione. Puoi consultare il servizio ufficiale." :
+          "Completa i passaggi della checklist a partire da quello indicato."}
+        onContinue={nextStep && !busy && !conflict ? continueDsu : undefined}
+      />
+    )}
     <div className="mt-3 h-2 overflow-hidden rounded-full bg-line" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} aria-label="Avanzamento"><div className="h-full bg-brand" style={{ width: `${percent}%` }} /></div>
     {current.preparation && <details className="mt-5 rounded-xl border border-line bg-white p-4"><summary className="cursor-pointer text-sm font-semibold text-brand">Rivedi dati e documenti</summary><div className="mt-4"><PreparationList preparation={current.preparation} embedded /></div></details>}
     {current.progress.blocked && <div className="mt-5 rounded-xl border border-line bg-white p-5" role="status"><p className="font-semibold">{current.procedure.slug === "cambio-residenza" ? "Per questo caso, chiedi al Comune" : "Questa risposta blocca il percorso"}</p><p className="mt-2 text-sm text-muted">Controlla la risposta e consulta le istruzioni ufficiali per il tuo caso.</p></div>}
-    {active && <section className="mt-8 rounded-2xl border border-line bg-white p-5 sm:p-7">
+    {active && <section id="case-current-step" tabIndex={-1} className="scroll-mt-24 mt-8 rounded-2xl border border-line bg-white p-5 sm:p-7">
       <p className="text-xs font-semibold uppercase tracking-wide text-brand">Passaggio {index + 1} di {items.length}</p>
       {active.kind === "step" ? <>
         <div className="mt-3 flex items-start justify-between gap-3"><h2 className="text-xl font-bold">{active.item.title}</h2><button type="button" aria-label={`Spiegazione: ${active.item.title}`} aria-expanded={helpFor === active.item.id} aria-controls={`step-help-${active.item.id}`} onClick={() => setHelpFor(helpFor === active.item.id ? null : active.item.id)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-line text-sm font-bold text-brand hover:bg-brand-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">?</button></div>
@@ -156,7 +192,7 @@ export default function CaseWizard({ initial, resumeVisit, evidenceEnabled }: { 
         })}
       </fieldset> : <>
         {active.item.kind === "portal" && active.item.url && <a href={active.item.url} target="_blank" rel="noopener noreferrer" className="mt-4 inline-block font-semibold text-brand underline">Vai al sito ufficiale ↗</a>}
-        {evidenceEnabled && active.item.kind === "document" && <CaseEvidence key={active.item.id} caseId={current.id} stepId={active.item.id} />}
+        {evidenceEnabled && active.item.kind === "document" && <CaseEvidence key={active.item.id} caseId={current.id} stepId={active.item.id} onAvailabilityChange={isDsu ? syncDsuFile : undefined} />}
         {active.item.kind !== "portal" && <label className="mt-6 flex min-h-12 items-center gap-3 rounded-xl border border-line p-3"><input type="checkbox" checked={current.completed.includes(active.item.id)} disabled={busy || readOnly || conflict} onChange={(event) => void save({ kind: "step", stepId: active.item.id, done: event.target.checked }, false)} />Ho fatto questo passaggio</label>}
       </>}
       <div className="sticky bottom-[calc(4.7rem+env(safe-area-inset-bottom))] z-20 -mx-5 mt-6 flex justify-between gap-3 border-t border-line bg-white px-5 py-3 sm:static sm:mx-0 sm:border-0 sm:px-0"><button type="button" disabled={busy || index === 0} onClick={() => { setPosition(index - 1); setDraft(undefined); setError(""); }} className="min-h-11 rounded-lg border border-line px-4 disabled:opacity-40">Indietro</button><button type="button" disabled={busy || conflict || (index === items.length - 1 && (active.kind !== "question" || readOnly))} onClick={next} className="min-h-11 rounded-lg bg-brand px-5 font-semibold text-white disabled:opacity-40">{busy ? "Salvataggio..." : "Avanti"}</button></div>
@@ -168,7 +204,7 @@ export default function CaseWizard({ initial, resumeVisit, evidenceEnabled }: { 
         <button type="button" disabled={busy} onClick={() => void reloadCase()} className="min-h-11 text-sm font-semibold text-brand underline disabled:opacity-50">Carica versione aggiornata</button>
       </>}
     </div>}
-    {!current.progress.ready && !current.progress.blocked && current.progress.missing.length > 0 && <details className="mt-6 rounded-xl border border-line bg-white p-5"><summary className="cursor-pointer font-semibold text-brand">Passaggi da fare: {current.progress.missing.length}</summary><ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-muted">{current.progress.missing.map((name) => <li key={name}>{name}</li>)}</ul></details>}
+    {!isDsu && !current.progress.ready && !current.progress.blocked && current.progress.missing.length > 0 && <details className="mt-6 rounded-xl border border-line bg-white p-5"><summary className="cursor-pointer font-semibold text-brand">Passaggi da fare: {current.progress.missing.length}</summary><ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-muted">{current.progress.missing.map((name) => <li key={name}>{name}</li>)}</ul></details>}
     {current.progress.ready && current.status === "READY_TO_SUBMIT" && <div className="mt-6 rounded-xl border border-line bg-white p-5"><h2 className="font-semibold">Puoi inviare la richiesta</h2><p className="mt-2 text-sm text-muted">Inviala sul sito ufficiale.</p><button type="button" disabled={busy || conflict} onClick={() => void save({ kind: "status", status: "USER_REPORTED_SUBMITTED" }, false)} className="mt-4 rounded-lg bg-brand px-4 py-3 font-semibold text-white">Ho inviato la richiesta</button></div>}
     {current.status === "USER_REPORTED_SUBMITTED" && <div className="mt-6 rounded-xl border border-line bg-white p-5"><h2 className="font-semibold">Presentazione dichiarata da te</h2><p className="mt-2 text-sm text-muted">Controlla l’esito presso l’ente. Quando il percorso è terminato, segna la pratica come conclusa.</p>{officialPortal?.url && <a href={officialPortal.url} target="_blank" rel="noopener noreferrer" className="mt-2 mr-4 inline-flex min-h-11 items-center text-sm font-semibold text-brand underline">Apri il servizio ufficiale</a>}<button type="button" disabled={busy || conflict} onClick={() => void save({ kind: "status", status: "COMPLETED" }, false)} className="mt-4 rounded-lg bg-brand px-4 py-3 font-semibold text-white">Segna come conclusa</button></div>}
     <details className="mt-6 rounded-xl border border-line bg-white p-5"><summary className="cursor-pointer font-semibold text-brand">Fonti ufficiali</summary><ul className="mt-3 space-y-2 text-sm">{current.sources.map((source) => <li key={source.url}><a href={source.url} target="_blank" rel="noopener noreferrer" className="text-brand underline">{source.title}</a><span className="block text-xs text-muted">{source.authority}. Controllata il {source.verifiedAt ? new Date(source.verifiedAt).toLocaleDateString("it-IT") : "data non disponibile"}.</span></li>)}</ul></details>

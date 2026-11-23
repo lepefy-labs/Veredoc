@@ -47,6 +47,21 @@ export async function readEvidence(userId: string, caseId: string, stepId: strin
   return { linked: links.map(({ document }) => document), available: documents.slice(0, pageSize), canAttach, hasMore: documents.length > pageSize };
 }
 
+export async function linkedDocumentRequirements(userId: string, caseId: string, profileId: string, stepIds: string[]) {
+  if (!stepIds.length) return [];
+  const links = await prisma.caseDocument.findMany({
+    where: {
+      caseId,
+      stepId: { in: stepIds },
+      case: { userId, profileId },
+      document: storedDocument(userId, profileId),
+    },
+    select: { stepId: true },
+    distinct: ["stepId"],
+  });
+  return links.map(({ stepId }) => stepId);
+}
+
 export async function changeEvidence(userId: string, caseId: string, stepId: string, documentId: string, action: "link" | "unlink") {
   return prisma.$transaction(async (tx) => {
     const cases = await tx.$queryRaw<{ id: string }[]>`

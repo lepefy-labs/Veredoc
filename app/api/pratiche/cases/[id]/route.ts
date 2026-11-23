@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { apiError, apiUser, smallJson } from "@/lib/pratiche/api";
-import { caseView, readCase, updateCase } from "@/lib/pratiche/service";
+import { caseDetailsView } from "@/lib/pratiche/case-details";
+import { readCase, updateCase } from "@/lib/pratiche/service";
 import { prisma } from "@/lib/prisma";
 import { logOperationalEvent } from "@/lib/observability/operations";
 
@@ -15,7 +16,7 @@ export async function GET(_request: Request, context: Context) {
     const { id } = await context.params;
     const record = await readCase(user.userId, id);
     if (!record) return NextResponse.json({ error: "Pratica non trovata." }, { status: 404 });
-    return NextResponse.json({ case: caseView(record) }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ case: await caseDetailsView(user.userId, record) }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return apiError(error); }
 }
 
@@ -37,7 +38,7 @@ export async function PATCH(request: Request, context: Context) {
       logOperationalEvent("pratiche.dashboard_resume_advanced", { resumeVisit });
     }
     const record = await readCase(user.userId, id);
-    return NextResponse.json({ case: record ? caseView(record) : null, advanced }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ case: record ? await caseDetailsView(user.userId, record) : null, advanced }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return apiError(error); }
 }
 

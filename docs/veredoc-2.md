@@ -28,12 +28,12 @@ I riferimenti di prodotto orientano quattro decisioni: partire dal racconto del 
 | Wave | Passo verificabile | Dipendenze |
 |---|---|---|
 | 2 | Concordare un trasferimento delle spunte pubbliche per i soli requisiti che hanno la stessa semantica nel wizard. | Continuità dopo autenticazione ed E2E su modifica risposte e salvataggio concorrente. |
-| 3 | Collaudare il collegamento dall’interfaccia con l’account di prova. Estendere i tipi di allegato e la verifica del requisito. | Relazione, export e cancellazione presenti. Prima dell’accesso generale verificare finalità, conservazione e gestione dei nuovi tipi di file. |
+| 3 | Estendere i tipi di allegato e la verifica del requisito. Il riepilogo DSU mostra la disponibilità dei file collegati e lo stato della checklist. | Relazione, export e cancellazione presenti. Prima dell’accesso generale verificare finalità, conservazione e gestione dei nuovi tipi di file. |
 | 4 | Migrare gradualmente i contenuti delle edizioni storiche. Preparare il controllo delle fonti in n8n. | Migrazione compatibile dei contenuti TypeScript; acquisizione idempotente e revisione umana prima della pubblicazione. |
-| 5 | Valutare copertura della ricerca italiana e aggiungere spiegazioni contestuali consentite. | Valutare copertura della ricerca deterministica prima di embedding. Assistente con citazioni, limiti API e autorizzazione esplicita per contesto documentale. |
+| 5 | Valutare copertura della ricerca italiana e il [riordino delle guide pubbliche](collaudo-riordino-guide.md). | Valutare copertura della ricerca deterministica prima di embedding. Assistente con citazioni, limiti API e autorizzazione esplicita per contesto documentale. |
 | 6 | Validare i cinque percorsi del pilota per situazioni reali con una sede CAF. | Regole e fonti dell’annualità verificate, test dei casi condizionali, handoff ufficiale e metriche prive di dati personali. |
 | 7 | Preparare un appuntamento ISEE con un CAF. | [Pilota CAF](pilota-caf.md), accordi con le sedi, modello di condivisione, audit, approvazione di accessi e trattamento dati. |
-| 8 | Preparare un modello disponibile e monitorare una pratica dopo la presentazione. | Provenienza e condizioni d’uso dei moduli; preferenze, scadenze verificate e outbox idempotente. |
+| 8 | Verificare il PDF ufficiale partendo dalla [mappatura DSU Mini](dsu-mini-2026.md) e monitorare una pratica dopo la presentazione. | Provenienza e condizioni d’uso dei moduli; preferenze, scadenze verificate e outbox idempotente. |
 | 9 | Validare il costo e il valore dei servizi proposti usando i dati del pilota. | Compatibilità FREE/PRO, evidenze pilota e approvazione prima di pagamenti e rinnovi. |
 
 ## Verifiche di esercizio

@@ -7,7 +7,11 @@ type Evidence = { linked: Preview[]; available: Preview[]; canAttach: boolean; h
 
 const date = new Intl.DateTimeFormat("it-IT", { dateStyle: "short", timeZone: "Europe/Rome" });
 
-export default function CaseEvidence({ caseId, stepId }: { caseId: string; stepId: string }) {
+export default function CaseEvidence({ caseId, stepId, onAvailabilityChange }: {
+  caseId: string;
+  stepId: string;
+  onAvailabilityChange?: (stepId: string, linked: boolean) => void;
+}) {
   const [data, setData] = useState<Evidence | null>(null);
   const [offset, setOffset] = useState(0);
   const [reload, setReload] = useState(0);
@@ -24,7 +28,10 @@ export default function CaseEvidence({ caseId, stepId }: { caseId: string; stepI
         const response = await fetch(url, { signal: controller.signal, cache: "no-store" });
         if (!response.ok) throw new Error("Lettura non riuscita");
         const result: Evidence = await response.json();
-        if (!controller.signal.aborted) setData(result);
+        if (!controller.signal.aborted) {
+          setData(result);
+          onAvailabilityChange?.(stepId, result.linked.length > 0);
+        }
       } catch {
         if (!controller.signal.aborted) setError("Non è stato possibile caricare i documenti.");
       } finally {
@@ -33,7 +40,7 @@ export default function CaseEvidence({ caseId, stepId }: { caseId: string; stepI
     }
     void load();
     return () => controller.abort();
-  }, [endpoint, offset, reload, stepId]);
+  }, [endpoint, offset, onAvailabilityChange, reload, stepId]);
 
   function showPage(next: number) {
     setPending(true);
