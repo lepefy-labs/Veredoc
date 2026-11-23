@@ -6,6 +6,6 @@ const plans = {
 } as const;
 
 export function resolveEntitlements(value: string | undefined) {
-  const plan = value === "PRO" ? "PRO" : "FREE";
+  const plan: keyof typeof plans = value === "PRO" ? "PRO" : "FREE";
   return { plan, ...plans[plan] };
 }

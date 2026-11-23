@@ -1,6 +1,6 @@
 # Fascicolo documentale
 
-Il fascicolo riusa `UserCase`. Un collegamento individua una pratica, il requisito della sua versione e un documento dell’archivio. Il primo rilascio propone file originali presenti nello stesso profilo. Il collegamento esprime disponibilità dichiarata dall’utente. Le risposte e i passaggi del motore continuano a determinare l’avanzamento.
+Il fascicolo riusa `UserCase`. In produzione è attiva l’associazione volontaria di documenti già in archivio. Un collegamento individua una pratica, il requisito della sua versione e un documento dell’archivio. Il primo rilascio propone file originali presenti nello stesso profilo. Il collegamento esprime disponibilità dichiarata dall’utente. Le risposte e i passaggi del motore continuano a determinare l’avanzamento.
 
 ## Accesso e dati
 
