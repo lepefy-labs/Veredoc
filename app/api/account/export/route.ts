@@ -8,6 +8,7 @@ import { createClient } from "@supabase/supabase-js";
 import { AnalysisStatus, Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { caseEvidenceSchemaReady } from "@/lib/pratiche/evidence-availability";
 import { RATE_LIMITS } from "@/lib/security/rate-limit";
 import { enforceRateLimits } from "@/lib/security/rate-limit-server";
 import { logOperationalEvent } from "@/lib/observability/operations";
@@ -45,7 +46,7 @@ export async function GET() {
   const limit = await enforceRateLimits("account_export", [{ rule: RATE_LIMITS.exportUser, subject: userId }]);
   if (!limit.allowed) return NextResponse.json({ error: "Troppe esportazioni. Riprova tra un'ora." }, { status: 429 });
 
-  const [user, profiles, documents, consents, notifications, cases] = await Promise.all([
+  const [user, profiles, documents, consents, notifications, cases, documentLinks] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId }, select: { email: true, plan: true, createdAt: true } }),
     prisma.analysisProfile.findMany({
       where: { userId },
@@ -70,6 +71,11 @@ export async function GET() {
       where: { userId }, orderBy: { createdAt: "asc" },
       select: { id: true, profileId: true, procedureVersionId: true, title: true, status: true, createdAt: true, updatedAt: true, completedAt: true, answers: { select: { questionId: true, value: true, revision: true, updatedAt: true } }, steps: { select: { stepId: true, status: true, completedAt: true } }, events: { select: { type: true, createdAt: true } } },
     })),
+    caseEvidenceSchemaReady().then((ready) => ready ? optionalPracticeRows(() => prisma.caseDocument.findMany({
+      where: { case: { userId }, document: { userId, status: { not: AnalysisStatus.DELETED } } },
+      select: { caseId: true, stepId: true, documentId: true, createdAt: true },
+      orderBy: [{ caseId: "asc" }, { stepId: "asc" }, { documentId: "asc" }],
+    })) : []),
   ]);
   if (!user) return NextResponse.json({ error: "Non autenticato." }, { status: 401 });
 
@@ -98,6 +104,7 @@ export async function GET() {
     })),
     notifications,
     cases,
+    documentLinks,
   };
 
   logOperationalEvent("account.exported", { userId, documents: documents.length });

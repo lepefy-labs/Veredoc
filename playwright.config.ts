@@ -35,6 +35,7 @@ export default defineConfig({
       BREVO_API_KEY: "",
       NOTIFICATIONS_ENABLED: "false",
       OPS_ALERT_EMAIL: "",
+      CASE_EVIDENCE_ENABLED: "true",
     },
   },
 });

@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { Pool } from "pg";
 import { expect, test } from "@playwright/test";
 import { prisma } from "../lib/prisma";
 import { login, PASSWORD, register, testIp, uniqueEmail } from "./helpers";
@@ -439,4 +441,61 @@ test("@mobile recupera la pratica dopo un salvataggio concorrente", async ({ pag
   await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
   await page.getByText("Attività recenti", { exact: true }).click();
   await expect(page.getByText("Risposta salvata", { exact: true })).toBeVisible();
+});
+
+test("collega un originale del proprio profilo e rimuove il collegamento dopo lo spostamento", async ({ page }) => {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  try {
+    const connection = await pool.connect();
+    try {
+      const migration = await readFile("supabase/migrations/007_case_evidence.sql", "utf8");
+      await connection.query(migration);
+    } finally {
+      connection.release();
+    }
+  } finally {
+    await pool.end();
+  }
+
+  const slug = await createPublishedFixture();
+  const email = uniqueEmail("fascicolo");
+  await register(page, email);
+  await login(page, email);
+  await expect(page).toHaveURL(/\/dashboard$/);
+
+  const account = await prisma.user.findUniqueOrThrow({ where: { email }, include: { profiles: true } });
+  const profile = account.profiles[0];
+  const differentProfile = await prisma.analysisProfile.create({ data: { userId: account.id, label: "Altro profilo" } });
+  const [document, otherDocument] = await Promise.all([
+    prisma.document.create({ data: { userId: account.id, profileId: profile.id, type: "BUSTA_PAGA", status: "DONE", filePath: "tests/cedolino.pdf", fileName: "cedolino.pdf" } }),
+    prisma.document.create({ data: { userId: account.id, profileId: differentProfile.id, type: "BUSTA_PAGA", status: "DONE", filePath: "tests/altro.pdf", fileName: "altro.pdf" } }),
+  ]);
+
+  await page.goto(`/pratiche/${slug}`);
+  await page.getByRole("button", { name: "Avvia la checklist" }).click();
+  await expect(page).toHaveURL(/\/pratiche\/caso\//);
+  const casePath = new URL(page.url()).pathname;
+  const endpoint = casePath.replace("/pratiche/caso/", "/api/pratiche/cases/") + "/documenti";
+  await page.getByLabel("Sì", { exact: true }).check();
+  await page.getByRole("button", { name: "Avanti" }).click();
+  await expect(page.getByRole("heading", { name: "Prepara i dati" })).toBeVisible();
+  await page.getByLabel("Ho fatto questo passaggio").check();
+  await expect(page.getByLabel("Ho fatto questo passaggio")).toBeChecked();
+  await page.getByRole("button", { name: "Avanti" }).click();
+  await expect(page.getByRole("heading", { name: "Prepara il documento aggiuntivo" })).toBeVisible();
+
+  const invalid = await page.request.post(endpoint, { data: { action: "link", step: "extra", documentId: otherDocument.id } });
+  expect(invalid.status()).toBe(404);
+  const evidence = page.getByRole("region", { name: "Documenti collegati" });
+  await evidence.getByRole("combobox").selectOption(document.id);
+  await evidence.getByRole("button", { name: "Collega documento" }).click();
+  await expect(evidence.getByRole("button", { name: "Scollega cedolino.pdf" })).toBeVisible();
+  await expect(page.getByLabel("Ho fatto questo passaggio")).not.toBeChecked();
+  await page.reload();
+  await expect(evidence.getByRole("button", { name: "Scollega cedolino.pdf" })).toBeVisible();
+
+  await prisma.document.update({ where: { id: document.id }, data: { profileId: differentProfile.id } });
+  await page.reload();
+  await expect(evidence.getByText("Nessun documento collegato.")).toBeVisible();
+  expect(await prisma.caseDocument.count({ where: { documentId: document.id } })).toBe(0);
 });

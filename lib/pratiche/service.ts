@@ -85,8 +85,8 @@ export async function startCase(userId: string, slug: string, profileId: string,
   }
 }
 
-export async function readCase(userId: string, id: string) {
-  return prisma.userCase.findFirst({
+export async function readCase(userId: string, id: string, db: Pick<Prisma.TransactionClient, "userCase"> = prisma) {
+  return db.userCase.findFirst({
     where: { id, userId },
     include: { answers: true, steps: true, events: { select: { id: true, type: true, createdAt: true }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 8 }, procedureVersion: { include: { procedure: true, citations: { include: { source: true, revision: true } } } } },
   });

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { applies, type Answer, type Workflow } from "@/lib/pratiche/engine";
 import type { Preparation } from "@/lib/pratiche/plain-language";
+import CaseEvidence from "./CaseEvidence";
 import PreparationList from "./PreparationList";
 import { PRACTICE_STATUS_LABELS } from "@/lib/pratiche/status";
 
@@ -51,7 +52,7 @@ const eventLabels: Record<string, string> = {
   CANCELLED: "Pratica annullata",
 };
 
-export default function CaseWizard({ initial, resumeVisit }: { initial: CaseView; resumeVisit?: string }) {
+export default function CaseWizard({ initial, resumeVisit, evidenceEnabled }: { initial: CaseView; resumeVisit?: string; evidenceEnabled?: boolean }) {
   const router = useRouter();
   const [current, setCurrent] = useState(initial);
   const [position, setPosition] = useState(() => initial.revision === 0 ? 0 : resumePosition(initial));
@@ -153,6 +154,7 @@ export default function CaseWizard({ initial, resumeVisit }: { initial: CaseView
         })}
       </fieldset> : <>
         {active.item.kind === "portal" && active.item.url && <a href={active.item.url} target="_blank" rel="noopener noreferrer" className="mt-4 inline-block font-semibold text-brand underline">Vai al sito ufficiale ↗</a>}
+        {evidenceEnabled && active.item.kind === "document" && <CaseEvidence key={active.item.id} caseId={current.id} stepId={active.item.id} />}
         {active.item.kind !== "portal" && <label className="mt-6 flex min-h-12 items-center gap-3 rounded-xl border border-line p-3"><input type="checkbox" checked={current.completed.includes(active.item.id)} disabled={busy || readOnly || conflict} onChange={(event) => void save({ kind: "step", stepId: active.item.id, done: event.target.checked }, false)} />Ho fatto questo passaggio</label>}
       </>}
       <div className="sticky bottom-[calc(4.7rem+env(safe-area-inset-bottom))] z-20 -mx-5 mt-6 flex justify-between gap-3 border-t border-line bg-white px-5 py-3 sm:static sm:mx-0 sm:border-0 sm:px-0"><button type="button" disabled={busy || index === 0} onClick={() => { setPosition(index - 1); setDraft(undefined); setError(""); }} className="min-h-11 rounded-lg border border-line px-4 disabled:opacity-40">Indietro</button><button type="button" disabled={busy || conflict || (index === items.length - 1 && (active.kind !== "question" || readOnly))} onClick={next} className="min-h-11 rounded-lg bg-brand px-5 font-semibold text-white disabled:opacity-40">{busy ? "Salvataggio..." : "Avanti"}</button></div>

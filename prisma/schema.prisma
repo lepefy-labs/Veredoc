@@ -109,6 +109,7 @@ model Document {
   updatedAt          DateTime        @updatedAt
   deletedAt          DateTime?
   notifications      NotificationOutbox[]
+  caseEvidence       CaseDocument[]
 
   @@index([profileId])
 }
@@ -301,10 +302,23 @@ model UserCase {
   answers            CaseAnswer[]
   steps              CaseStep[]
   events             CaseEvent[]
+  evidence           CaseDocument[]
 
   @@index([userId, updatedAt])
   @@index([profileId])
   @@unique([userId, idempotencyKey])
+}
+
+model CaseDocument {
+  caseId     String
+  case       UserCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  stepId     String
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@id([caseId, stepId, documentId])
+  @@index([documentId])
 }
 
 model CaseAnswer {
