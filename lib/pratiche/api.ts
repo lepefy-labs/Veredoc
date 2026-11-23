@@ -11,7 +11,7 @@ export async function apiUser(): Promise<{ userId: string } | NextResponse> {
 }
 
 export function apiError(error: unknown): NextResponse {
-  if (error instanceof PracticeError) return NextResponse.json({ error: error.message }, { status: error.status });
+  if (error instanceof PracticeError) return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
   return NextResponse.json({ error: "Errore temporaneo. Riprova." }, { status: 500 });
 }
 

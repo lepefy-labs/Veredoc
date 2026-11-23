@@ -10,7 +10,7 @@ import { plainDetails, plainPreparation, plainTitle, plainWorkflow } from "./pla
 export { praticheEnabled };
 
 export class PracticeError extends Error {
-  constructor(message: string, public status: number) { super(message); }
+  constructor(message: string, public status: number, public code?: "revision_conflict") { super(message); }
 }
 
 export async function praticheSchemaReady(): Promise<boolean> {
@@ -88,7 +88,7 @@ export async function startCase(userId: string, slug: string, profileId: string,
 export async function readCase(userId: string, id: string) {
   return prisma.userCase.findFirst({
     where: { id, userId },
-    include: { answers: true, steps: true, procedureVersion: { include: { procedure: true, citations: { include: { source: true, revision: true } } } } },
+    include: { answers: true, steps: true, events: { select: { id: true, type: true, createdAt: true }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 8 }, procedureVersion: { include: { procedure: true, citations: { include: { source: true, revision: true } } } } },
   });
 }
 
@@ -104,6 +104,7 @@ export function caseView(record: NonNullable<Awaited<ReturnType<typeof readCase>
     preparation: plainPreparation(record.procedureVersion.id, workflow),
     progress: { required: state.required, done: state.done, ready: state.ready, blocked: state.blocked, missing: [...state.missingQuestions.map((q) => q.title), ...state.missingSteps.map((s) => s.title)] },
     sources: record.procedureVersion.citations.map(({ source, revision }) => ({ title: source.title, authority: source.authority, url: source.url, verifiedAt: source.verifiedAt, version: revision.version })),
+    history: record.events,
     updatedAt: record.updatedAt,
   };
 }
@@ -118,6 +119,7 @@ export async function updateCase(userId: string, id: string, expectedRevision: n
   return prisma.$transaction(async (tx) => {
     const record = await tx.userCase.findFirst({ where: { id, userId }, include: { answers: true, steps: true, procedureVersion: true } });
     if (!record) throw new PracticeError("Pratica non trovata.", 404);
+    if (record.revision !== expectedRevision) throw new PracticeError("La pratica è stata aggiornata altrove.", 409, "revision_conflict");
     if (["COMPLETED", "CANCELLED", "USER_REPORTED_SUBMITTED"].includes(record.status) && mutation.kind !== "status") throw new PracticeError("Pratica non modificabile.", 409);
     const workflow = parseWorkflow(record.procedureVersion.definition);
     const answers = Object.fromEntries(record.answers.map((answer) => [answer.questionId, answer.value])) as Record<string, Answer>;
@@ -147,7 +149,7 @@ export async function updateCase(userId: string, id: string, expectedRevision: n
     }
     const state = progress(workflow, answers, completed);
     const changed = await tx.userCase.updateMany({ where: { id, userId, revision: expectedRevision }, data: { revision: { increment: 1 }, status: mutation.kind === "status" ? mutation.status : state.blocked ? "BLOCKED" : state.ready ? "READY_TO_SUBMIT" : "IN_PROGRESS", completedAt: mutation.kind === "status" && mutation.status === "COMPLETED" ? new Date() : undefined } });
-    if (changed.count !== 1) throw new PracticeError("La pratica è stata aggiornata altrove. Ricarica la pagina.", 409);
+    if (changed.count !== 1) throw new PracticeError("La pratica è stata aggiornata altrove.", 409, "revision_conflict");
     if (mutation.kind === "answer") {
       await tx.caseAnswer.upsert({ where: { caseId_questionId: { caseId: id, questionId: mutation.questionId } }, create: { caseId: id, questionId: mutation.questionId, value: value as Prisma.InputJsonValue, revision: expectedRevision + 1 }, update: { value: value as Prisma.InputJsonValue, revision: expectedRevision + 1 } });
       const validQuestions = new Set(Object.keys(answers));

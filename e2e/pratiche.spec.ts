@@ -196,6 +196,11 @@ test("@mobile le guide sono pubbliche e il link CAF conserva il percorso dopo il
   const caseId = new URL(page.url()).pathname.split("/").pop()!;
   const created = await prisma.caseEvent.findFirst({ where: { caseId, type: "CREATED" } });
   expect(created?.metadata).toEqual({ entryPoint: "caf_pilot" });
+  await page.goto(`/pratiche/${slug}?da=caf_pilot`);
+  const existing = page.getByRole("list", { name: "Pratiche già avviate" }).getByRole("link");
+  await expect(existing).toHaveAttribute("href", `/pratiche/caso/${caseId}`);
+  await existing.click();
+  await expect(page).toHaveURL(`/pratiche/caso/${caseId}`);
 });
 
 test("una guida ritirata esce dal sito pubblico e dalla sitemap", async ({ page }) => {
@@ -409,4 +414,27 @@ test("@mobile cerca un bisogno dalla home e apre la guida", async ({ page }) => 
   await results.locator(`a[href="/guide/${slug}"]`).click();
   await expect(page).toHaveURL(new RegExp(`/guide/${slug}$`));
   await expect(page.getByRole("link", { name: "Continua con la checklist" })).toBeVisible();
+});
+
+test("@mobile recupera la pratica dopo un salvataggio concorrente", async ({ page }) => {
+  const slug = await createPublishedFixture();
+  const email = uniqueEmail("conflitto");
+  await register(page, email);
+  await login(page, email);
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await page.goto(`/pratiche/${slug}`);
+  await page.getByRole("button", { name: "Avvia la checklist" }).click();
+  await expect(page).toHaveURL(/\/pratiche\/caso\//);
+  const casePath = new URL(page.url()).pathname.replace("/pratiche/caso/", "/api/pratiche/cases/");
+  const saved = await page.request.patch(casePath, { data: { kind: "answer", questionId: "opzione", value: false, expectedRevision: 0 } });
+  await expect(saved).toBeOK();
+
+  await page.getByLabel("No", { exact: true }).check();
+  await page.getByRole("button", { name: "Avanti" }).click();
+  await expect(page.getByRole("alert")).toHaveText("La pratica è stata aggiornata altrove.");
+  await page.getByRole("button", { name: "Carica versione aggiornata" }).click();
+  await expect(page.getByRole("heading", { name: "Prepara i dati" })).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await page.getByText("Attività recenti", { exact: true }).click();
+  await expect(page.getByText("Risposta salvata", { exact: true })).toBeVisible();
 });
