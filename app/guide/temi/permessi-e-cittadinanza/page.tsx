@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { praticheEnabled } from "@/lib/pratiche/feature";
-import { immigrationResources, immigrationSections, immigrationTopicPath } from "@/lib/pratiche/guide-navigation";
+import { publicGuides } from "@/lib/pratiche/public-guides";
+import OfficialGuideLink from "@/components/pratiche/OfficialGuideLink";
+import { immigrationDirectory, immigrationSections, immigrationTopicPath } from "@/lib/pratiche/guide-navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -15,8 +17,11 @@ export const metadata: Metadata = {
   openGraph: { title, description, url: immigrationTopicPath, type: "website" },
 };
 
-export default function ImmigrationTopicPage() {
+const linkClass = "inline-flex min-h-11 items-center font-semibold text-brand underline decoration-brand/30 underline-offset-4 hover:decoration-brand";
+
+export default async function ImmigrationTopicPage() {
   if (!praticheEnabled()) notFound();
+  const entries = immigrationDirectory(await publicGuides());
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 sm:px-6 sm:py-12">
@@ -41,11 +46,15 @@ export default function ImmigrationTopicPage() {
         <section key={id} id={id} aria-labelledby={`section-${id}`} className="mt-9 scroll-mt-24">
           <h2 id={`section-${id}`} className="text-xl font-bold text-ink">{title}</h2>
           <ul className="mt-3 divide-y divide-line border-y border-line">
-            {immigrationResources.filter((resource) => resource.section === id).map(({ title, description, href, authority }) => (
+            {entries.filter((resource) => resource.section === id).map(({ title, description, href, authority }) => (
               <li key={title} className="py-2 pb-3">
-                <h3><a href={href} className="inline-flex min-h-11 items-center font-semibold text-brand underline decoration-brand/30 underline-offset-4 hover:decoration-brand">{title}</a></h3>
+                <h3>
+                  {authority
+                    ? <OfficialGuideLink href={href} subject="permessi-e-cittadinanza" className={linkClass}>{title}</OfficialGuideLink>
+                    : <Link href={href} className={linkClass}>{title}</Link>}
+                </h3>
                 <p className="text-sm leading-6 text-muted">{description}</p>
-                <p className="text-sm leading-6 text-muted">Fonte ufficiale: {authority}</p>
+                {authority && <p className="text-sm leading-6 text-muted">Fonte ufficiale: {authority}</p>}
               </li>
             ))}
           </ul>

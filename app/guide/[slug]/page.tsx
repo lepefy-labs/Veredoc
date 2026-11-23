@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import PracticalGuide from "@/components/pratiche/PracticalGuide";
+import OfficialGuideLink from "@/components/pratiche/OfficialGuideLink";
 import { publicGuide, publicGuides } from "@/lib/pratiche/public-guides";
 import { guideNavigation, guideTopics } from "@/lib/pratiche/guide-navigation";
 
@@ -11,7 +12,11 @@ const origin = "https://www.veredoc.it";
 const reviewDateFormat = new Intl.DateTimeFormat("it-IT", { dateStyle: "long", timeZone: "UTC" });
 
 const relatedSlugs: Readonly<Record<string, readonly string[]>> = {
-  "cambio-residenza": ["voltura-o-subentro-luce-gas"],
+  "permesso-soggiorno-motivi-familiari": ["ricongiungimento-familiare", "controllare-permesso-di-soggiorno"],
+  "ricongiungimento-familiare": ["permesso-soggiorno-motivi-familiari", "controllare-permesso-di-soggiorno"],
+  "controllare-permesso-di-soggiorno": ["permesso-soggiorno-motivi-familiari", "ricongiungimento-familiare"],
+  "cittadinanza-italiana-per-residenza": ["cambio-residenza", "certificati-anagrafici"],
+  "cambio-residenza": ["voltura-o-subentro-luce-gas", "cittadinanza-italiana-per-residenza"],
   "preparazione-dsu-isee": ["assegno-unico", "bonus-asilo-nido", "isee-corrente", "bonus-sociale-luce-gas-acqua", "bonus-nuovi-nati-2026"],
   "assegno-unico": ["preparazione-dsu-isee", "bonus-asilo-nido", "bonus-nuovi-nati-2026"],
   "bonus-asilo-nido": ["preparazione-dsu-isee", "assegno-unico", "bonus-nuovi-nati-2026"],
@@ -87,9 +92,16 @@ export default async function PublicGuidePage({ params, searchParams }: Props) {
       <h1 className="mt-3 text-3xl font-bold tracking-tight text-ink sm:text-4xl">{item.title}</h1>
       <p className="mt-3 leading-7 text-ink">{item.description}</p>
       {navigation && <p className="mt-2 leading-7 text-muted"><strong className="font-semibold text-ink">A chi serve.</strong> {navigation.audience}</p>}
-      <a href="#documenti" className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-dark print:hidden">
-        Vai ai documenti e alla checklist
-      </a>
+      {slug === "controllare-permesso-di-soggiorno" ? (
+        <OfficialGuideLink href={item.guide.link.href} subject={slug}
+          className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-dark print:hidden">
+          Verifica lo stato sul sito ufficiale
+        </OfficialGuideLink>
+      ) : (
+        <a href="#documenti" className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-dark print:hidden">
+          Vai ai documenti e alla checklist
+        </a>
+      )}
       {item.reviewedOn && (
         <p className="mt-2 text-sm text-muted">
           Fonti verificate il <time dateTime={item.reviewedOn}>{reviewDateFormat.format(new Date(item.reviewedOn))}</time>
@@ -103,13 +115,14 @@ export default async function PublicGuidePage({ params, searchParams }: Props) {
       )}
       <nav aria-label="In questa guida" className="mt-6 border-y border-line py-2 print:hidden">
         <ul className="flex flex-wrap gap-x-5">
+          {slug === "controllare-permesso-di-soggiorno" && <li><a href="#documenti" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand underline underline-offset-4">Dove trovare il numero</a></li>}
           <li><a href="#dove" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand underline underline-offset-4">{item.guide.destinationHeading ?? "Dove fare domanda"}</a></li>
           <li><a href="#passaggi" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand underline underline-offset-4">Passaggi da seguire</a></li>
           {item.guide.example && <li><a href="#esempio" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand underline underline-offset-4">Esempio</a></li>}
           <li><a href="#fonti" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand underline underline-offset-4">Fonti ufficiali</a></li>
         </ul>
       </nav>
-      <PracticalGuide guide={item.guide} checklistEdition={item.versionId} />
+      <PracticalGuide guide={item.guide} checklistEdition={item.versionId} guideSlug={slug} />
       <section aria-labelledby="save-checklist" className="mt-6 rounded-xl border border-line bg-white p-5 sm:p-6 print:hidden">
         <h2 id="save-checklist" className="text-lg font-semibold text-ink">
           {isBillGuide ? "Analizza la tua bolletta" : "Apri la pratica guidata"}

@@ -7,6 +7,7 @@ export type PracticalGuide = {
   documents: { title: string; detail: string }[];
   steps: { title: string; detail: string }[];
   source: { label: string; href: string };
+  references?: { label: string; href: string }[];
   example?: {
     title: string;
     detail: string;
@@ -16,6 +17,204 @@ export type PracticalGuide = {
 
 // Riepiloghi per le versioni pilota pubblicate. Una nuova versione richiede una propria revisione dei testi.
 const guides: Readonly<Record<string, PracticalGuide>> = {
+  pv_permesso_famiglia_1: {
+    destination: "Per il primo rilascio dopo il ricongiungimento, contatta lo Sportello Unico che ha rilasciato il nulla osta per il Modulo 1. Presenta il kit in un ufficio postale Sportello Amico. Per il rinnovo, controlla gli allegati e consegna il kit allo Sportello Amico.",
+    link: {
+      label: "Apri la scheda del permesso per famiglia",
+      href: "https://www.portaleimmigrazione.it/ITA/soggFamiglia.html"
+    },
+    alternative: "Se il tuo familiare è italiano o cittadino di un altro Paese UE, verifica il percorso con la Questura competente prima di usare questo kit.",
+    documents: [
+      {
+        title: "Passaporto",
+        detail: "Porta l’originale e una copia di tutte le pagine o del documento equivalente."
+      },
+      {
+        title: "Modulo 1 del kit",
+        detail: "Compila e firma il modulo. Per il primo rilascio dopo il ricongiungimento, il modulo viene compilato presso lo Sportello Unico."
+      },
+      {
+        title: "Permesso attuale e dichiarazione del familiare, per il rinnovo",
+        detail: "Prepara il permesso da rinnovare e la dichiarazione di sostentamento del familiare con cui è avvenuto il ricongiungimento o la coesione familiare."
+      }
+    ],
+    steps: [
+      {
+        title: "Avvia la richiesta",
+        detail: "Se sei entrato con un visto per ricongiungimento, contatta subito lo Sportello Unico per presentare la richiesta del primo permesso entro otto giorni lavorativi dall’ingresso. Se devi rinnovare, controlla la scadenza e prepara il kit."
+      },
+      {
+        title: "Consegna il kit",
+        detail: "Porta il passaporto originale per l’identificazione allo Sportello Amico e conserva la ricevuta postale."
+      },
+      {
+        title: "Segui la convocazione della Questura",
+        detail: "Controlla l’appuntamento e porta i documenti richiesti. Puoi usare il numero sulla ricevuta per seguire la pratica."
+      }
+    ],
+    source: {
+      label: "Portale Immigrazione, permesso per famiglia",
+      href: "https://www.portaleimmigrazione.it/ITA/soggFamiglia.html"
+    },
+    references: [
+      {
+        label: "Portale Immigrazione, procedura per presentare il kit",
+        href: "https://www.portaleimmigrazione.it/ITA/nuovaProcedura.html"
+      },
+      {
+        label: "Normattiva, regole per la richiesta di permesso",
+        href: "https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legislativo:1998-07-25;286!vig=~art5"
+      }
+    ]
+  },
+  pv_ricongiungimento_1: {
+    destination: "Accedi al Portale Servizi ALI e presenta la domanda di nulla osta allo Sportello Unico per l’Immigrazione della Prefettura competente per la tua residenza.",
+    link: {
+      label: "Apri il Portale Servizi ALI",
+      href: "https://portaleservizi.dlci.interno.it/AliSportello/ali/home.htm"
+    },
+    alternative: "I familiari di cittadini italiani o di altri Paesi UE seguono un percorso specifico. Consulta il consolato italiano competente per il luogo in cui vive il familiare.",
+    documents: [
+      {
+        title: "Titolo di soggiorno e passaporto",
+        detail: "Verifica che il tuo titolo consenta il ricongiungimento. Prepara anche i dati e il passaporto del familiare all’estero."
+      },
+      {
+        title: "Documenti sul reddito",
+        detail: "Controlla la soglia applicabile e i documenti richiesti dalla Prefettura per il tuo tipo di reddito."
+      },
+      {
+        title: "Documenti dell’alloggio",
+        detail: "Chiedi alla Prefettura quali atti servono per dimostrare disponibilità e idoneità dell’alloggio nel tuo caso."
+      },
+      {
+        title: "Atti che provano il legame familiare",
+        detail: "Il familiare li presenta al consolato per il visto. Controlla se servono traduzione, legalizzazione o apostille."
+      }
+    ],
+    steps: [
+      {
+        title: "Chiedi il nulla osta",
+        detail: "Accedi con SPID o CIE, allega quanto richiesto e controlla sul portale eventuali richieste di integrazione."
+      },
+      {
+        title: "Il familiare chiede il visto",
+        detail: "Dopo il rilascio del nulla osta, il familiare chiede il visto alla rappresentanza italiana competente. Il nulla osta va utilizzato entro sei mesi dal rilascio."
+      },
+      {
+        title: "Avvia il primo permesso dopo l’ingresso",
+        detail: "Contatta subito lo Sportello Unico che ha rilasciato il nulla osta. Segui le indicazioni per presentare la richiesta entro otto giorni lavorativi dall’ingresso."
+      }
+    ],
+    source: {
+      label: "Istruzioni sul ricongiungimento, Prefettura di Chieti",
+      href: "https://prefettura.interno.gov.it/it/prefetture/chieti/ricongiungimento-familiare"
+    },
+    references: [
+      {
+        label: "Documenti e nulla osta, Prefettura di Firenze",
+        href: "https://prefettura.interno.gov.it/it/prefetture/firenze/nulla-osta-ricongiungimento-familiare"
+      }
+    ]
+  },
+  pv_controllo_permesso_1: {
+    destination: "Apri il servizio nazionale della Polizia di Stato. Usa il numero di pratica o il numero dell’assicurata che trovi sulla ricevuta.",
+    destinationHeading: "Dove controllare lo stato",
+    stepsHeading: "Come leggere l’esito",
+    link: {
+      label: "Controlla sul sito della Polizia di Stato",
+      href: "https://questure.poliziadistato.it/stranieri/"
+    },
+    alternative: "Se ti hanno indicato un canale diverso, consulta la pagina della Questura che segue la tua pratica.",
+    documents: [
+      {
+        title: "Ricevuta della domanda",
+        detail: "Usa il numero di pratica di 10 caratteri sulla ricevuta della Questura o il numero dell’assicurata di 12 caratteri sulla ricevuta di Poste Italiane. Te ne basta uno."
+      }
+    ],
+    steps: [
+      {
+        title: "Inserisci il numero che hai sulla ricevuta",
+        detail: "Compila il campo per il numero di pratica o di assicurata e invia la ricerca."
+      },
+      {
+        title: "Leggi lo stato",
+        detail: "Se la pratica è in lavorazione, ricontrolla più avanti. Se vengono chiesti altri documenti, segui le istruzioni della Questura."
+      },
+      {
+        title: "Controlla quando e dove ritirarlo",
+        detail: "Se il permesso è pronto, consulta l’SMS o le indicazioni della Questura per l’appuntamento e i documenti da portare."
+      }
+    ],
+    source: {
+      label: "Istruzioni della Questura sul controllo del permesso",
+      href: "https://questure.poliziadistato.it/it/Firenze/articolo/3333685d0c8686064511381967"
+    },
+    references: [
+      {
+        label: "Servizio nazionale di controllo",
+        href: "https://questure.poliziadistato.it/stranieri/"
+      }
+    ]
+  },
+  pv_cittadinanza_residenza_1: {
+    destination: "Accedi al Portale Servizi del Ministero dell’Interno con SPID o CIE, seleziona «Richiesta Cittadinanza Italiana» e scegli il modello per residenza che corrisponde alla tua situazione.",
+    link: {
+      label: "Apri il Portale Servizi del Ministero",
+      href: "https://portaleservizi.dlci.interno.it/"
+    },
+    alternative: "Se hai dubbi su quale categoria scegliere o su come presentare un atto estero, consulta la Prefettura competente per il tuo Comune di residenza.",
+    documents: [
+      {
+        title: "Documento d’identità e titolo di soggiorno, se previsto",
+        detail: "Tieni a portata un documento di riconoscimento e l’eventuale titolo di soggiorno."
+      },
+      {
+        title: "Atto di nascita e certificato penale",
+        detail: "Verifica quali atti esteri servono, la loro validità e se occorrono traduzione, legalizzazione o apostille. La Prefettura indica gli eventuali documenti sostitutivi."
+      },
+      {
+        title: "Redditi e conoscenza dell’italiano",
+        detail: "Prepara i dati sui redditi degli ultimi tre anni. Controlla come dimostrare il livello B1 d’italiano o se rientri in un’esenzione."
+      },
+      {
+        title: "Contributo e bollo",
+        detail: "Segui le istruzioni del portale per il contributo di 250 euro e l’imposta di bollo."
+      }
+    ],
+    steps: [
+      {
+        title: "Verifica gli anni di residenza",
+        detail: "Nei casi ordinari servono almeno 10 anni di residenza legale e continuativa per i cittadini non UE e almeno 4 per i cittadini UE. L’articolo 9 prevede anche altri casi. Controlla il tuo prima di pagare."
+      },
+      {
+        title: "Compila, allega e invia",
+        detail: "Controlla i dati, carica gli allegati richiesti e conserva la ricevuta."
+      },
+      {
+        title: "Segui la pratica fino all’esito",
+        detail: "Consulta le comunicazioni sul portale. Se ricevi il decreto di concessione, segui le istruzioni del Comune per il giuramento, da prestare di norma entro sei mesi dalla notifica."
+      }
+    ],
+    source: {
+      label: "Istruzioni del Ministero per inviare la domanda",
+      href: "https://www.interno.gov.it/it/temi/cittadinanza-e-altri-diritti-civili/cittadinanza/cittadinanza-invia-tua-domanda"
+    },
+    references: [
+      {
+        label: "Requisiti per la cittadinanza per residenza",
+        href: "https://libertaciviliimmigrazione.dlci.interno.gov.it/temi/concessione-della-cittadinanza-italiana-residenza-sul-territorio-italiano-ai-sensi-dellart-9"
+      },
+      {
+        label: "Procedimento e giuramento",
+        href: "https://libertaciviliimmigrazione.dlci.interno.gov.it/ufficio-iv-cittadinanza"
+      },
+      {
+        label: "Documenti e verifiche, guida della Prefettura",
+        href: "https://prefettura.interno.gov.it/sites/default/files/89/2024-03/guida_alla_cittadinanza_italiana_short_version.pdf"
+      }
+    ]
+  },
   pv_bonus_sociale_1: {
     destination: "Per il bonus sociale per disagio economico basta presentare la DSU per ottenere l’ISEE. Lo sconto scatta in automatico se il tuo nucleo e la fornitura rispettano i requisiti.",
     destinationHeading: "Come ottenere il bonus",
@@ -249,6 +448,7 @@ const guides: Readonly<Record<string, PracticalGuide>> = {
     }
   },
   pv_assegno_unico_1: {
+    references: [{ label: "INPS, domande e aggiornamenti dell’Assegno unico nel 2026", href: "https://www.inps.it/it/it/inps-comunica/notizie/dettaglio-news-page.news.2026.02.assegno-unico-2026-presentazione-domanda-e-aggiornamento-importi.html" }],
     destination: "Apri la scheda INPS dell’Assegno unico e seleziona «Utilizza il servizio». Da lì puoi controllare una domanda già presentata, aggiornarla o avviarne una nuova.",
     link: {
       label: "Apri il servizio Assegno unico su INPS",
@@ -272,7 +472,7 @@ const guides: Readonly<Record<string, PracticalGuide>> = {
     steps: [
       {
         title: "Controlla se hai già una domanda accolta",
-        detail: "Per il percorso ordinario, se la domanda è ancora valida, controlla lo stato e aggiorna i dati quando cambiano, per esempio dopo una nascita."
+        detail: "Se la domanda risulta ancora accolta, di norma non devi inviarne un’altra. Aggiorna i dati quando cambiano, per esempio dopo una nascita."
       },
       {
         title: "Presenta la domanda se necessaria",
@@ -324,7 +524,7 @@ const guides: Readonly<Record<string, PracticalGuide>> = {
       },
       {
         title: "Avvia o aggiorna la domanda su INPS",
-        detail: "Se hai già una domanda valida, verifica nel servizio come aggiornare le mensilità per l’anno in corso. Se serve una nuova domanda, seleziona il contributo per la frequenza del nido."
+        detail: "Le domande presentate dal 2026 valgono fino ad agosto dell’anno in cui il bambino compie tre anni. Ogni anno indica le mensilità per cui chiedi il contributo. Se devi fare una nuova domanda, scegli il contributo per la frequenza del nido."
       },
       {
         title: "Allega i documenti per ogni mensilità",
@@ -341,7 +541,8 @@ const guides: Readonly<Record<string, PracticalGuide>> = {
     }
   },
   pv_residenza_1: {
-    destination: "Accedi ad ANPR con SPID, CIE o CNS e apri il servizio Cambio di residenza. La dichiarazione viene ricevuta dal Comune della nuova abitazione.",
+    references: [{ label: "Dipartimento per la trasformazione digitale, servizi ANPR", href: "https://innovazione.gov.it/dipartimento/focus/servizi-digitali-anagrafe-nazionale/" }],
+    destination: "Accedi ad ANPR con SPID, CIE o CNS e apri Cambio di residenza. Il servizio si rivolge ai maggiorenni già registrati in ANPR per trasferimenti in Italia o, se iscritti all’AIRE, per il rientro dall’estero. La dichiarazione arriva al Comune della nuova abitazione.",
     link: {
       label: "Vai al cambio di residenza su ANPR",
       href: "https://www.anagrafenazionale.interno.it/area-cittadino/cambio-di-residenza/",
@@ -384,10 +585,11 @@ const guides: Readonly<Record<string, PracticalGuide>> = {
     ],
     source: {
       label: "Guida del Ministero dell’Interno ai certificati ANPR",
-      href: "https://www.interno.gov.it/sites/default/files/2021-11/guida_richiesta_certificati_online.pdf",
+      href: "https://sc.anpr.interno.it/serviziCittadino/dist/docs/guida_richiesta_certificato.pdf",
     },
   },
   pv_isee_1: {
+    references: [{ label: "INPS, la nuova DSU e l’indicatore per le prestazioni familiari", href: "https://www.inps.it/it/it/inps-comunica/notizie/dettaglio-news-page.news.2026.03.dichiarazione-sostitutiva-unica-disponibile-il-nuovo-modello.html" }],
     destination: "Per ottenere l’ISEE devi presentare la Dichiarazione sostitutiva unica (DSU). Puoi usare il Portale unico ISEE dell’INPS con SPID, CIE o CNS.",
     link: {
       label: "Apri il Portale unico ISEE dell’INPS",
@@ -400,7 +602,7 @@ const guides: Readonly<Record<string, PracticalGuide>> = {
       { title: "Casa e altre situazioni rilevanti", detail: "Se vivi in affitto, tieni a portata di mano contratto registrato e canone. Prepara i dati degli immobili o gli altri documenti richiesti per il tuo nucleo." },
     ],
     steps: [
-      { title: "Verifica quale ISEE ti serve", detail: "Controlla i requisiti della prestazione. Per alcune situazioni o prestazioni può servire una DSU integrale o un ISEE specifico." },
+      { title: "Verifica quale ISEE ti serve", detail: "Controlla i requisiti della prestazione. Dal 2026 l’INPS usa un indicatore specifico per alcune prestazioni, tra cui Assegno unico e Bonus asilo nido. In alcune situazioni può servire una DSU integrale." },
       { title: "Apri la DSU e indica il nucleo", detail: "Nel portale INPS avvia la dichiarazione. Per la precompilata segui la procedura per le autorizzazioni digitali dei maggiorenni oppure per i dati di riscontro." },
       { title: "Controlla, completa e presenta la DSU", detail: "Verifica i dati proposti, aggiungi quelli richiesti e invia la dichiarazione." },
       { title: "Scarica l’attestazione", detail: "Torna al Portale unico ISEE per consultare l’attestazione quando è disponibile." },

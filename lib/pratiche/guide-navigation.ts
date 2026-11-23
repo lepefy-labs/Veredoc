@@ -10,6 +10,10 @@ export const guideTopics = [
 type TopicId = (typeof guideTopics)[number]["id"];
 
 export const guideNavigation: Readonly<Record<string, { topic: TopicId; audience: string; keywords: string }>> = {
+  "permesso-soggiorno-motivi-familiari": { topic: "immigrazione", audience: "Chi è entrato con un visto per ricongiungimento o deve rinnovare il permesso per motivi familiari, codice 13.", keywords: "famiglia familiari kit posta rinnovo rilascio documenti carta soggiorno convivenza" },
+  "ricongiungimento-familiare": { topic: "immigrazione", audience: "Chi soggiorna regolarmente in Italia con un titolo idoneo e vuole farsi raggiungere da un familiare che vive all’estero.", keywords: "famiglia familiari nulla osta visto ingresso sportello unico" },
+  "controllare-permesso-di-soggiorno": { topic: "immigrazione", audience: "Chi ha già presentato una domanda di rilascio o rinnovo del permesso di soggiorno elettronico.", keywords: "permesso pronto stato pratica ricevuta ritiro controllare verificare assicurata questura" },
+  "cittadinanza-italiana-per-residenza": { topic: "immigrazione", audience: "Chi risiede in Italia e vuole chiedere la cittadinanza per residenza ai sensi dell’articolo 9 della legge 91/1992.", keywords: "cittadinanza residenza naturalizzazione documenti requisiti domanda b1 reddito" },
   "cambio-residenza": { topic: "casa", audience: "Chi si trasferisce e vuole aggiornare la residenza anagrafica.", keywords: "trasloco cambio indirizzo anagrafe comune" },
   "certificati-anagrafici": { topic: "casa", audience: "Chi deve scaricare un certificato anagrafico, per esempio di residenza o stato di famiglia.", keywords: "anagrafe stato famiglia certificato residenza anpr" },
   "preparazione-dsu-isee": { topic: "famiglia", audience: "Chi deve presentare la DSU per ottenere l’ISEE.", keywords: "documenti isee caf attestazione redditi" },
@@ -29,10 +33,21 @@ export const immigrationSections = [
   { id: "cittadinanza", title: "Voglio chiedere la cittadinanza italiana" },
 ] as const;
 
-export const immigrationResources = [
+type ImmigrationResource = {
+  section: (typeof immigrationSections)[number]["id"];
+  title: string;
+  description: string;
+  authority: string;
+  href: string;
+  keywords: string;
+  guideSlug?: string;
+};
+
+const immigrationResources: readonly ImmigrationResource[] = [
   {
     section: "rilascio",
     title: "Permesso di soggiorno per famiglia",
+    guideSlug: "permesso-soggiorno-motivi-familiari",
     description: "Documenti indicati dal Portale Immigrazione per il permesso per motivi familiari.",
     authority: "Portale Immigrazione",
     href: "https://www.portaleimmigrazione.it/ITA/soggFamiglia.html",
@@ -65,6 +80,7 @@ export const immigrationResources = [
   {
     section: "famiglia",
     title: "Ricongiungimento familiare",
+    guideSlug: "ricongiungimento-familiare",
     description: "Consulta il percorso dello Sportello unico per chi vuole far venire un familiare in Italia.",
     authority: "Ministero dell’Interno",
     href: "https://www.interno.gov.it/it/temi/immigrazione-e-asilo/modalita-dingresso/sportello-unico-limmigrazione",
@@ -73,6 +89,7 @@ export const immigrationResources = [
   {
     section: "stato",
     title: "Controlla se il permesso di soggiorno è pronto",
+    guideSlug: "controllare-permesso-di-soggiorno",
     description: "Apri il servizio della Polizia di Stato e tieni a portata il numero della pratica o dell’assicurata.",
     authority: "Polizia di Stato",
     href: "https://questure.poliziadistato.it/stranieri/",
@@ -81,6 +98,7 @@ export const immigrationResources = [
   {
     section: "cittadinanza",
     title: "Cittadinanza italiana per residenza",
+    guideSlug: "cittadinanza-italiana-per-residenza",
     description: "Apri le istruzioni del Ministero per inviare o consultare una domanda di cittadinanza.",
     authority: "Ministero dell’Interno",
     href: "https://www.interno.gov.it/it/temi/cittadinanza-e-altri-diritti-civili/cittadinanza/cittadinanza-invia-tua-domanda",
@@ -94,7 +112,18 @@ export const immigrationResources = [
     href: "https://www.interno.gov.it/it/temi/cittadinanza-e-altri-diritti-civili/cittadinanza/cittadinanza-invia-tua-domanda",
     keywords: "documenti requisiti coniuge nozze cittadinanza matrimoniale",
   },
-] as const;
+];
+
+type GuideSummary = { slug: string; title: string; description: string };
+
+export function immigrationDirectory(guides: readonly GuideSummary[]) {
+  return immigrationResources.map((entry) => {
+    const guide = entry.guideSlug ? guides.find(({ slug }) => slug === entry.guideSlug) : undefined;
+    return guide
+      ? { ...entry, title: guide.title, description: guide.description, href: `/guide/${guide.slug}`, authority: undefined }
+      : entry;
+  });
+}
 
 type DirectoryEntry = {
   href: string;
@@ -110,12 +139,12 @@ function normalize(value: string) {
   return value.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replace(/[^a-z0-9]+/g, " ").trim();
 }
 
-export function searchGuideDirectory(guides: readonly { slug: string; title: string; description: string }[], query: string) {
+export function searchGuideDirectory(guides: readonly GuideSummary[], query: string) {
   const entries: DirectoryEntry[] = [
     ...guides.map(({ slug, title, description }) => ({
       title, description, href: `/guide/${slug}`, keywords: guideNavigation[slug]?.keywords ?? "",
     })),
-    ...immigrationResources,
+    ...immigrationDirectory(guides).filter((entry) => entry.authority),
   ];
 
   const words = normalize(query).split(" ").filter((word) => word && !stopWords.has(word));

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Analytics } from "@vercel/analytics/react";
+import SiteAnalytics from "@/components/layout/SiteAnalytics";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
@@ -67,7 +67,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </Providers>
         <Footer praticheAvailable={praticheAvailable} />
         <PwaRegistration />
-        <Analytics />
+        <SiteAnalytics />
       </body>
     </html>
   );

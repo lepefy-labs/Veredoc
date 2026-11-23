@@ -15,11 +15,51 @@ type PublicEdition = {
 };
 
 const PUBLIC_EDITIONS: readonly PublicEdition[] = [
-  { slug: "cambio-residenza", versionId: "pv_residenza_1" },
-  { slug: "certificati-anagrafici", versionId: "pv_certificati_1" },
-  { slug: "preparazione-dsu-isee", versionId: "pv_isee_1" },
-  { slug: "assegno-unico", versionId: "pv_assegno_unico_1" },
-  { slug: "bonus-asilo-nido", versionId: "pv_bonus_nido_1" },
+  {
+    slug: "cambio-residenza",
+    versionId: "pv_residenza_1",
+    editorial: {
+      description: "Scopri come dichiarare la nuova residenza su ANPR, quali documenti servono e come seguire la pratica con il Comune.",
+      reviewedOn: "2026-11-23",
+      lastModified: "2026-11-23",
+    },
+  },
+  {
+    slug: "certificati-anagrafici",
+    versionId: "pv_certificati_1",
+    editorial: {
+      description: "Scarica i certificati anagrafici per te o per un familiare su ANPR. Scopri come accedere, scegliere il certificato e ottenere il PDF.",
+      reviewedOn: "2026-11-23",
+      lastModified: "2026-11-23",
+    },
+  },
+  {
+    slug: "preparazione-dsu-isee",
+    versionId: "pv_isee_1",
+    editorial: {
+      description: "Prepara la DSU per l’ISEE con la checklist dei dati del nucleo, dei redditi e del patrimonio. Scopri dove presentarla e come seguire l’esito.",
+      reviewedOn: "2026-11-23",
+      lastModified: "2026-11-23",
+    },
+  },
+  {
+    slug: "assegno-unico",
+    versionId: "pv_assegno_unico_1",
+    editorial: {
+      description: "Scopri quando presentare o aggiornare la domanda, cosa preparare e come controllare l’esito su INPS.",
+      reviewedOn: "2026-11-23",
+      lastModified: "2026-11-23",
+    },
+  },
+  {
+    slug: "bonus-asilo-nido",
+    versionId: "pv_bonus_nido_1",
+    editorial: {
+      description: "Prepara la domanda INPS e organizza fatture, ricevute e prove di pagamento per le mensilità del nido.",
+      reviewedOn: "2026-11-23",
+      lastModified: "2026-11-23",
+    },
+  },
   {
     slug: "bonus-sociale-luce-gas-acqua",
     versionId: "pv_bonus_sociale_1",
@@ -61,6 +101,42 @@ const PUBLIC_EDITIONS: readonly PublicEdition[] = [
     versionId: "pv_bonus_nuovi_nati_2026_1",
     editorial: {
       description: "Bonus da 1.000 euro. Requisiti ISEE, documenti e domanda INPS entro 120 giorni dalla nascita o dall’ingresso del minore in famiglia.",
+      reviewedOn: "2026-11-23",
+      lastModified: "2026-11-23",
+    },
+  },
+  {
+    slug: "permesso-soggiorno-motivi-familiari",
+    versionId: "pv_permesso_famiglia_1",
+    editorial: {
+      description: "Documenti e passaggi per il primo rilascio dopo il ricongiungimento o per il rinnovo del permesso di soggiorno per famiglia.",
+      reviewedOn: "2026-11-23",
+      lastModified: "2026-11-23",
+    },
+  },
+  {
+    slug: "ricongiungimento-familiare",
+    versionId: "pv_ricongiungimento_1",
+    editorial: {
+      description: "Come chiedere il nulla osta, preparare i documenti per il visto e avviare il primo permesso dopo l’ingresso in Italia.",
+      reviewedOn: "2026-11-23",
+      lastModified: "2026-11-23",
+    },
+  },
+  {
+    slug: "controllare-permesso-di-soggiorno",
+    versionId: "pv_controllo_permesso_1",
+    editorial: {
+      description: "Controlla se il permesso è in lavorazione o pronto per il ritiro. Cerca il numero di pratica o di assicurata sulla ricevuta.",
+      reviewedOn: "2026-11-23",
+      lastModified: "2026-11-23",
+    },
+  },
+  {
+    slug: "cittadinanza-italiana-per-residenza",
+    versionId: "pv_cittadinanza_residenza_1",
+    editorial: {
+      description: "Verifica gli anni di residenza richiesti, prepara i documenti, invia la domanda online e controlla le comunicazioni del Ministero.",
       reviewedOn: "2026-11-23",
       lastModified: "2026-11-23",
     },

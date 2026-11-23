@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
+import { track } from "@vercel/analytics";
 import type { PracticalGuide } from "@/lib/pratiche/guide-content";
 
 const changed = "veredoc:checklist-changed";
@@ -23,12 +24,14 @@ function readStoredItems(value: string): string[] {
   }
 }
 
-export default function PublicPreparationChecklist({ edition, documents }: {
+export default function PublicPreparationChecklist({ edition, guideSlug, documents }: {
   edition: string;
+  guideSlug?: string;
   documents: PracticalGuide["documents"];
 }) {
   const storageKey = `veredoc:preparation:${edition}`;
   const [temporaryItems, setTemporaryItems] = useState<string[] | null>(null);
+  const measuredStart = useRef(false);
   const stored = useSyncExternalStore(subscribe, () => {
     try {
       return window.localStorage.getItem(storageKey) ?? "";
@@ -40,6 +43,10 @@ export default function PublicPreparationChecklist({ edition, documents }: {
   const count = documents.filter(({ title }) => checkedItems.includes(title)).length;
 
   function update(title: string, checked: boolean) {
+    if (guideSlug && checked && count === 0 && !measuredStart.current) {
+      measuredStart.current = true;
+      track("guide_checklist_start", { subject: guideSlug });
+    }
     const items = checked ? [...new Set([...checkedItems, title])] : checkedItems.filter((item) => item !== title);
     try {
       window.localStorage.setItem(storageKey, JSON.stringify(items));

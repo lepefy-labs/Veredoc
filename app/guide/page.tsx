@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { praticheEnabled } from "@/lib/pratiche/feature";
 import { guideNavigation, guideTopics, searchGuideDirectory } from "@/lib/pratiche/guide-navigation";
 import { publicGuides } from "@/lib/pratiche/public-guides";
+import OfficialGuideLink from "@/components/pratiche/OfficialGuideLink";
+import GuideSearchMeasurement from "@/components/pratiche/GuideSearchMeasurement";
 
 export const dynamic = "force-dynamic";
 
@@ -48,13 +50,14 @@ export default async function GuidesPage({ searchParams }: Props) {
 
       {query ? (
         <section aria-labelledby="search-results" className="mt-8">
+          <GuideSearchMeasurement hasResults={results.length > 0} />
           <h2 id="search-results" className="text-xl font-bold text-ink">Risultati per «{query}»</h2>
           {results.length ? (
             <ul className="mt-3 divide-y divide-line border-y border-line">
               {results.map(({ title, href, description, authority }) => (
                 <li key={title} className="py-2 pb-3">
                   {authority
-                    ? <a href={href} className={linkClass}>{title}</a>
+                    ? <OfficialGuideLink href={href} subject="ricerca-guide" className={linkClass}>{title}</OfficialGuideLink>
                     : <Link href={href} className={linkClass}>{title}</Link>}
                   <p className="text-sm leading-6 text-muted">{description}</p>
                   {authority && <p className="text-sm leading-6 text-muted">Fonte ufficiale: {authority}</p>}

@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { prisma } from "../lib/prisma";
 import { login, PASSWORD, register, testIp, uniqueEmail } from "./helpers";
 
-async function createPublishedFixture(versionId?: string, publicSlug?: string) {
+async function createPublishedFixture(versionId?: string, publicSlug?: string, publicTitle?: string) {
   if (versionId) {
     const fixture = await prisma.procedureVersion.findUnique({
       where: { id: versionId }, select: { procedure: { select: { slug: true } } },
@@ -16,7 +16,7 @@ async function createPublishedFixture(versionId?: string, publicSlug?: string) {
     create: { authority: "INPS", title: "Portale unico ISEE", url: "https://www.inps.it/it/it/dettaglio-scheda.it.schede-servizio-strumento.schede-servizi.Portale-unico-ISEE.html", sourceType: "SERVIZIO", scope: "Nazionale", status: "VERIFIED", verifiedAt: new Date() },
   });
   const revision = await prisma.knowledgeRevision.findFirst({ where: { sourceId: source.id } }) ?? await prisma.knowledgeRevision.create({ data: { sourceId: source.id, version: 1, content: "Fixture di test per il flusso Pratiche", contentHash: `test-${suffix}`, status: "VERIFIED" } });
-  const procedure = await prisma.procedureDefinition.create({ data: { slug: publicSlug ?? `test-pratica-${suffix}`, title: publicSlug === "assegno-unico" ? "Assegno unico per i figli" : publicSlug === "bonus-asilo-nido" ? "Bonus asilo nido" : "Pratica di prova", description: "Percorso di test con un passaggio condizionale.", category: "Test", audience: "Utenti di test", scope: "Nazionale", authority: "INPS", status: "PUBLISHED" } });
+  const procedure = await prisma.procedureDefinition.create({ data: { slug: publicSlug ?? `test-pratica-${suffix}`, title: publicTitle ?? (publicSlug === "assegno-unico" ? "Assegno unico per i figli" : publicSlug === "bonus-asilo-nido" ? "Bonus asilo nido" : "Pratica di prova"), description: "Percorso di test con un passaggio condizionale.", category: "Test", audience: "Utenti di test", scope: "Nazionale", authority: "INPS", status: "PUBLISHED" } });
   const version = await prisma.procedureVersion.create({ data: { id: versionId, procedureId: procedure.id, version: 1, status: "PUBLISHED", approvedAt: new Date(), definition: { questions: [{ id: "opzione", title: "Serve un documento aggiuntivo?", type: "boolean", required: true }], steps: [{ id: "base", title: "Prepara i dati", description: "Raccogli le informazioni necessarie.", kind: "task", required: true }, { id: "extra", title: "Prepara il documento aggiuntivo", description: "Documento richiesto per questo caso.", kind: "document", required: true, when: { questionId: "opzione", equals: true } }, { id: "portale", title: "Apri il portale INPS", description: "Presenta la pratica sul sito ufficiale.", kind: "portal", required: false, url: "https://www.inps.it/" }] } } });
   await prisma.procedureCitation.create({ data: { procedureVersionId: version.id, sourceId: source.id, revisionId: revision.id, instructionIds: ["opzione", "base", "extra", "portale"] } });
   return procedure.slug;
@@ -336,4 +336,62 @@ test("@mobile trova guide e servizi ufficiali per permessi e cittadinanza", asyn
   const sitemap = await page.request.get("/sitemap.xml");
   await expect(sitemap).toBeOK();
   expect(await sitemap.text()).toContain("https://www.veredoc.it/guide/temi/permessi-e-cittadinanza");
+});
+
+test("@mobile le guide immigrazione sono raggiungibili da tema, ricerca e sitemap", async ({ page }) => {
+  const editions = [
+    ["pv_permesso_famiglia_1", "permesso-soggiorno-motivi-familiari", "Permesso di soggiorno per motivi familiari"],
+    ["pv_ricongiungimento_1", "ricongiungimento-familiare", "Ricongiungimento familiare"],
+    ["pv_controllo_permesso_1", "controllare-permesso-di-soggiorno", "Come controllare se il permesso di soggiorno è pronto"],
+    ["pv_cittadinanza_residenza_1", "cittadinanza-italiana-per-residenza", "Cittadinanza italiana per residenza"],
+  ];
+  for (const [versionId, slug, title] of editions) await createPublishedFixture(versionId, slug, title);
+
+  await page.goto("/guide/temi/permessi-e-cittadinanza");
+  const main = page.getByRole("main");
+  const sitemap = await page.request.get("/sitemap.xml");
+  await expect(sitemap).toBeOK();
+  const xml = await sitemap.text();
+  for (const [, slug, title] of editions) {
+    await expect(main.getByRole("link", { name: title, exact: true })).toHaveAttribute("href", `/guide/${slug}`);
+    expect(xml).toContain(`https://www.veredoc.it/guide/${slug}`);
+  }
+
+  await page.goto("/guide?q=permesso+pronto");
+  const results = page.getByRole("region", { name: /Risultati per/ });
+  await results.getByRole("link", { name: "Come controllare se il permesso di soggiorno è pronto", exact: true }).click();
+  await expect(page.getByRole("link", { name: "Verifica lo stato sul sito ufficiale" }))
+    .toHaveAttribute("href", "https://questure.poliziadistato.it/stranieri/");
+  await expect(page.getByRole("checkbox", { name: "Ricevuta della domanda" })).toBeVisible();
+  await expect(page.locator("time")).toHaveAttribute("datetime", "2026-11-23");
+});
+
+test("gli eventi delle guide usano solo esito e identificativo pubblico", async ({ page }) => {
+  const slug = await createPublishedFixture("pv_residenza_1", "cambio-residenza");
+  await page.addInitScript(() => {
+    const analytics = window as typeof window & {
+      va: (command: string, payload: unknown) => void;
+      guideEvents: unknown[];
+    };
+    analytics.guideEvents = [];
+    analytics.va = (command, payload) => {
+      if (command === "event") analytics.guideEvents.push(payload);
+    };
+  });
+  const events = () => page.evaluate(() => (window as typeof window & { guideEvents: unknown[] }).guideEvents);
+  await page.goto("/guide?q=nessunrisultatoveredoc");
+  await expect.poll(events).toContainEqual(expect.objectContaining({
+    name: "guide_search",
+    data: { hasResults: false },
+  }));
+
+  await page.goto(`/guide/${slug}`);
+  await page.getByRole("checkbox", { name: "Se sei in affitto o in comodato registrato" }).check();
+  const portal = page.getByRole("link", { name: "Vai al cambio di residenza su ANPR" });
+  await portal.evaluate((element) => element.addEventListener("click", (event) => event.preventDefault()));
+  await portal.click();
+  await expect.poll(events).toEqual(expect.arrayContaining([
+    expect.objectContaining({ name: "guide_checklist_start", data: { subject: slug } }),
+    expect.objectContaining({ name: "guide_official_click", data: { subject: slug } }),
+  ]));
 });

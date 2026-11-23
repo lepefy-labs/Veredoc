@@ -1,7 +1,12 @@
 import type { PracticalGuide as Guide } from "@/lib/pratiche/guide-content";
 import PublicPreparationChecklist from "./PublicPreparationChecklist";
+import OfficialGuideLink from "./OfficialGuideLink";
 
-export default function PracticalGuide({ guide, checklistEdition }: { guide: Guide; checklistEdition?: string }) {
+export default function PracticalGuide({ guide, checklistEdition, guideSlug }: {
+  guide: Guide;
+  checklistEdition?: string;
+  guideSlug?: string;
+}) {
   const officialSource = (
     <a href={guide.source.href} data-guide-print-url={guide.source.href} className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-brand underline">
       {guide.source.label}
@@ -11,9 +16,10 @@ export default function PracticalGuide({ guide, checklistEdition }: { guide: Gui
     <section id="dove" aria-labelledby="guide-destination" className="scroll-mt-24 rounded-xl border border-brand/20 bg-brand-soft p-5 sm:p-6">
       <h2 id="guide-destination" className="text-lg font-semibold text-ink">{guide.destinationHeading ?? "Dove presentare la richiesta"}</h2>
       <p className="mt-2 text-sm leading-6 text-ink">{guide.destination}</p>
-      <a href={guide.link.href} data-guide-print-url={guide.link.href} className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark">
+      <OfficialGuideLink href={guide.link.href} subject={guideSlug} printable
+        className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark">
         {guide.link.label}
-      </a>
+      </OfficialGuideLink>
       <p className="mt-4 text-sm leading-6 text-muted">{guide.alternative}</p>
     </section>
   );
@@ -24,7 +30,7 @@ export default function PracticalGuide({ guide, checklistEdition }: { guide: Gui
       <section id="documenti" aria-labelledby="guide-documents" className="scroll-mt-24 rounded-xl border border-line bg-white p-5 sm:p-6">
         <h2 id="guide-documents" className="text-lg font-semibold text-ink">Documenti e dati da preparare</h2>
         {checklistEdition ? (
-          <PublicPreparationChecklist key={checklistEdition} edition={checklistEdition} documents={guide.documents} />
+          <PublicPreparationChecklist key={checklistEdition} edition={checklistEdition} guideSlug={guideSlug} documents={guide.documents} />
         ) : <dl className="mt-4 space-y-4">
           {guide.documents.map(({ title, detail }) => (
             <div key={title}>
@@ -76,6 +82,15 @@ export default function PracticalGuide({ guide, checklistEdition }: { guide: Gui
         <section id="fonti" aria-labelledby="guide-sources" className="scroll-mt-24 border-t border-line pt-4">
           <h2 id="guide-sources" className="text-lg font-semibold text-ink">Fonti ufficiali</h2>
           {officialSource}
+          {guide.references && (
+            <ul>
+              {guide.references.map(({ href, label }) => (
+                <li key={href}>
+                  <a href={href} data-guide-print-url={href} className="inline-flex min-h-11 items-center text-sm font-semibold text-brand underline">{label}</a>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       )}
     </div>
