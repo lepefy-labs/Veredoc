@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import PracticalGuide from "@/components/pratiche/PracticalGuide";
 import { publicGuide, publicGuides } from "@/lib/pratiche/public-guides";
+import { guideNavigation, guideTopics } from "@/lib/pratiche/guide-navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +51,9 @@ export default async function PublicGuidePage({ params, searchParams }: Props) {
   const [{ slug }, { da }] = await Promise.all([params, searchParams]);
   const item = await publicGuide(slug);
   if (!item) notFound();
-  const related = (await publicGuides()).filter((candidate) => relatedSlugs[slug]?.includes(candidate.slug));
+  const related = (await publicGuides()).filter((candidate) => relatedSlugs[slug]?.includes(candidate.slug)).slice(0, 3);
+  const navigation = guideNavigation[slug];
+  const topic = guideTopics.find(({ id }) => id === navigation?.topic);
   const isBillGuide = slug === "come-leggere-bolletta-luce-gas";
   const url = new URL(`/guide/${item.slug}`, origin).href;
   const publisher = { "@type": "Organization", name: "Veredoc", url: origin };
@@ -70,9 +73,23 @@ export default async function PublicGuidePage({ params, searchParams }: Props) {
 
   return (
     <main className="public-guide-print mx-auto w-full max-w-3xl flex-1 px-4 pb-24 pt-8 sm:px-6 sm:pb-12 print:max-w-none print:p-0">
-      <Link href="/guide" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand print:hidden">← Tutte le guide</Link>
+      <nav aria-label="Percorso" className="print:hidden">
+        <ol className="flex flex-wrap items-center gap-x-2 text-sm">
+          <li><Link href="/guide" className="inline-flex min-h-11 items-center font-semibold text-brand underline">Tutte le guide</Link></li>
+          {topic && (
+            <li>
+              <span aria-hidden="true" className="mr-2 text-muted">/</span>
+              <Link href={topic.href} className="inline-flex min-h-11 items-center font-semibold text-brand underline">{topic.title}</Link>
+            </li>
+          )}
+        </ol>
+      </nav>
       <h1 className="mt-3 text-3xl font-bold tracking-tight text-ink sm:text-4xl">{item.title}</h1>
-      <p className="mt-3 leading-7 text-muted">{item.description}</p>
+      <p className="mt-3 leading-7 text-ink">{item.description}</p>
+      {navigation && <p className="mt-2 leading-7 text-muted"><strong className="font-semibold text-ink">A chi serve.</strong> {navigation.audience}</p>}
+      <a href="#documenti" className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-dark print:hidden">
+        Vai ai documenti e alla checklist
+      </a>
       {item.reviewedOn && (
         <p className="mt-2 text-sm text-muted">
           Fonti verificate il <time dateTime={item.reviewedOn}>{reviewDateFormat.format(new Date(item.reviewedOn))}</time>
@@ -84,6 +101,14 @@ export default async function PublicGuidePage({ params, searchParams }: Props) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(article).replace(/</g, "\\u003c") }}
         />
       )}
+      <nav aria-label="In questa guida" className="mt-6 border-y border-line py-2 print:hidden">
+        <ul className="flex flex-wrap gap-x-5">
+          <li><a href="#dove" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand underline underline-offset-4">{item.guide.destinationHeading ?? "Dove fare domanda"}</a></li>
+          <li><a href="#passaggi" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand underline underline-offset-4">Passaggi da seguire</a></li>
+          {item.guide.example && <li><a href="#esempio" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand underline underline-offset-4">Esempio</a></li>}
+          <li><a href="#fonti" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand underline underline-offset-4">Fonti ufficiali</a></li>
+        </ul>
+      </nav>
       <PracticalGuide guide={item.guide} checklistEdition={item.versionId} />
       <section aria-labelledby="save-checklist" className="mt-6 rounded-xl border border-line bg-white p-5 sm:p-6 print:hidden">
         <h2 id="save-checklist" className="text-lg font-semibold text-ink">

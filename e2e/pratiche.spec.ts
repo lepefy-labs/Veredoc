@@ -302,3 +302,38 @@ test("le guide su bollette, casa e agevolazioni sono accessibili senza account",
   await page.getByRole("region", { name: "Guide collegate" }).locator('a[href="/guide/bonus-sociale-luce-gas-acqua"]').click();
   await expect(page.getByRole("region", { name: "Guide collegate" }).locator('a[href="/guide/preparazione-dsu-isee"]')).toBeVisible();
 });
+
+test("@mobile trova guide e servizi ufficiali per permessi e cittadinanza", async ({ page }) => {
+  await createPublishedFixture("pv_voltura_subentro_1", "voltura-o-subentro-luce-gas");
+  await page.goto("/guide");
+  await expect(page.getByRole("navigation", { name: "Principale" }).getByRole("link", { name: "Guide", exact: true })).toHaveAttribute("href", "/guide");
+
+  const search = page.getByRole("search");
+  await search.getByRole("searchbox", { name: "Cerca una guida" }).fill("cambio intestatario bolletta");
+  await search.getByRole("button", { name: "Cerca", exact: true }).click();
+  const results = page.getByRole("region", { name: /Risultati per/ });
+  await results.locator('a[href="/guide/voltura-o-subentro-luce-gas"]').click();
+  await page.getByRole("link", { name: "Vai ai documenti e alla checklist" }).click();
+  await expect(page).toHaveURL(/#documenti$/);
+  await expect(page.getByRole("region", { name: "Documenti e dati da preparare" })).toBeVisible();
+  await page.getByRole("navigation", { name: "Percorso" }).getByRole("link", { name: "Tutte le guide" }).click();
+
+  await search.getByRole("searchbox", { name: "Cerca una guida" }).fill("documenti rinnovo per studio");
+  await search.getByRole("button", { name: "Cerca", exact: true }).click();
+  await expect(results.getByRole("link", { name: "Permesso di soggiorno per studio" }))
+    .toHaveAttribute("href", "https://www.portaleimmigrazione.it/ITA/soggMotiviStudio39.html");
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "noindex, follow");
+
+  await page.getByRole("navigation", { name: "Argomenti delle guide" }).getByRole("link", { name: /Permessi e cittadinanza/ }).click();
+  await page.getByRole("link", { name: "Ho già fatto domanda per il permesso" }).click();
+  await expect(page).toHaveURL(/#stato$/);
+  await expect(page.getByRole("link", { name: "Controlla se il permesso di soggiorno è pronto" }))
+    .toHaveAttribute("href", "https://questure.poliziadistato.it/stranieri/");
+  await page.getByRole("link", { name: "Voglio chiedere la cittadinanza italiana" }).click();
+  await expect(page).toHaveURL(/#cittadinanza$/);
+  await expect(page.getByRole("link", { name: "Cittadinanza italiana per residenza" }))
+    .toHaveAttribute("href", /^https:\/\/www\.interno\.gov\.it\//);
+  const sitemap = await page.request.get("/sitemap.xml");
+  await expect(sitemap).toBeOK();
+  expect(await sitemap.text()).toContain("https://www.veredoc.it/guide/temi/permessi-e-cittadinanza");
+});

@@ -54,6 +54,7 @@ export default function Navbar({ praticheAvailable = false }: { praticheAvailabl
           </>
         ) : (
           <div className="flex items-center gap-2 text-sm font-medium sm:gap-4">
+            {praticheAvailable && <Link href="/guide" className="inline-flex min-h-11 items-center font-semibold text-brand hover:underline">Guide</Link>}
             <Link href="/login" className="text-ink transition-colors hover:text-brand">
               Accedi
             </Link>
