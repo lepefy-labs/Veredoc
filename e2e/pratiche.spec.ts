@@ -304,6 +304,8 @@ test("le guide su bollette, casa e agevolazioni sono accessibili senza account",
 });
 
 test("@mobile trova guide e servizi ufficiali per permessi e cittadinanza", async ({ page }) => {
+  await createPublishedFixture("pv_controllo_permesso_1", "controllare-permesso-di-soggiorno", "Come controllare se il permesso di soggiorno è pronto");
+  await createPublishedFixture("pv_cittadinanza_residenza_1", "cittadinanza-italiana-per-residenza", "Cittadinanza italiana per residenza");
   await createPublishedFixture("pv_voltura_subentro_1", "voltura-o-subentro-luce-gas");
   await page.goto("/guide");
   await expect(page.getByRole("navigation", { name: "Principale" }).getByRole("link", { name: "Guide", exact: true })).toHaveAttribute("href", "/guide");
@@ -327,12 +329,12 @@ test("@mobile trova guide e servizi ufficiali per permessi e cittadinanza", asyn
   await page.getByRole("navigation", { name: "Argomenti delle guide" }).getByRole("link", { name: /Permessi e cittadinanza/ }).click();
   await page.getByRole("link", { name: "Ho già fatto domanda per il permesso" }).click();
   await expect(page).toHaveURL(/#stato$/);
-  await expect(page.getByRole("link", { name: "Controlla se il permesso di soggiorno è pronto" }))
-    .toHaveAttribute("href", "https://questure.poliziadistato.it/stranieri/");
+  await expect(page.getByRole("link", { name: "Come controllare se il permesso di soggiorno è pronto" }))
+    .toHaveAttribute("href", "/guide/controllare-permesso-di-soggiorno");
   await page.getByRole("link", { name: "Voglio chiedere la cittadinanza italiana" }).click();
   await expect(page).toHaveURL(/#cittadinanza$/);
   await expect(page.getByRole("link", { name: "Cittadinanza italiana per residenza" }))
-    .toHaveAttribute("href", /^https:\/\/www\.interno\.gov\.it\//);
+    .toHaveAttribute("href", "/guide/cittadinanza-italiana-per-residenza");
   const sitemap = await page.request.get("/sitemap.xml");
   await expect(sitemap).toBeOK();
   expect(await sitemap.text()).toContain("https://www.veredoc.it/guide/temi/permessi-e-cittadinanza");
