@@ -30,7 +30,7 @@ test.describe("accesso e account", () => {
 
     await login(page, email.toUpperCase());
     await expect(page).toHaveURL(/\/dashboard$/);
-    await expect(page.getByRole("heading", { name: "Cosa vuoi fare oggi?" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Cosa devi risolvere?" })).toBeVisible();
     await expect(page.getByRole("link", { name: /Prepara una pratica/ })).toBeVisible();
 
     await page.goto("/account");
