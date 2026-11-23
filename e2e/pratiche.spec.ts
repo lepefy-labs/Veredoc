@@ -520,7 +520,8 @@ test("trova ISEE corrente con una richiesta colloquiale e mostra un esito vuoto 
   const search = page.getByRole("search");
   await search.getByRole("searchbox").fill("Ho perso il lavoro e devo aggiornare l’ISEE");
   await search.getByRole("button", { name: "Cerca", exact: true }).click();
-  await expect(page.getByRole("link", { name: "ISEE corrente" })).toHaveAttribute("href", `/guide/${slug}`);
+  const results = page.getByRole("region", { name: /Risultati per/ });
+  await expect(results.locator(`a[href="/guide/${slug}"]`)).toBeVisible();
 
   await page.getByRole("searchbox").fill("Devo rifare i documenti per mia moglie");
   await page.getByRole("button", { name: "Cerca", exact: true }).click();
