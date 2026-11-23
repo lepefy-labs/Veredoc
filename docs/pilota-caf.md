@@ -21,6 +21,16 @@
 - Confrontare tempo medio dell’operatore e percentuale di appuntamenti che procedono al primo incontro. Riconciliare i conteggi con la sede prima di fatturare.
 - Procedere con nuove funzionalità se entrambe le sedi pagano, il risparmio medio raggiunge almeno dieci minuti per appuntamento e almeno una sede ordina un secondo lotto. Registrare anche costo del supporto e margine per appuntamento verificato. Valutare integrazioni con software di prenotazione solo dopo aver misurato il valore.
 
+## Progetto dello spazio professionale
+
+Nel pilota digitale il cittadino mantiene il controllo del fascicolo. L’invito porta alla preparazione dell’appuntamento; la condivisione avviene con una conferma che mostra sede, pratica, requisiti e singoli file selezionati. Il link di invito scade ed è utilizzabile una volta. La sessione NextAuth del cittadino continua a proteggere l’archivio.
+
+- Organizzazione e iscrizione dell’operatore sono due relazioni distinte. Il ruolo autorizza azioni nella propria organizzazione e la condivisione identifica i soli oggetti visibili.
+- L’autorizzazione registra pratica, beneficiario, file approvati, scadenza e revoca. Ogni lettura e download ricontrolla la condivisione. I link ai file sono brevi e l’interfaccia espone la revoca.
+- L’operatore indica requisiti mancanti in una checklist e può confermare che il fascicolo è preparato per l’appuntamento. La conferma resta un evento del CAF.
+- Il log di collaborazione registra azione, identità, pratica e ora. La conservazione, i criteri di cancellazione e l’informativa richiedono accordo con le sedi e riesame privacy prima del rilascio.
+- Testare due organizzazioni e due cittadini, lettura e revoca, invito riutilizzato, cambio di ruolo, rimozione di un file, richieste dirette e audit. L’avvio richiede approvazione del modello di accesso e delle modifiche allo schema.
+
 ## Messaggio per contattare una sede
 
 **Oggetto** — Proposta per ridurre le integrazioni negli appuntamenti ISEE

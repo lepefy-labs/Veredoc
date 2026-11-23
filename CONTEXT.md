@@ -371,7 +371,7 @@ Tabelle separate da `User` per non toccarne le colonne: `AccountState` (`emailVe
 
 Prima della migrazione 005 tutto degrada senza errori (`lib/account/state.ts`, assenza della tabella ricordata per 5 minuti): nessuna verifica né cambio email (la UI li nasconde), nessuna invalidazione delle sessioni, esportazione ed eliminazione funzionanti.
 
-Il pagamento PRO non esiste: i testi dicono di scrivere a `ciao@veredoc.it` e il piano si imposta con `POST /api/admin/set-plan`.
+Quote mensili e accesso all’upload PDF via API si risolvono in `lib/account/entitlements.ts`, usato dall’upload e dalla pagina Profilo. Il piano si imposta con `POST /api/admin/set-plan`. Per una richiesta PRO i testi rimandano a `ciao@veredoc.it`. [Modello e misurazione](docs/piani-veredoc.md).
 
 ## Sicurezza e autorizzazione
 

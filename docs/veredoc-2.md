@@ -23,19 +23,29 @@ Per la collaborazione futura, l’accesso parte dalla singola pratica e dai docu
 
 I riferimenti di prodotto orientano quattro decisioni: partire dal racconto del caso, personalizzare il percorso, mostrare documenti mancanti e raggruppare le guide per bisogno. [Pratica Facile](https://www.pratiche.it/pratica_facile) · [Boundless](https://www.boundless.com/boundless-faqs) · [Gestionale Pratiche](https://gestionalepratiche.it/piattaforma/pratiche/) · [Service Public](https://www.service-public.gouv.fr/P10015).
 
-## Dipendenze delle prossime wave
+## Lavoro residuo e dipendenze
 
 | Wave | Passo verificabile | Dipendenze |
 |---|---|---|
-| 2 | Entrare dalla guida direttamente nella preparazione e rientrare in un caso senza perdere il contesto. | Continuità dopo autenticazione ed E2E su modifica risposte e salvataggio concorrente. |
-| 3 | Collegare un documento già posseduto a un requisito senza duplicare il file. | Relazione additiva con ownership, export e cancellazione, valutazione privacy e approvazione prima di applicare lo schema produttivo. |
-| 4 | Aggiornare una procedura con una revisione editoriale e mostrare le fonti interessate. | Migrazione compatibile dei contenuti TypeScript; acquisizione idempotente e revisione umana prima della pubblicazione. |
-| 5 | Trovare percorsi per sinonimi e intenti colloquiali, con astensione quando mancano risultati. | Valutare copertura della ricerca deterministica prima di embedding. Assistente con citazioni, limiti API e autorizzazione esplicita per contesto documentale. |
-| 6 | Preparare DSU/ISEE, ISEE corrente, assegno unico, bonus nido e bonus sociale. | Regole e fonti dell’annualità verificate, test dei casi condizionali, handoff ufficiale e metriche prive di dati personali. |
+| 2 | Concordare un trasferimento delle spunte pubbliche per i soli requisiti che hanno la stessa semantica nel wizard. | Continuità dopo autenticazione ed E2E su modifica risposte e salvataggio concorrente. |
+| 3 | Collaudare il collegamento dall’interfaccia con l’account di prova. Estendere i tipi di allegato e la verifica del requisito. | Relazione, export e cancellazione presenti. Prima dell’accesso generale verificare finalità, conservazione e gestione dei nuovi tipi di file. |
+| 4 | Migrare gradualmente i contenuti delle edizioni storiche. Preparare il controllo delle fonti in n8n. | Migrazione compatibile dei contenuti TypeScript; acquisizione idempotente e revisione umana prima della pubblicazione. |
+| 5 | Valutare copertura della ricerca italiana e aggiungere spiegazioni contestuali consentite. | Valutare copertura della ricerca deterministica prima di embedding. Assistente con citazioni, limiti API e autorizzazione esplicita per contesto documentale. |
+| 6 | Validare i cinque percorsi del pilota per situazioni reali con una sede CAF. | Regole e fonti dell’annualità verificate, test dei casi condizionali, handoff ufficiale e metriche prive di dati personali. |
 | 7 | Preparare un appuntamento ISEE con un CAF. | [Pilota CAF](pilota-caf.md), accordi con le sedi, modello di condivisione, audit, approvazione di accessi e trattamento dati. |
 | 8 | Preparare un modello disponibile e monitorare una pratica dopo la presentazione. | Provenienza e condizioni d’uso dei moduli; preferenze, scadenze verificate e outbox idempotente. |
-| 9 | Modellare diritti di accesso alle funzioni e validare i costi. | Compatibilità FREE/PRO, evidenze pilota e approvazione prima di pagamenti e rinnovi. |
+| 9 | Validare il costo e il valore dei servizi proposti usando i dati del pilota. | Compatibilità FREE/PRO, evidenze pilota e approvazione prima di pagamenti e rinnovi. |
 
 ## Verifiche di esercizio
 
 Controllare il percorso Home → ricerca → guida → checklist con sessione assente e con sessione attiva. Provare la ripresa da Home e da Le mie attività, quindi l’accesso a Documenti, all’analisi e a Profilo. Su mobile verificare la raggiungibilità dell’ultimo controllo del wizard, del footer e delle funzioni dell’archivio con la barra fissa. La modalità offline mostra il fallback statico. Per il rilascio, verificare una run GitHub Actions completata e un deployment Vercel READY associato al commit di `main`.
+
+## Controllo delle fonti
+
+Il flusso n8n può interrogare soltanto gli URL istituzionali presenti nell’elenco approvato, entro la frequenza e le condizioni consentite. Conservare l’ultimo hash normalizzato, inviare la revisione con la chiave della fonte e registrare gli errori recuperabili per singolo URL. L’acquisizione prepara una revisione per la verifica editoriale. La copertura del workflow si controlla nel pannello del revisore prima della pubblicazione. Configurazione e frequenza dello scheduler sono da concordare per ogni fonte.
+
+## Modulistica e monitoraggio
+
+I percorsi attuali rimandano al portale competente. Il riepilogo interno scaricabile mostra checklist, stato e versione del modello senza archiviare una seconda copia. Il primo template pubblicabile deve indicare fonte, versione, condizioni d’uso, campi richiesti e percorso di revisione. Collegare ogni campo a un dato confermato dall’utente e associare l’output al caso solo dopo la decisione privacy sul nuovo trattamento. L’invio resta sul canale ufficiale finché l’ente non mette a disposizione un’integrazione autorizzata.
+
+L’outbox attuale riguarda le analisi e richiede un identificativo documento. Per le attività usare una coda di eventi del caso con chiave idempotente che includa tipo, caso e ciclo. Controllare lo stato e la preferenza prima dell’invio, usare retry con lease e mantenere l’email priva di dettagli della pratica. Verificare separatamente notifiche transazionali, promemoria e comunicazioni commerciali. Promemoria con scadenza richiedono la fonte che stabilisce la scadenza e il perimetro temporale. Testare annullamento, revoca, preferenze e invio duplicato su dati sintetici.

@@ -2,7 +2,8 @@ import { after, NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AnalysisStatus, DocumentType, UserPlan } from "@prisma/client";
-import { ANALYSIS_LIMITS } from "@/lib/config/constants";
+import { resolveEntitlements } from "@/lib/account/entitlements";
+import { startOfCurrentMonthUtc } from "@/lib/account/usage";
 import { createClient } from "@supabase/supabase-js";
 import { v4 as uuidv4 } from "uuid";
 import {
@@ -30,7 +31,7 @@ function inferInitialDocumentType(filename: string): DocumentType {
 }
 
 type QuotaCheck =
-  | { ok: true; plan: UserPlan }
+  | { ok: true; pdfApiUpload: boolean }
   | { ok: false; status: 401 | 429; error: string; message?: string };
 
 async function getUserPlanAndCheckQuota(userId: string): Promise<QuotaCheck> {
@@ -40,21 +41,20 @@ async function getUserPlanAndCheckQuota(userId: string): Promise<QuotaCheck> {
   });
   if (!userRecord) return { ok: false, status: 401, error: "user_not_found" };
 
-  const now = new Date();
-  const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const startOfMonth = startOfCurrentMonthUtc();
   const monthlyCount = await prisma.document.count({
     where: { userId, createdAt: { gte: startOfMonth } },
   });
 
-  const limit = ANALYSIS_LIMITS[userRecord.plan];
+  const { monthlyAnalyses: limit, pdfApiUpload } = resolveEntitlements(userRecord.plan);
   if (monthlyCount >= limit) {
     const message = userRecord.plan === UserPlan.FREE
-      ? `Hai raggiunto il limite di ${ANALYSIS_LIMITS.FREE} analisi mensili del piano gratuito. Passa a PRO per continuare ad analizzare i tuoi documenti.`
-      : `Hai raggiunto il limite di ${ANALYSIS_LIMITS.PRO} analisi mensili del piano PRO.`;
+      ? `Hai raggiunto il limite di ${limit} analisi mensili del piano gratuito. Passa a PRO per continuare ad analizzare i tuoi documenti.`
+      : `Hai raggiunto il limite di ${limit} analisi mensili del piano PRO.`;
     return { ok: false, status: 429, error: "limit_reached", message };
   }
 
-  return { ok: true, plan: userRecord.plan };
+  return { ok: true, pdfApiUpload };
 }
 
 async function resolveProfile(userId: string, requestedProfileId: string | null) {
@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
 
   try {
     if (contentType.includes("application/json")) {
-      if (quota.plan !== UserPlan.PRO) {
+      if (!quota.pdfApiUpload) {
         return NextResponse.json({ error: "Funzione disponibile solo con il piano PRO." }, { status: 403 });
       }
 
