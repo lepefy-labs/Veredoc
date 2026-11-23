@@ -44,7 +44,9 @@ test("percorso Pratiche salva, riprende e protegge la proprietà", async ({ page
   await page.getByRole("button", { name: "Spiegazione: Prepara i dati" }).click();
   await expect(page.getByText("Raccogli le informazioni necessarie.")).toBeVisible();
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Serve un documento aggiuntivo?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Prepara i dati" })).toBeVisible();
+  await page.getByRole("button", { name: "Indietro" }).click();
+  await expect(page.getByLabel("No")).toBeChecked();
   await page.getByRole("button", { name: "Avanti" }).click();
   await expect(page.getByRole("heading", { name: "Prepara i dati" })).toBeVisible();
   await page.getByLabel("Ho fatto questo passaggio").click();
@@ -52,8 +54,8 @@ test("percorso Pratiche salva, riprende e protegge la proprietà", async ({ page
   await page.getByRole("button", { name: "Avanti" }).click();
   await expect(page.getByRole("heading", { name: "Apri il portale INPS" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Ho inviato la richiesta" })).toBeVisible();
-  const invalid = await page.request.patch(`/api/pratiche/cases/${caseId}`, { data: { kind: "answer", questionId: "opzione", value: "invalid", expectedRevision: 3 } });
-  expect([400, 409]).toContain(invalid.status());
+  const invalid = await page.request.patch(`/api/pratiche/cases/${caseId}`, { data: { kind: "answer", questionId: "opzione", value: "invalid", expectedRevision: 2 } });
+  expect(invalid.status()).toBe(400);
   const stale = await page.request.patch(`/api/pratiche/cases/${caseId}`, { data: { kind: "step", stepId: "base", done: false, expectedRevision: 0 } });
   expect(stale.status()).toBe(409);
   const stranger = await browser.newContext();
@@ -431,10 +433,10 @@ test("@mobile recupera la pratica dopo un salvataggio concorrente", async ({ pag
 
   await page.getByLabel("No", { exact: true }).check();
   await page.getByRole("button", { name: "Avanti" }).click();
-  await expect(page.getByRole("alert")).toHaveText("La pratica è stata aggiornata altrove.");
+  await expect(page.getByRole("main").getByRole("alert")).toHaveText("La pratica è stata aggiornata altrove.");
   await page.getByRole("button", { name: "Carica versione aggiornata" }).click();
   await expect(page.getByRole("heading", { name: "Prepara i dati" })).toBeVisible();
-  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
   await page.getByText("Attività recenti", { exact: true }).click();
   await expect(page.getByText("Risposta salvata", { exact: true })).toBeVisible();
 });
