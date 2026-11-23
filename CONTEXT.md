@@ -1,12 +1,12 @@
 # CONTEXT.md — Veredoc
 
-> Aggiornato: 2026-11-23. Guide pubbliche su bollette, casa, ISEE e prestazioni per le famiglie.
+> Aggiornato: 2026-11-23. Home orientata ai bisogni, attività e archivio documenti.
 
 ---
 
 ## Cos'è Veredoc
 
-Veredoc è un SaaS italiano che analizza bollette (luce, gas, internet) e buste paga tramite AI. L'utente carica PDF/JPG/PNG senza scegliere manualmente il tipo: Veredoc riconosce il documento, applica il flusso corretto e restituisce un risultato orientato all'azione.
+Veredoc aiuta a trovare guide e servizi ufficiali, preparare una pratica con una checklist e riprendere le attività salvate. L’analisi di bollette (luce, gas, internet) e buste paga resta accessibile da Documenti e direttamente da `/analyze`: l’utente carica PDF/JPG/PNG e la pipeline riconosce il tipo supportato.
 
 - **Bollette:** lettura strutturata, confronto mercato, verdetto sintetico e azione consigliata.
 - **Buste paga:** lettura strutturata, controlli deterministici di coerenza/anomalia, ferie/permessi/ROL, TFR e voci variabili quando esplicitamente presenti.
@@ -56,7 +56,7 @@ Regole:
 - una route di spostamento rifiuta profili appartenenti ad altri account;
 - il profilo default viene usato per upload generici senza `profileId`;
 - `/analyze` carica i profili dell'account, pre-seleziona il default e consente di scegliere esplicitamente per chi è il documento prima dell'upload;
-- dalla dashboard ogni profilo espone una CTA `Carica per <profilo>`;
+- nell’archivio Documenti ogni profilo espone una CTA `Carica per <profilo>`;
 - da `/account` un profilo si rinomina; si elimina solo se non è il default e non ha documenti attivi (i documenti già eliminati, righe anonime, passano al profilo default).
 
 La relazione `Document.profile` usa `RESTRICT` in cancellazione: eliminare un profilo non deve cancellare implicitamente documenti.
@@ -72,7 +72,8 @@ app/
   verify-email/                     conferma email da link (verifica o cambio)
   arrivederci/                      conferma dopo l'eliminazione dell'account
   analyze/                          upload auto-detect, selezione profilo esplicita
-  dashboard/                        profili, quota, filtro profilo, storico e documenti
+  dashboard/                        Home autenticata: ricerca, attività e accesso ai documenti
+    documenti/                      archivio: filtro profilo, storico e analisi
   api/
     account/password/               cambio password (richiede la password attuale, chiude le sessioni)
     account/email/                  richiesta cambio email (conferma dal nuovo indirizzo)
@@ -306,7 +307,7 @@ Per le buste paga considera ora, quando i campi sono realmente disponibili:
 
 I saldi assenza vengono confrontati solo se tipo e unità coincidono tra i documenti: Veredoc non converte ore in giorni né mescola unità eterogenee. La comparsa/scomparsa di una voce è trattata come informazione di contesto e non come prova della causa di una variazione retributiva.
 
-Il motore trend applica anche un filtro `profileId` interno. La dashboard può essere filtrata con chip `Tutti` / singolo profilo e nasconde insieme documenti e storico degli altri profili.
+Il motore trend applica anche un filtro `profileId` interno. L’archivio può essere filtrata con chip `Tutti` / singolo profilo e nasconde insieme documenti e storico degli altri profili.
 
 ---
 
@@ -355,7 +356,7 @@ I test includono payload payroll sintetici ma realistici e anonimizzati per vali
 
 ## Account
 
-`/account` (protetta come `/analyze` e `/dashboard`, con ritorno dopo il login): email con stato di conferma, cambio email, cambio password, uscita, piano e analisi del mese (`components/account/PlanUsage.tsx`, condiviso con la dashboard in versione compatta), gestione profili, stato delle notifiche email, esportazione dati ed eliminazione account. Navigazione: link con l'email nella barra desktop, voce `Account` nella barra in basso su mobile.
+`/account` (protetta come `/analyze` e `/dashboard`, con ritorno dopo il login): email con stato di conferma, cambio email, cambio password, uscita, piano e analisi del mese (`components/account/PlanUsage.tsx`), gestione profili, stato delle notifiche email, esportazione dati ed eliminazione account. Navigazione: voce `Profilo` su desktop e mobile.
 
 ### Ciclo di vita (migrazione 005)
 
@@ -394,12 +395,12 @@ Il pagamento PRO non esiste: i testi dicono di scrivere a `ciao@veredoc.it` e il
 
 ## Prestazioni e osservabilità
 
-- **Dashboard** (`app/dashboard/page.tsx`): con Pratiche attivo, mette in evidenza l'ultima pratica aperta dell'account e collega a `Le mie pratiche`. La ripresa apre il primo passaggio richiesto ancora da fare, la domanda che blocca il caso oppure il portale per una pratica pronta. I log `pratiche.dashboard_resumed` e `pratiche.dashboard_resume_advanced` condividono un ID casuale della visita per misurare quante riprese incrementano il numero di passaggi obbligatori completati. Contano le visite distinte nel periodo e includono l'ID della visita come unico campo applicativo.
-- **Storico documenti** (`lib/dashboard/documents.ts`): la dashboard legge una pagina di dieci riepiloghi per profilo con un elemento sentinella. `Mostra altri` carica la pagina seguente da `GET /api/profiles/[id]/documents`, con filtro per account e profilo e cursore stabile su data e ID. Lo storico e i trend usano al massimo quattro analisi valide per tipo e profilo. Il conteggio dei documenti è separato e al browser arrivano riepiloghi e risultati aggregati.
+- **Home autenticata** (`/dashboard`): quando Pratiche è attivo, mostra fino a tre pratiche aperte, stato, requisiti completati, documenti da preparare e azione successiva, calcolati sul workflow salvato. La ripresa apre il primo passaggio richiesto ancora da fare, la domanda che blocca il caso oppure il portale per una pratica pronta. I log `pratiche.dashboard_resumed` e `pratiche.dashboard_resume_advanced` condividono un ID casuale della visita per misurare quante riprese incrementano il numero di passaggi obbligatori completati. Contano le visite distinte nel periodo e includono l'ID della visita come unico campo applicativo.
+- **Storico documenti** (`lib/dashboard/documents.ts`): l’archivio `/dashboard/documenti` legge una pagina di dieci riepiloghi per profilo con un elemento sentinella. `Mostra altri` carica la pagina seguente da `GET /api/profiles/[id]/documents`, con filtro per account e profilo e cursore stabile su data e ID. Lo storico e i trend usano al massimo quattro analisi valide per tipo e profilo. Il conteggio dei documenti è separato e al browser arrivano riepiloghi e risultati aggregati.
 - **Stato sessione** (`lib/account/state.ts`): il callback `jwt` usa una cache per istanza di 15 s (massimo 5.000 utenti). Le scritture della stessa istanza la invalidano; tra istanze diverse un cambio di piano/email o la revoca delle sessioni dopo un cambio password si propagano entro 15 s. Login, pagina account, API email e dispatcher notifiche leggono senza cache. Un token con versione superiore a quella in cache forza una nuova lettura prima della verifica, anche su un’altra istanza.
 - **Avvisi operativi** (`instrumentation.ts`, `lib/observability/alerts.ts`): con `OPS_ALERT_EMAIL` configurata, ogni evento di log di livello `error` (escluso `analysis.failed`, coperto da `analysis.attempts_exhausted`) e ogni errore server non gestito (`onRequestError`, solo percorso senza query string, tipo e digest) inviano un'email via Brevo. Massimo un'email all'ora per tipo di evento (rate limit su Postgres, condiviso tra istanze); senza rate limit verificabile l'avviso non parte. Nessun contenuto dei documenti.
 - **Dominio canonico**: `https://www.veredoc.it` per metadati (`metadataBase`, canonical, Open Graph), link delle email (`getAppBaseUrl()`, incluso il reset password), workflow n8n e documentazione.
-- **Home** (`app/page.tsx`): con `PRATICHE_ENABLED=true`, porta alle guide pubbliche e distingue la consultazione gratuita dalla checklist salvata. La checklist conserva la destinazione anche attraverso registrazione e login tramite `lib/security/redirect.ts`. Gli utenti con sessione che aprono la home vengono reindirizzati alla dashboard.
+- **Home pubblica** (`/`): con `PRATICHE_ENABLED=true`, offre la ricerca GET su `/guide`, i temi e una selezione di guide pubblicate. La ricerca è la stessa usata dalla Home autenticata. Il passaggio alla checklist conserva la destinazione attraverso registrazione e login tramite `lib/security/redirect.ts`. Gli utenti con sessione che aprono `/` vengono reindirizzati a `/dashboard`. [Audit e architettura target](docs/veredoc-2.md).
 - **Guide pubbliche** (`/guide` e `/guide/[slug]`): l’elenco e il dettaglio usano solo le edizioni esplicitamente associate ai relativi slug. L’indice pubblico raggruppa le guide per argomento e cerca per titolo, descrizione e sinonimi con un modulo GET. I risultati di ricerca non sono indicizzati. La pagina `/guide/temi/permessi-e-cittadinanza` mette in evidenza le guide pubblicate su permesso per famiglia, ricongiungimento, stato del permesso e cittadinanza per residenza. Se una guida manca o è ritirata, rimanda alla fonte ufficiale. Vercel Web Analytics riceve l’esito trovato o vuoto delle ricerche, i clic ai servizi ufficiali e l’avvio delle checklist, con l’identificativo della guida dove disponibile. Il parametro di ricerca `q` è rimosso dagli URL inviati ad Analytics. Il dettaglio aggiunge il percorso di navigazione, il pubblico della guida e le scorciatoie a documenti, passaggi e fonti. I collegamenti tra guide mostrano solo edizioni disponibili. La guida alla bolletta include un esempio numerico e porta all’analisi in `/analyze`. Le guide famiglia e le cinque guide su bollette, utenze e agevolazioni si pubblicano con i seed editoriali in `supabase/seeds/`, che registrano le fonti verificate e l’audit. Il contenuto viene mostrato solo se la versione è pubblicata e le fonti soddisfano i controlli correnti del catalogo. La sitemap include solo le guide effettivamente disponibili. Le edizioni con metadati editoriali pubblicano una descrizione specifica, una data visibile di verifica delle fonti e dati strutturati `Article`. La data dell’ultimo aggiornamento significativo alimenta `Article.dateModified` e il `lastmod` della sitemap. Aggiornare le date editoriali quando avvengono le rispettive verifiche e modifiche, senza aggiornarle a ogni deploy. Il flusso salvato resta in `/pratiche`. Nella guida pubblica le voci di preparazione si possono spuntare senza account. Le spunte sono conservate in `localStorage` per edizione solo nel browser, con uno stato temporaneo se lo storage è indisponibile. La stampa della guida include le spunte e gli URL ufficiali.
 - **Pilota CAF** (`/per-i-caf`): pagina con proposta commerciale e contatto email. Il link ISEE condiviso dal CAF usa `?da=caf`. L’avvio salva `caf_pilot` o `public_guide` nel campo `metadata.entryPoint` dell’evento `CREATED`, conservando l’idempotenza. Il valore indica un canale di ingresso. La conferma di completezza, i tempi e i risultati economici vengono raccolti con la sede secondo il [piano operativo](docs/pilota-caf.md).
 
@@ -437,9 +438,9 @@ Le migrazioni si applicano esplicitamente tramite Supabase (nessuna migrazione a
 Veredoc espone un Web App Manifest tramite `app/manifest.ts`, usa icone 192/512 px e registra `public/sw.js` lato client. Il manifest usa un'identità stabile `id: /`, lingua italiana e shortcut installabili verso `Analizza documento` e `I miei documenti`.
 
 Esperienza mobile autenticata:
-- header semplificato con logo e piano;
-- bottom navigation persistente `Documenti / Analizza` con safe-area, icone e touch target mobili;
-- dashboard con CTA primaria `Analizza un documento`;
+- header con logo e navigazione desktop;
+- bottom navigation persistente `Home`, `Le mie attività`, `Documenti`, `Profilo`, con safe-area e touch target mobili. La voce attività dipende da `PRATICHE_ENABLED`;
+- analisi raggiungibile dalla Home, dall’archivio Documenti e dalle scorciatoie PWA;
 - install card mostrata solo quando l'app non è già standalone e quando il browser espone un percorso d'installazione;
 - `Non ora` sospende il suggerimento per 14 giorni anziché nasconderlo permanentemente;
 - Android/Chromium usa `beforeinstallprompt` quando disponibile;
@@ -471,7 +472,7 @@ pnpm build
 pnpm test:e2e   # dopo pnpm build, con DATABASE_URL/DIRECT_URL di un Postgres di test
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) ha due job: `verify` (lint, typecheck, test unitari, build) ed `e2e` (Postgres 16 come service container, schema da `prisma db push`, build, Playwright con Chromium). I test end-to-end (`e2e/`, `@playwright/test` 1.56.1) coprono: ritorno alla pagina richiesta dopo il login, registrazione e login con maiuscole, registrazione con email già usata (risposta identica), consenso obbligatorio, cambio password con chiusura sessioni, esportazione JSON, profili (crea/rinomina/elimina), rate limit del login, account e logout dalla barra mobile, dashboard paginata senza campi dell'analisi nella pagina. Non chiamano Storage, AI né Brevo (`BREVO_API_KEY` vuota). Ogni test usa un `x-forwarded-for` diverso per non esaurire il rate limit per IP. In locale: `PW_CHROMIUM_PATH` per usare un Chromium già installato.
+GitHub Actions (`.github/workflows/ci.yml`) ha due job: `verify` (lint, typecheck, test unitari, build) ed `e2e` (Postgres 16 come service container, schema da `prisma db push`, build, Playwright con Chromium). I test end-to-end (`e2e/`, `@playwright/test` 1.56.1) coprono: ritorno alla pagina richiesta dopo il login, registrazione e login con maiuscole, registrazione con email già usata (risposta identica), consenso obbligatorio, cambio password con chiusura sessioni, esportazione JSON, profili (crea/rinomina/elimina), rate limit del login, account e logout dalla barra mobile, archivio paginato senza campi dell’analisi nella pagina. Non chiamano Storage, AI né Brevo (`BREVO_API_KEY` vuota). Ogni test usa un `x-forwarded-for` diverso per non esaurire il rate limit per IP. In locale: `PW_CHROMIUM_PATH` per usare un Chromium già installato.
 
 Il job E2E usa il container ufficiale Playwright 1.56.1 su Ubuntu 24.04, fissato per digest con Chromium e dipendenze già inclusi. Il servizio PostgreSQL è raggiunto tramite il nome `postgres` sulla rete del job.
 

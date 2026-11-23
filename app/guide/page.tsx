@@ -5,6 +5,7 @@ import { praticheEnabled } from "@/lib/pratiche/feature";
 import { guideNavigation, guideTopics, searchGuideDirectory } from "@/lib/pratiche/guide-navigation";
 import { publicGuides } from "@/lib/pratiche/public-guides";
 import OfficialGuideLink from "@/components/pratiche/OfficialGuideLink";
+import GuideSearchForm from "@/components/pratiche/GuideSearchForm";
 import GuideSearchMeasurement from "@/components/pratiche/GuideSearchMeasurement";
 
 export const dynamic = "force-dynamic";
@@ -39,14 +40,7 @@ export default async function GuidesPage({ searchParams }: Props) {
     <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6 sm:py-12">
       <h1 className="text-3xl font-bold tracking-tight text-ink sm:text-4xl">Guide per le pratiche</h1>
       <p className="mt-3 max-w-xl leading-7 text-muted">Trova i documenti da preparare, i passaggi da seguire e il servizio ufficiale. Le guide sono gratuite e senza account.</p>
-      <form action="/guide" method="get" role="search" className="mt-6 max-w-2xl rounded-xl border border-brand/20 bg-brand-soft p-4 sm:p-5">
-        <label htmlFor="guide-search" className="font-semibold text-ink">Cerca una guida</label>
-        <div className="mt-2 flex gap-2">
-          <input id="guide-search" name="q" type="search" defaultValue={query} placeholder="Es. rinnovo permesso" maxLength={120}
-            className="min-h-11 min-w-0 flex-1 rounded-lg border border-line bg-white px-3 text-base text-ink" />
-          <button type="submit" className="min-h-11 rounded-lg bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-dark">Cerca</button>
-        </div>
-      </form>
+      <div className="mt-6"><GuideSearchForm id="guide-search" query={query} /></div>
 
       {query ? (
         <section aria-labelledby="search-results" className="mt-8">

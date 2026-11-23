@@ -42,6 +42,12 @@ body {
   color: #fff;
 }
 
+@media (width < 40rem) {
+  body:has(.app-bottom-bar) > footer {
+    padding-bottom: calc(3.5rem + max(env(safe-area-inset-bottom), 0.65rem));
+  }
+}
+
 @media print {
   body:has(.public-guide-print) :is(nav[aria-label="Principale"], :has(> nav[aria-label="Navigazione app"]), footer) {
     display: none;

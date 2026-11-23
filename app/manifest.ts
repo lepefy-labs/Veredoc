@@ -26,11 +26,11 @@ export default function manifest(): MetadataRoute.Manifest {
       {
         name: "I miei documenti",
         short_name: "Documenti",
-        description: "Apri dashboard, profili e storico documenti",
-        url: "/dashboard",
+        description: "Apri l’archivio e lo storico dei documenti",
+        url: "/dashboard/documenti",
         icons: [{ src: "/pwa/icon-192.png", sizes: "192x192", type: "image/png" }],
       },
-      ...(praticheEnabled() ? [{ name: "Le mie pratiche", short_name: "Pratiche", description: "Riprendi le tue pratiche", url: "/pratiche/mie", icons: [{ src: "/pwa/icon-192.png", sizes: "192x192", type: "image/png" }] }] : []),
+      ...(praticheEnabled() ? [{ name: "Le mie attività", short_name: "Attività", description: "Riprendi le tue pratiche", url: "/pratiche/mie", icons: [{ src: "/pwa/icon-192.png", sizes: "192x192", type: "image/png" }] }] : []),
     ],
     icons: [
       {

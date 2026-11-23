@@ -81,8 +81,8 @@ test("@mobile catalogo e navigazione Pratiche", async ({ page }) => {
   await expect(page).toHaveURL(/\/dashboard/);
   await page.goto("/pratiche");
   await expect(page.getByRole("heading", { name: "Cosa devi fare?" })).toBeVisible();
-  if (test.info().project.name === "mobile") await expect(page.getByRole("navigation", { name: "Navigazione app" }).getByRole("link", { name: "Pratiche" })).toBeVisible();
-  else await expect(page.getByRole("navigation", { name: "Principale" }).getByRole("link", { name: "Pratiche", exact: true })).toBeVisible();
+  if (test.info().project.name === "mobile") await expect(page.getByRole("navigation", { name: "Navigazione app" }).getByRole("link", { name: "Le mie attività" })).toBeVisible();
+  else await expect(page.getByRole("navigation", { name: "Principale" }).getByRole("link", { name: "Le mie attività", exact: true })).toBeVisible();
 });
 
 test("@mobile riprende dalla dashboard il primo passaggio ancora da fare", async ({ page }) => {
@@ -101,9 +101,9 @@ test("@mobile riprende dalla dashboard il primo passaggio ancora da fare", async
   const caseUrl = new URL(page.url());
   await page.goto("/dashboard");
 
-  const shortcut = page.getByRole("region", { name: "Pratica da riprendere" });
+  const shortcut = page.getByRole("article", { name: "Pratica da riprendere" });
   await expect(shortcut.getByText("Io · In corso")).toBeVisible();
-  await expect(shortcut.getByRole("link", { name: "Vedi tutte le pratiche" })).toHaveAttribute("href", "/pratiche/mie");
+  await expect(page.getByRole("region", { name: "Attività in corso" }).getByRole("link", { name: "Le mie attività" })).toHaveAttribute("href", "/pratiche/mie");
   await shortcut.getByRole("link", { name: "Riprendi pratica" }).click();
   await expect(page).toHaveURL(`${caseUrl.toString()}?from=dashboard`);
   await expect(page.getByRole("heading", { name: "Prepara i dati" })).toBeVisible();
@@ -396,4 +396,17 @@ test("gli eventi delle guide usano solo esito e identificativo pubblico", async 
     expect.objectContaining({ name: "guide_checklist_start", data: { subject: slug } }),
     expect.objectContaining({ name: "guide_official_click", data: { subject: slug } }),
   ]));
+});
+
+test("@mobile cerca un bisogno dalla home e apre la guida", async ({ page }) => {
+  const slug = await createPublishedFixture("pv_residenza_1", "cambio-residenza");
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Cosa devi risolvere?", level: 1 })).toBeVisible();
+  const search = page.getByRole("search");
+  await search.getByRole("searchbox", { name: "Cerca per bisogno o argomento" }).fill("cambio di residenza");
+  await search.getByRole("button", { name: "Cerca", exact: true }).click();
+  const results = page.getByRole("region", { name: /Risultati per/ });
+  await results.locator(`a[href="/guide/${slug}"]`).click();
+  await expect(page).toHaveURL(new RegExp(`/guide/${slug}$`));
+  await expect(page.getByRole("link", { name: "Continua con la checklist" })).toBeVisible();
 });

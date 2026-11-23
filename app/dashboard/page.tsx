@@ -1,151 +1,105 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import GuideSearchForm from "@/components/pratiche/GuideSearchForm";
+import PwaInstallCard from "@/components/pwa/PwaInstallCard";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { redirect } from "next/navigation";
-import Link from "next/link";
-import Button from "@/components/ui/Button";
-import ProfileManager from "@/components/ProfileManager";
-import ProfileDashboard from "@/components/ProfileDashboard";
-import PwaInstallCard from "@/components/pwa/PwaInstallCard";
-import PlanUsage from "@/components/account/PlanUsage";
-import { TEXTS } from "@/lib/config/texts";
-import { ANALYSIS_LIMITS } from "@/lib/config/constants";
-import { startOfCurrentMonthUtc } from "@/lib/account/usage";
-import { AnalysisStatus, UserPlan } from "@prisma/client";
-import { buildLongitudinalInsights } from "@/lib/insights/history";
-import { buildMultiPeriodTrends } from "@/lib/insights/trends";
-import { documentPage, readFirstDocumentPages, readInsightDocuments } from "@/lib/dashboard/documents";
+import { parseWorkflow, progress, type Answer } from "@/lib/pratiche/engine";
+import { plainTitle } from "@/lib/pratiche/plain-language";
 import { praticheEnabled, praticheSchemaReady } from "@/lib/pratiche/service";
 import { OPEN_PRACTICE_STATUSES, PRACTICE_STATUS_LABELS } from "@/lib/pratiche/status";
-import { plainTitle } from "@/lib/pratiche/plain-language";
 
-async function getPracticeShortcut(userId: string) {
-  if (!praticheEnabled() || !await praticheSchemaReady()) return null;
-  return prisma.userCase.findFirst({
+const textLink = "inline-flex min-h-11 items-center font-semibold text-brand hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
+
+async function recentCases(userId: string) {
+  const items = await prisma.userCase.findMany({
     where: { userId, status: { in: OPEN_PRACTICE_STATUSES } },
     orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
-    select: { id: true, title: true, procedureVersionId: true, status: true, profile: { select: { label: true } } },
+    take: 3,
+    select: {
+      id: true, title: true, procedureVersionId: true, status: true, updatedAt: true,
+      profile: { select: { label: true } },
+      procedureVersion: { select: { definition: true } },
+      answers: { select: { questionId: true, value: true } },
+      steps: { where: { status: "DONE" }, select: { stepId: true } },
+    },
   });
+
+  return items.map((item) => {
+    const workflow = parseWorkflow(item.procedureVersion.definition);
+    const answers = Object.fromEntries(item.answers.map(({ questionId, value }) => [questionId, value])) as Record<string, Answer>;
+    const completed = new Set(item.steps.map(({ stepId }) => stepId));
+    const state = progress(workflow, answers, completed);
+    return {
+      id: item.id,
+      title: plainTitle(item.procedureVersionId, item.title),
+      status: item.status,
+      profile: item.profile?.label,
+      updatedAt: item.updatedAt,
+      questions: state.missingQuestions.length,
+      documents: state.missingSteps.filter(({ kind }) => kind === "document").length,
+      done: state.done,
+      required: state.required,
+    };
+  });
+}
+
+function nextAction(item: Awaited<ReturnType<typeof recentCases>>[number]) {
+  switch (item.status) {
+    case "BLOCKED": return "Rivedi la risposta che blocca il percorso.";
+    case "READY_TO_SUBMIT": return "Vai al servizio ufficiale per presentare la pratica.";
+    case "USER_REPORTED_SUBMITTED": return "Controlla l’esito sul servizio ufficiale.";
+    default: return item.questions ? "Completa le domande sul tuo caso." : "Continua con la checklist.";
+  }
 }
 
 export default async function DashboardPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const startOfMonth = startOfCurrentMonthUtc();
-  const userId = session.user.id;
-  const [profiles, usedThisMonth, pages, insightDocuments, practice] = await Promise.all([
-    prisma.analysisProfile.findMany({
-      where: { userId },
-      orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
-      select: {
-        id: true,
-        label: true,
-        kind: true,
-        isDefault: true,
-        _count: { select: { documents: { where: { userId, status: { not: AnalysisStatus.DELETED } } } } },
-      },
-    }),
-    prisma.document.count({
-      where: {
-        userId,
-        createdAt: { gte: startOfMonth },
-      },
-    }),
-    readFirstDocumentPages(userId),
-    readInsightDocuments(userId),
-    getPracticeShortcut(userId),
-  ]);
-
-  const documentsCount = profiles.reduce((total, profile) => total + profile._count.documents, 0);
-  const plan = session.user.plan === "PRO" ? UserPlan.PRO : UserPlan.FREE;
-  const monthlyLimit = ANALYSIS_LIMITS[plan];
-  const profileOptions = profiles.map(({ id, label, kind, isDefault }) => ({ id, label, kind, isDefault }));
-  const dashboardProfiles = profiles.map(({ id, label, kind, isDefault, _count }) => {
-    const sample = insightDocuments.get(id) ?? [];
-    return {
-      id, label, kind, isDefault,
-      insights: buildLongitudinalInsights(sample),
-      trends: buildMultiPeriodTrends(sample, id),
-      documentPage: documentPage(pages.get(id) ?? []),
-      documentCount: _count.documents,
-    };
-  });
-  const defaultProfile = profiles.find((profile) => profile.isDefault) ?? profiles[0];
-  const analyzeHref = defaultProfile ? `/analyze?profile=${encodeURIComponent(defaultProfile.id)}` : "/analyze";
-  const praticheAvailable = praticheEnabled();
-
+  const hasGuides = praticheEnabled();
+  const cases = hasGuides && await praticheSchemaReady() ? await recentCases(session.user.id) : [];
+  const date = new Intl.DateTimeFormat("it-IT", { dateStyle: "medium", timeZone: "Europe/Rome" });
   return (
-    <main className="min-h-screen px-4 pb-28 pt-6 sm:py-10">
-      <div className="mx-auto max-w-4xl space-y-6 sm:space-y-8">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            {praticheAvailable && <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-brand">Il tuo spazio</p>}
-            <h1 className="text-2xl font-bold text-ink">{praticheAvailable ? "Cosa vuoi fare oggi?" : TEXTS.dashboard.title}</h1>
-            <p className="mt-1 text-sm text-muted">
-              {praticheAvailable ? "Scegli un percorso per le tue pratiche oppure analizza un documento." : documentsCount === 0 ? "Carica il tuo primo documento per iniziare" : documentsCount === 1 ? "1 documento" : `${documentsCount} documenti`}
-            </p>
-          </div>
-          {!praticheAvailable && <Link href={analyzeHref} className="hidden sm:block">
-            <Button size="md">{TEXTS.dashboard.newAnalysis}</Button>
-          </Link>}
+    <main className="mx-auto w-full max-w-4xl flex-1 space-y-8 px-4 py-7 sm:px-6 sm:py-10">
+      <h1 className="text-3xl font-bold tracking-tight text-ink">Cosa devi risolvere?</h1>
+      {hasGuides && <section aria-label="Attività in corso">
+        <div className="flex flex-wrap items-center justify-between gap-x-4">
+          <h2 className="text-xl font-bold text-ink">Attività in corso</h2>
+          <Link href="/pratiche/mie" className={textLink}>Le mie attività</Link>
         </div>
-
-        {practice && (
-          <section aria-label="Pratica da riprendere" className="flex flex-col gap-4 rounded-2xl border border-line bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-ink">{plainTitle(practice.procedureVersionId, practice.title)}</h2>
-              <p className="mt-1 text-sm text-muted">
-                {practice.profile ? `${practice.profile.label} · ` : ""}{PRACTICE_STATUS_LABELS[practice.status]}
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <Link href={`/pratiche/caso/${practice.id}?from=dashboard`} prefetch={false} className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-dark">
-                Riprendi pratica
-              </Link>
-              <Link href="/pratiche/mie" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand hover:underline">
-                Vedi tutte le pratiche
-              </Link>
-            </div>
-          </section>
-        )}
-
-        {praticheAvailable ? <section aria-label="Scegli una funzione" className="grid gap-4 sm:grid-cols-2">
-          <Link href="/pratiche" className="group flex min-h-44 flex-col justify-between rounded-2xl bg-brand p-6 text-white shadow-sm transition-colors hover:bg-brand-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
-            <div><p className="text-xs font-bold uppercase tracking-[0.12em] text-white/75">Veredoc Pratiche</p><h2 className="mt-3 text-xl font-bold">Prepara una pratica</h2><p className="mt-2 text-sm leading-6 text-white/85">Scopri cosa fare e quali dati e documenti tenere pronti.</p></div>
-            <span className="mt-5 font-semibold">Apri Pratiche <span aria-hidden="true">→</span></span>
-          </Link>
-          <Link href={analyzeHref} className="group flex min-h-44 flex-col justify-between rounded-2xl border border-line bg-white p-6 text-ink shadow-sm transition-colors hover:border-brand/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
-            <div><p className="text-xs font-bold uppercase tracking-[0.12em] text-brand">Analisi documenti</p><h2 className="mt-3 text-xl font-bold">Analizza un documento</h2><p className="mt-2 text-sm leading-6 text-muted">Carica una bolletta o una busta paga e leggi le voci in chiaro.</p></div>
-            <span className="mt-5 font-semibold text-brand">Nuova analisi <span aria-hidden="true">→</span></span>
-          </Link>
-        </section> : <Link
-          href={analyzeHref}
-          className="flex min-h-16 items-center justify-between gap-4 rounded-2xl bg-brand px-5 py-4 text-white shadow-sm transition-colors hover:bg-brand-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:hidden"
-        >
-          <div>
-            <p className="font-semibold">Analizza un documento</p>
-            <p className="mt-0.5 text-xs text-white/80">Scatta una foto oppure scegli PDF, JPG o PNG</p>
-          </div>
-          <span className="text-2xl" aria-hidden="true">+</span>
-        </Link>}
-
-        <PwaInstallCard />
-
-        {praticheAvailable && <div><h2 className="text-lg font-bold text-ink">I tuoi documenti</h2><p className="mt-1 text-sm text-muted">{documentsCount === 0 ? "Nessun documento analizzato" : documentsCount === 1 ? "1 documento" : `${documentsCount} documenti`}</p></div>}
-        <ProfileManager profiles={profileOptions} />
-
-        <div className="rounded-xl border border-line bg-white p-5">
-          <PlanUsage plan={plan} used={usedThisMonth} limit={monthlyLimit} compact />
+        {cases.length === 0 ? <p className="mt-2 rounded-xl border border-line bg-white p-4 text-sm text-muted">Qui ritrovi le pratiche che avvii da una guida.</p> :
+          <ul className="mt-3 space-y-3">
+            {cases.map((item) => <li key={item.id}>
+              <article aria-label="Pratica da riprendere" className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-line bg-white p-4 sm:p-5">
+                <div>
+                  <h3 className="text-lg font-semibold text-ink">{item.title}</h3>
+                  <p className="mt-1 text-sm text-muted">{item.profile ? `${item.profile} · ` : ""}{PRACTICE_STATUS_LABELS[item.status]}</p>
+                  <p className="mt-2 text-sm font-medium text-ink">{nextAction(item)}</p>
+                  <p className="mt-1 text-sm text-muted">
+                    {item.done} di {item.required} requisiti completati
+                    {item.documents > 0 && ` · ${item.documents === 1 ? "1 documento da preparare" : `${item.documents} documenti da preparare`}`}
+                  </p>
+                  <p className="mt-1 text-sm text-muted">Ultimo aggiornamento <time dateTime={item.updatedAt.toISOString()}>{date.format(item.updatedAt)}</time></p>
+                </div>
+                <Link href={`/pratiche/caso/${item.id}?from=dashboard`} prefetch={false} className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">Riprendi pratica</Link>
+              </article>
+            </li>)}
+          </ul>}
+      </section>}
+      {hasGuides && <section aria-labelledby="start-guide">
+        <h2 id="start-guide" className="mb-3 text-xl font-bold text-ink">Inizia un percorso</h2>
+        <GuideSearchForm id="dashboard-search" />
+        <Link href="/guide" className={textLink}>Sfoglia tutte le guide</Link>
+      </section>}
+      <section aria-labelledby="document-area" className="rounded-xl border border-line bg-white p-4 sm:p-5">
+        <h2 id="document-area" className="text-xl font-bold text-ink">Documenti</h2>
+        <div className="mt-1 flex flex-wrap gap-x-6">
+          <Link href="/dashboard/documenti" className={textLink}>Apri l’archivio</Link>
+          <Link href="/analyze" className={textLink}>Analizza un documento</Link>
         </div>
-
-        {profiles.length === 0 ? (
-          <div className="rounded-xl border border-line bg-white p-8 text-center">
-            <p className="text-sm text-muted">Nessun profilo disponibile.</p>
-          </div>
-        ) : (
-          <ProfileDashboard profiles={dashboardProfiles} profileOptions={profileOptions} />
-        )}
-      </div>
+      </section>
+      <PwaInstallCard />
     </main>
   );
 }

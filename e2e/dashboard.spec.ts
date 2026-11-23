@@ -36,12 +36,15 @@ async function seedBills(email: string, count: number) {
   return { userId, profileId };
 }
 
-test("dashboard: riepiloghi paginati, nessun dato completo dell'analisi nella pagina", async ({ page, browser }) => {
+test("archivio: riepiloghi paginati, nessun dato completo dell'analisi nella pagina", async ({ page, browser }) => {
   const email = uniqueEmail("dashboard");
   await register(page, email);
   const { userId, profileId } = await seedBills(email, 12);
   await login(page, email);
   await expect(page).toHaveURL(/\/dashboard$/);
+
+  await page.getByRole("navigation", { name: "Principale" }).getByRole("link", { name: "Documenti" }).click();
+  await expect(page).toHaveURL(/\/dashboard\/documenti$/);
 
   await expect(page.getByText("12 documenti").first()).toBeVisible();
   // Il più recente (indice 0) è il primo; importo e fornitore dal riepilogo.

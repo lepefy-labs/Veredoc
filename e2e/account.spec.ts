@@ -138,7 +138,7 @@ test.describe("mobile", () => {
     await login(page, email);
     await expect(page).toHaveURL(/\/dashboard$/);
 
-    await page.getByRole("navigation", { name: "Navigazione app" }).getByRole("link", { name: "Account" }).click();
+    await page.getByRole("navigation", { name: "Navigazione app" }).getByRole("link", { name: "Profilo" }).click();
     await expect(page).toHaveURL(/\/account$/);
     await expect(page.getByRole("main").getByText(email, { exact: true })).toBeVisible();
 

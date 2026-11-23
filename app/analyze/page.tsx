@@ -144,7 +144,7 @@ function AnalyzeFlow({ initialDocumentId, profileId }: { initialDocumentId: stri
             <h1 className="text-2xl font-bold text-ink">{pageTitle}</h1>
             {pageSubtitle && <p className="text-sm text-muted mt-1">{pageSubtitle}</p>}
           </div>
-          <Link href="/dashboard" className="hidden text-sm text-brand hover:underline sm:block">Dashboard →</Link>
+          <Link href="/dashboard/documenti" className="hidden text-sm text-brand hover:underline sm:block">Documenti →</Link>
         </div>
 
         {documentId ? (
