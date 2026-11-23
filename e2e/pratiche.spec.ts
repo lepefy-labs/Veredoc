@@ -513,3 +513,27 @@ test("pubblica una guida dal workflow senza aggiungere una definizione nel front
   await page.goto("/guide?q=procedura+pubblica+generata");
   await expect(page.getByRole("link", { name: "Procedura pubblica generata" })).toBeVisible();
 });
+
+test("trova ISEE corrente con una richiesta colloquiale e mostra un esito vuoto per un bisogno ambiguo", async ({ page }) => {
+  const slug = await createPublishedFixture("pv_isee_corrente_1", "isee-corrente", "ISEE corrente");
+  await page.goto("/");
+  const search = page.getByRole("search");
+  await search.getByRole("searchbox").fill("Ho perso il lavoro e devo aggiornare l’ISEE");
+  await search.getByRole("button", { name: "Cerca", exact: true }).click();
+  await expect(page.getByRole("link", { name: "ISEE corrente" })).toHaveAttribute("href", `/guide/${slug}`);
+
+  await page.getByRole("searchbox").fill("Devo rifare i documenti per mia moglie");
+  await page.getByRole("button", { name: "Cerca", exact: true }).click();
+  await expect(page.getByText("Non abbiamo trovato un percorso per questa richiesta.", { exact: false })).toBeVisible();
+});
+
+test("l’assistente della guida mostra istruzioni pubblicate e fonte ufficiale", async ({ page }) => {
+  const slug = await createPublishedFixture("pv_isee_1", "preparazione-dsu-isee");
+  await page.goto(`/guide/${slug}`);
+  const assistant = page.getByRole("region", { name: "Trova il prossimo passo" });
+  await assistant.getByRole("combobox").selectOption("presentazione");
+  await assistant.getByRole("button", { name: "Mostra istruzioni" }).click();
+  await expect(assistant.getByText("Istruzioni dalla guida pubblicata.")).toBeVisible();
+  await expect(assistant.getByRole("link", { name: "Apri il Portale unico ISEE dell’INPS" })).toHaveAttribute("href", /^https:\/\/servizi2\.inps\.it\//);
+  await expect(assistant.getByText("Fonti verificate il", { exact: false })).toBeVisible();
+});

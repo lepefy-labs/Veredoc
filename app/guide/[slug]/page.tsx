@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import GuideAssistant from "@/components/pratiche/GuideAssistant";
 import PracticalGuide from "@/components/pratiche/PracticalGuide";
 import OfficialGuideLink from "@/components/pratiche/OfficialGuideLink";
 import { publicGuide, publicGuides } from "@/lib/pratiche/public-guides";
@@ -136,6 +137,7 @@ export default async function PublicGuidePage({ params, searchParams }: Props) {
           {isBillGuide ? "Vai all’analisi della bolletta" : "Continua con la checklist"}
         </Link>
       </section>
+      {!isBillGuide && <GuideAssistant slug={item.slug} />}
       {related.length > 0 && <section aria-labelledby="related-guides" className="mt-6 rounded-xl border border-line bg-white p-5 print:hidden">
         <h2 id="related-guides" className="text-lg font-semibold text-ink">Guide collegate</h2>
         <ul className="mt-2">

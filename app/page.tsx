@@ -9,7 +9,7 @@ import { publicGuides } from "@/lib/pratiche/public-guides";
 export const dynamic = "force-dynamic";
 
 const featuredSlugs = ["preparazione-dsu-isee", "cambio-residenza", "assegno-unico"];
-const examples = ["ISEE", "Cambio di residenza", "Rinnovo permesso"];
+const examples = ["Devo richiedere l’ISEE", "Mi sono trasferito", "Mi è scaduto il permesso"];
 const topics = [
   ...guideTopics,
   { id: "lavoro", title: "Lavoro e reddito", description: "Leggi le voci della tua busta paga.", href: "/analyze" },

@@ -59,7 +59,7 @@ export default async function GuidesPage({ searchParams }: Props) {
               ))}
             </ul>
           ) : (
-            <p className="mt-3 leading-7 text-muted">Nessun risultato. Prova a usare meno parole o scegli un argomento.</p>
+            <p className="mt-3 leading-7 text-muted">Non abbiamo trovato un percorso per questa richiesta. Prova con il nome della pratica o scegli un argomento.</p>
           )}
           <Link href="/guide" className={linkClass}>Torna a tutte le guide</Link>
         </section>

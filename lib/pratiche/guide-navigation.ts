@@ -133,10 +133,65 @@ type DirectoryEntry = {
   authority?: string;
 };
 
-const stopWords = new Set(["a", "al", "come", "con", "da", "de", "del", "della", "di", "e", "gli", "i", "il", "in", "la", "le", "lo", "o", "per", "quale", "quali", "se", "un", "una"]);
+const stopWords = new Set([
+  "a", "ad", "al", "alla", "chiedere", "come", "con", "da", "de", "del", "della", "devo", "di", "e", "fare",
+  "gli", "ho", "i", "il", "in", "l", "la", "le", "lo", "mi", "mia", "mio", "o", "per",
+  "ottenere", "quale", "quali", "richiedere", "se", "sto", "un", "una", "voglio", "vorrei",
+]);
+
+const aliases: Readonly<Record<string, string>> = {
+  bollette: "bolletta",
+  cambiare: "cambio",
+  cedolini: "cedolino",
+  documenti: "documento",
+  paghe: "paga",
+  permessi: "permesso",
+  rinnovare: "rinnovo",
+  rinnovi: "rinnovo",
+  scaduto: "rinnovo",
+  scaduta: "rinnovo",
+  stipendi: "stipendio",
+};
+
+const documentAnalysis: DirectoryEntry = {
+  href: "/analyze",
+  title: "Analizza una busta paga",
+  description: "Carica un cedolino per leggere le voci principali e controllare i punti che meritano una verifica.",
+  keywords: "stipendio cedolino",
+};
 
 function normalize(value: string) {
   return value.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function terms(value: string) {
+  return [...new Set(normalize(value).split(" ").filter((word) => word && !stopWords.has(word)).map((word) => Object.hasOwn(aliases, word) ? aliases[word] : word))];
+}
+
+function isWithinOneEdit(word: string, term: string) {
+  if (word.length < 5 || term.length < 4 || Math.abs(word.length - term.length) > 1) return false;
+  if (word.length === term.length) {
+    const mismatches = [...word].flatMap((letter, index) => letter === term[index] ? [] : [index]);
+    if (mismatches.length === 1) return true;
+    if (mismatches.length !== 2) return false;
+    const [first, second] = mismatches;
+    return second === first + 1 && word[first] === term[second] && word[second] === term[first];
+  }
+  const [shorter, longer] = word.length < term.length ? [word, term] : [term, word];
+  const index = [...shorter].findIndex((letter, position) => letter !== longer[position]);
+  return index < 0 || shorter.slice(index) === longer.slice(index + 1);
+}
+
+function queryTerms(query: string) {
+  const normalized = normalize(query);
+  const words = new Set(terms(normalized));
+  if (/\bmi sono trasferit[oa]\b/.test(normalized)) return ["cambio", "residenza"];
+  if (words.has("isee") && /\b(?:perso|perdita|cessazione)\b.*\blavoro\b/.test(normalized)) return ["isee", "corrente"];
+  if (/\b(?:busta paga|cedolino|stipendio)\b/.test(normalized) && /\b(?:capisco|capire|leggere|voce|spiega)\b/.test(normalized)) return ["busta", "paga"];
+  if (words.has("permesso") && words.has("rinnovo") && !words.has("non")) {
+    words.delete("soggiorno");
+  }
+  return [...words];
 }
 
 export function searchGuideDirectory(guides: readonly GuideSummary[], query: string) {
@@ -145,17 +200,25 @@ export function searchGuideDirectory(guides: readonly GuideSummary[], query: str
       title, description, href: `/guide/${slug}`, keywords: guideNavigation[slug]?.keywords ?? "",
     })),
     ...immigrationDirectory(guides).filter((entry) => entry.authority),
+    documentAnalysis,
   ];
 
-  const words = normalize(query).split(" ").filter((word) => word && !stopWords.has(word));
+  const words = queryTerms(query);
   if (!words.length) return [];
 
   return entries.map((entry) => {
-    const title = normalize(entry.title).split(" ");
-    const terms = new Set([...title, ...normalize(`${entry.description} ${entry.keywords}`).split(" ")]);
-    const score = words.every((word) => terms.has(word))
-      ? words.reduce((sum, word) => sum + (title.includes(word) ? 3 : 1), 0)
-      : 0;
+    const title = new Set(terms(entry.title));
+    const indexed = new Set([...title, ...terms(`${entry.description} ${entry.keywords}`)]);
+    let score = 0;
+    let corrections = 0;
+    for (const word of words) {
+      if (title.has(word)) score += 4;
+      else if (indexed.has(word)) score += 2;
+      else if (corrections === 0 && [...indexed].some((term) => isWithinOneEdit(word, term))) {
+        score++;
+        corrections++;
+      } else return { entry, score: 0 };
+    }
     return { entry, score };
   }).filter(({ score }) => score > 0).sort((a, b) => b.score - a.score).map(({ entry }) => entry);
 }
