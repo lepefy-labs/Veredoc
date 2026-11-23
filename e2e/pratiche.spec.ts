@@ -479,7 +479,7 @@ test("collega un originale del proprio profilo e rimuove il collegamento dopo lo
   await page.getByLabel("Sì", { exact: true }).check();
   await page.getByRole("button", { name: "Avanti" }).click();
   await expect(page.getByRole("heading", { name: "Prepara i dati" })).toBeVisible();
-  await page.getByLabel("Ho fatto questo passaggio").check();
+  await page.getByLabel("Ho fatto questo passaggio").click();
   await expect(page.getByLabel("Ho fatto questo passaggio")).toBeChecked();
   await page.getByRole("button", { name: "Avanti" }).click();
   await expect(page.getByRole("heading", { name: "Prepara il documento aggiuntivo" })).toBeVisible();
