@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
 import { prisma } from "../lib/prisma";
 import { login, PASSWORD, register, testIp, uniqueEmail } from "./helpers";
 
-async function createPublishedFixture(versionId?: string, publicSlug?: string, publicTitle?: string) {
+async function createPublishedFixture(versionId?: string, publicSlug?: string, publicTitle?: string, publicGuide = false) {
   if (versionId) {
     const fixture = await prisma.procedureVersion.findUnique({
       where: { id: versionId }, select: { procedure: { select: { slug: true } } },
@@ -19,7 +19,7 @@ async function createPublishedFixture(versionId?: string, publicSlug?: string, p
   });
   const revision = await prisma.knowledgeRevision.findFirst({ where: { sourceId: source.id } }) ?? await prisma.knowledgeRevision.create({ data: { sourceId: source.id, version: 1, content: "Fixture di test per il flusso Pratiche", contentHash: `test-${suffix}`, status: "VERIFIED" } });
   const procedure = await prisma.procedureDefinition.create({ data: { slug: publicSlug ?? `test-pratica-${suffix}`, title: publicTitle ?? (publicSlug === "assegno-unico" ? "Assegno unico per i figli" : publicSlug === "bonus-asilo-nido" ? "Bonus asilo nido" : "Pratica di prova"), description: "Percorso di test con un passaggio condizionale.", category: "Test", audience: "Utenti di test", scope: "Nazionale", authority: "INPS", status: "PUBLISHED" } });
-  const version = await prisma.procedureVersion.create({ data: { id: versionId, procedureId: procedure.id, version: 1, status: "PUBLISHED", approvedAt: new Date(), definition: { questions: [{ id: "opzione", title: "Serve un documento aggiuntivo?", type: "boolean", required: true }], steps: [{ id: "base", title: "Prepara i dati", description: "Raccogli le informazioni necessarie.", kind: "task", required: true }, { id: "extra", title: "Prepara il documento aggiuntivo", description: "Documento richiesto per questo caso.", kind: "document", required: true, when: { questionId: "opzione", equals: true } }, { id: "portale", title: "Apri il portale INPS", description: "Presenta la pratica sul sito ufficiale.", kind: "portal", required: false, url: "https://www.inps.it/" }] } } });
+  const version = await prisma.procedureVersion.create({ data: { id: versionId, procedureId: procedure.id, version: 1, status: "PUBLISHED", approvedAt: new Date(), definition: { ...(publicGuide ? { publicGuide: true } : {}), questions: [{ id: "opzione", title: "Serve un documento aggiuntivo?", type: "boolean", required: true }], steps: [{ id: "base", title: "Prepara i dati", description: "Raccogli le informazioni necessarie.", kind: "task", required: true }, { id: "extra", title: "Prepara il documento aggiuntivo", description: "Documento richiesto per questo caso.", kind: "document", required: true, when: { questionId: "opzione", equals: true } }, { id: "portale", title: "Apri il portale INPS", description: "Presenta la pratica sul sito ufficiale.", kind: "portal", required: false, url: "https://www.inps.it/" }] } } });
   await prisma.procedureCitation.create({ data: { procedureVersionId: version.id, sourceId: source.id, revisionId: revision.id, instructionIds: ["opzione", "base", "extra", "portale"] } });
   return procedure.slug;
 }
@@ -498,4 +498,18 @@ test("collega un originale del proprio profilo e rimuove il collegamento dopo lo
   await page.reload();
   await expect(evidence.getByText("Nessun documento collegato.")).toBeVisible();
   expect(await prisma.caseDocument.count({ where: { documentId: document.id } })).toBe(0);
+});
+
+test("pubblica una guida dal workflow senza aggiungere una definizione nel frontend", async ({ page }) => {
+  const slug = await createPublishedFixture(undefined, undefined, "Procedura pubblica generata", true);
+  await page.goto(`/guide/${slug}`);
+  await expect(page.getByRole("heading", { name: "Procedura pubblica generata", level: 1 })).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: "Prepara il documento aggiuntivo" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Apri il portale INPS" })).toHaveAttribute("href", "https://www.inps.it/");
+
+  const sitemap = await page.request.get("/sitemap.xml");
+  await expect(sitemap).toBeOK();
+  expect(await sitemap.text()).toContain(`https://www.veredoc.it/guide/${slug}`);
+  await page.goto("/guide?q=procedura+pubblica+generata");
+  await expect(page.getByRole("link", { name: "Procedura pubblica generata" })).toBeVisible();
 });

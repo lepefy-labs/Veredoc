@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { PracticeError } from "./service";
-import { hasVerifiedCoverage } from "./publication";
+import { hasVerifiedCoverage, reviewCoverage } from "./publication";
 
 export function isPracticeReviewer(userId: string): boolean {
   return Boolean(userId && process.env.PRATICHE_REVIEWER_IDS?.split(",").map((id) => id.trim()).includes(userId));
@@ -10,10 +10,17 @@ export function isPracticeReviewer(userId: string): boolean {
 export async function adminSnapshot() {
   const [sources, procedures, audit] = await Promise.all([
     prisma.knowledgeSource.findMany({ include: { revisions: { orderBy: { version: "desc" as const } } }, orderBy: { title: "asc" as const } }),
-    prisma.procedureDefinition.findMany({ include: { versions: { orderBy: { version: "desc" as const }, include: { citations: { include: { source: { select: { title: true, url: true, status: true } }, revision: { select: { version: true, status: true } } } } } } }, orderBy: { title: "asc" as const } }),
+    prisma.procedureDefinition.findMany({ include: { versions: { orderBy: { version: "desc" as const }, include: { citations: { include: { source: { select: { title: true, url: true, status: true, verifiedAt: true, revisions: { orderBy: { version: "desc" }, take: 1, select: { id: true } } } }, revision: { select: { version: true, status: true, sourceId: true } } } } } } }, orderBy: { title: "asc" as const } }),
     prisma.knowledgeAudit.findMany({ take: 50, orderBy: { createdAt: "desc" as const }, select: { id: true, entityType: true, entityId: true, action: true, createdAt: true } }),
   ]);
-  return { sources, procedures, audit };
+  return {
+    sources,
+    procedures: procedures.map((procedure) => ({
+      ...procedure,
+      versions: procedure.versions.map((version) => ({ ...version, coverage: reviewCoverage(version) })),
+    })),
+    audit,
+  };
 }
 
 export async function reviewSource(actorId: string, sourceId: string, revisionId: string) {

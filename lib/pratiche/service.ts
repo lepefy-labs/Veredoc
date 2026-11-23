@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client";
 import { applies, parseWorkflow, progress, validateAnswer, type Answer } from "./engine";
 import { hasVerifiedCoverage } from "./publication";
 import { praticheEnabled } from "./feature";
+import { requestsPublicGuide, workflowGuide } from "./workflow-guide";
 import { plainDetails, plainPreparation, plainTitle, plainWorkflow } from "./plain-language";
 
 export { praticheEnabled };
@@ -32,12 +33,18 @@ export function isPublishable(version: Prisma.ProcedureVersionGetPayload<{ inclu
   return hasVerifiedCoverage(version);
 }
 
-export async function catalog(publishedSlugs?: string[]) {
+export async function catalog(legacyGuideSlugs?: string[]) {
   const rows = await prisma.procedureDefinition.findMany({
-    where: publishedSlugs ? { slug: { in: publishedSlugs }, status: "PUBLISHED" } : undefined,
+    where: legacyGuideSlugs ? {
+      status: "PUBLISHED",
+      OR: [
+        { slug: { in: legacyGuideSlugs } },
+        { versions: { some: { status: "PUBLISHED", definition: { path: ["publicGuide"], equals: true } } } },
+      ],
+    } : undefined,
     include: {
       versions: {
-        where: publishedSlugs ? { status: "PUBLISHED" } : undefined,
+        where: legacyGuideSlugs ? { status: "PUBLISHED" } : undefined,
         include: versionInclude,
         orderBy: { version: "desc" },
       },
@@ -49,6 +56,7 @@ export async function catalog(publishedSlugs?: string[]) {
     const published = procedure.status === "PUBLISHED" ? versions.find(isPublishable) : undefined;
     const details = plainDetails(published?.id ?? versions[0]?.id, procedure);
     const workflow = published ? plainWorkflow(published.id, parseWorkflow(published.definition)) : null;
+    const sources = published?.citations.map(({ source, revision }) => ({ authority: source.authority, title: source.title, url: source.url, scope: source.scope, verifiedAt: source.verifiedAt, revision: revision.version })) ?? [];
     return {
       slug: procedure.slug, title: details.title, description: details.description,
       category: procedure.category, audience: details.audience, scope: details.scope,
@@ -57,7 +65,9 @@ export async function catalog(publishedSlugs?: string[]) {
       versionId: published?.id ?? null,
       workflow,
       preparation: workflow ? plainPreparation(published?.id, workflow) : null,
-      sources: published?.citations.map(({ source, revision }) => ({ authority: source.authority, title: source.title, url: source.url, scope: source.scope, verifiedAt: source.verifiedAt, revision: revision.version })) ?? [],
+      publicGuide: workflow && requestsPublicGuide(published?.definition) ? workflowGuide(workflow, sources) : undefined,
+      publishedAt: published?.approvedAt ?? null,
+      sources,
     };
   });
 }

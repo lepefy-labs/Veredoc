@@ -147,7 +147,7 @@ export const publicGuides = cache(async () => {
   if (!praticheEnabled() || !await praticheSchemaReady()) return [];
 
   const entries = await catalog(PUBLIC_EDITIONS.map(({ slug }) => slug));
-  return PUBLIC_EDITIONS.flatMap(({ slug, versionId, editorial }) => {
+  const legacy = PUBLIC_EDITIONS.flatMap(({ slug, versionId, editorial }) => {
     const item = entries.find((entry) => entry.slug === slug);
     const guide = practicalGuide(versionId);
     if (!item?.available || item.versionId !== versionId || !guide) return [];
@@ -159,9 +159,18 @@ export const publicGuides = cache(async () => {
       guide,
     }];
   });
+  const legacySlugs = new Set(legacy.map(({ slug }) => slug));
+  const generated = entries.flatMap((item) => {
+    if (!item.publicGuide || !item.versionId || !item.publishedAt || legacySlugs.has(item.slug)) return [];
+    const reviewedOn = item.sources.flatMap(({ verifiedAt }) => verifiedAt ? [verifiedAt.toISOString().slice(0, 10)] : []).sort()[0];
+    return [{
+      slug: item.slug, versionId: item.versionId, title: item.title, description: item.description,
+      reviewedOn, lastModified: item.publishedAt.toISOString().slice(0, 10), guide: item.publicGuide,
+    }];
+  });
+  return [...legacy, ...generated];
 });
 
 export async function publicGuide(slug: string) {
-  if (!PUBLIC_EDITIONS.some((edition) => edition.slug === slug)) return undefined;
   return (await publicGuides()).find((guide) => guide.slug === slug);
 }

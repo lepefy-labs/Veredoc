@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { hasVerifiedCoverage } from "../lib/pratiche/publication.ts";
+import { hasVerifiedCoverage, reviewCoverage } from "../lib/pratiche/publication.ts";
 
 const base = {
   definition: { questions: [{ id: "who", title: "Per chi?", type: "boolean", required: true }], steps: [{ id: "prepare", title: "Prepara", description: "Prepara", kind: "task", required: true }, { id: "portal", title: "Portale", description: "Apri", kind: "portal", required: false, url: "https://www.inps.it/" }] },
@@ -23,4 +23,21 @@ test("blocca fonte mancante, ritirata o obsoleta", () => {
 
 test("una revisione acquisita non diventa verificata automaticamente", () => {
   assert.equal(hasVerifiedCoverage({ ...base, citations: [{ ...base.citations[0], revision: { status: "PENDING_REVIEW", sourceId: "s1" } }] }), false);
+});
+
+test("il revisore vede le istruzioni prive di copertura e le fonti superate", () => {
+  const review = reviewCoverage({
+    ...base,
+    citations: [{ ...base.citations[0], instructionIds: ["who", "portal"] }],
+  });
+  assert.deepEqual(review.missingInstructions, [{ id: "prepare", title: "Prepara" }]);
+  assert.equal(review.canPublish, false);
+
+  const stale = reviewCoverage({
+    ...base,
+    citations: [{ ...base.citations[0], source: { ...base.citations[0].source, status: "STALE" } }],
+  });
+  assert.deepEqual(stale.invalidCitations, ["https://www.inps.it/"]);
+  assert.deepEqual(stale.missingInstructions.map(({ id }) => id), ["who", "prepare", "portal"]);
+  assert.equal(stale.canPublish, false);
 });

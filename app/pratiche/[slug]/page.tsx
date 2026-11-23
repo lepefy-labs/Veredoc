@@ -25,7 +25,7 @@ export default async function ProcedurePage({ params, searchParams }: {
   const entryPoint = practiceEntryPoint(da, slug);
   const item = (await catalog()).find((candidate) => candidate.slug === slug);
   if (!item) notFound();
-  const guide = item.available ? practicalGuide(item.versionId) : undefined;
+  const guide = item.available ? practicalGuide(item.versionId) ?? item.publicGuide : undefined;
   const userId = session.user.id;
   const [profiles, openCases] = item.available ? await Promise.all([
     prisma.analysisProfile.findMany({
