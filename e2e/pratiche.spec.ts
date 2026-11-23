@@ -56,10 +56,22 @@ test("percorso Pratiche salva, riprende e protegge la proprietà", async ({ page
   await page.getByRole("button", { name: "Avanti" }).click();
   await expect(page.getByRole("heading", { name: "Apri il portale INPS" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Ho inviato la richiesta" })).toBeVisible();
+  expect(await prisma.caseEvent.count({ where: { caseId, type: "PREPARED" } })).toBe(1);
   const invalid = await page.request.patch(`/api/pratiche/cases/${caseId}`, { data: { kind: "answer", questionId: "opzione", value: "invalid", expectedRevision: 2 } });
   expect(invalid.status()).toBe(400);
   const stale = await page.request.patch(`/api/pratiche/cases/${caseId}`, { data: { kind: "step", stepId: "base", done: false, expectedRevision: 0 } });
   expect(stale.status()).toBe(409);
+  await page.getByRole("button", { name: "Ho inviato la richiesta" }).click();
+  await expect(page.getByRole("heading", { name: "Presentazione dichiarata da te" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Apri il servizio ufficiale" })).toHaveAttribute("href", "https://www.inps.it/");
+  await page.getByRole("button", { name: "Segna come conclusa" }).click();
+  await expect(page.getByText("Conclusa", { exact: true })).toBeVisible();
+  const recap = await page.getByRole("link", { name: "Scarica riepilogo PDF" }).getAttribute("href");
+  expect(recap).toBe(`/api/pratiche/cases/${caseId}/riepilogo`);
+  const pdf = await page.request.get(recap!);
+  await expect(pdf).toBeOK();
+  expect(pdf.headers()["content-type"]).toBe("application/pdf");
+  expect((await pdf.body()).subarray(0, 5).toString()).toBe("%PDF-");
   const stranger = await browser.newContext();
   expect((await stranger.request.get(`/api/pratiche/cases/${caseId}`)).status()).toBe(401);
   const other = await stranger.newPage();
@@ -68,6 +80,7 @@ test("percorso Pratiche salva, riprende e protegge la proprietà", async ({ page
   await login(other, otherEmail);
   await expect(other).toHaveURL(/\/dashboard/);
   const foreign = await other.request.get(`/api/pratiche/cases/${caseId}`);
+  expect((await other.request.get(`/api/pratiche/cases/${caseId}/riepilogo`)).status()).toBe(404);
   expect(foreign.status()).toBe(404);
   expect((await other.request.post("/api/pratiche/cases", { data: { slug, profileId: ownProfileId } })).status()).toBe(403);
   expect((await other.request.get("/api/pratiche/admin")).status()).toBe(403);
@@ -537,4 +550,22 @@ test("l’assistente della guida mostra istruzioni pubblicate e fonte ufficiale"
   await expect(assistant.getByText("Istruzioni dalla guida pubblicata.")).toBeVisible();
   await expect(assistant.getByRole("link", { name: "Apri il Portale unico ISEE dell’INPS" })).toHaveAttribute("href", /^https:\/\/servizi2\.inps\.it\//);
   await expect(assistant.getByText("Fonti verificate il", { exact: false })).toBeVisible();
+});
+
+test("il percorso Famiglia riunisce cinque guide pubblicate, incluso il bonus sociale", async ({ page }) => {
+  for (const [version, slug] of [
+    ["pv_isee_1", "preparazione-dsu-isee"],
+    ["pv_isee_corrente_1", "isee-corrente"],
+    ["pv_assegno_unico_1", "assegno-unico"],
+    ["pv_bonus_nido_1", "bonus-asilo-nido"],
+    ["pv_bonus_sociale_1", "bonus-sociale-luce-gas-acqua"],
+  ]) await createPublishedFixture(version, slug);
+
+  await page.goto("/");
+  await page.getByRole("link", { name: /ISEE, famiglia e bonus/ }).click();
+  await expect(page).toHaveURL(/\/guide\/temi\/isee-e-famiglia$/);
+  await expect(page.getByRole("heading", { name: "ISEE, famiglia e bonus", level: 1 })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("listitem")).toHaveCount(5);
+  const sitemap = await page.request.get("/sitemap.xml");
+  expect(await sitemap.text()).toContain("/guide/temi/isee-e-famiglia");
 });

@@ -158,7 +158,8 @@ export async function updateCase(userId: string, id: string, expectedRevision: n
       if (mutation.status === "COMPLETED" && record.status !== "USER_REPORTED_SUBMITTED") throw new PracticeError("La presentazione non è stata dichiarata.", 409);
     }
     const state = progress(workflow, answers, completed);
-    const changed = await tx.userCase.updateMany({ where: { id, userId, revision: expectedRevision }, data: { revision: { increment: 1 }, status: mutation.kind === "status" ? mutation.status : state.blocked ? "BLOCKED" : state.ready ? "READY_TO_SUBMIT" : "IN_PROGRESS", completedAt: mutation.kind === "status" && mutation.status === "COMPLETED" ? new Date() : undefined } });
+    const status = mutation.kind === "status" ? mutation.status : state.blocked ? "BLOCKED" : state.ready ? "READY_TO_SUBMIT" : "IN_PROGRESS";
+    const changed = await tx.userCase.updateMany({ where: { id, userId, revision: expectedRevision }, data: { revision: { increment: 1 }, status, completedAt: mutation.kind === "status" && mutation.status === "COMPLETED" ? new Date() : undefined } });
     if (changed.count !== 1) throw new PracticeError("La pratica è stata aggiornata altrove.", 409, "revision_conflict");
     if (mutation.kind === "answer") {
       await tx.caseAnswer.upsert({ where: { caseId_questionId: { caseId: id, questionId: mutation.questionId } }, create: { caseId: id, questionId: mutation.questionId, value: value as Prisma.InputJsonValue, revision: expectedRevision + 1 }, update: { value: value as Prisma.InputJsonValue, revision: expectedRevision + 1 } });
@@ -169,6 +170,9 @@ export async function updateCase(userId: string, id: string, expectedRevision: n
     }
     if (mutation.kind === "step") await tx.caseStep.upsert({ where: { caseId_stepId: { caseId: id, stepId: mutation.stepId } }, create: { caseId: id, stepId: mutation.stepId, status: mutation.done ? "DONE" : "PENDING", completedAt: mutation.done ? new Date() : null }, update: { status: mutation.done ? "DONE" : "PENDING", completedAt: mutation.done ? new Date() : null } });
     await tx.caseEvent.create({ data: { caseId: id, actorId: userId, type: mutation.kind === "status" ? mutation.status : mutation.kind === "answer" ? "ANSWERED" : "STEP_UPDATED", metadata: mutation.kind === "answer" ? { questionId: mutation.questionId } : mutation.kind === "step" ? { stepId: mutation.stepId } : undefined } });
+    if (status === "READY_TO_SUBMIT" && record.status !== "READY_TO_SUBMIT") {
+      await tx.caseEvent.create({ data: { caseId: id, actorId: userId, type: "PREPARED" } });
+    }
     return { revision: expectedRevision + 1, advanced: state.done > previousDone };
   });
 }

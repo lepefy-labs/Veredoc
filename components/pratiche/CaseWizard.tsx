@@ -47,6 +47,7 @@ const eventLabels: Record<string, string> = {
   CREATED: "Pratica avviata",
   ANSWERED: "Risposta salvata",
   STEP_UPDATED: "Checklist aggiornata",
+  PREPARED: "Checklist completata",
   USER_REPORTED_SUBMITTED: "Presentazione dichiarata",
   COMPLETED: "Pratica conclusa",
   CANCELLED: "Pratica annullata",
@@ -66,6 +67,7 @@ export default function CaseWizard({ initial, resumeVisit, evidenceEnabled }: { 
   const items = useMemo(() => visibleItems(current), [current]);
   const index = Math.min(position, Math.max(items.length - 1, 0));
   const active = items[index];
+  const officialPortal = current.workflow.steps.find((item) => item.kind === "portal" && item.url && applies(item.when, current.answers));
   const percent = current.progress.required ? Math.round(100 * current.progress.done / current.progress.required) : 100;
 
   async function save(payload: Record<string, unknown>, next = true) {
@@ -168,7 +170,7 @@ export default function CaseWizard({ initial, resumeVisit, evidenceEnabled }: { 
     </div>}
     {!current.progress.ready && !current.progress.blocked && current.progress.missing.length > 0 && <details className="mt-6 rounded-xl border border-line bg-white p-5"><summary className="cursor-pointer font-semibold text-brand">Passaggi da fare: {current.progress.missing.length}</summary><ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-muted">{current.progress.missing.map((name) => <li key={name}>{name}</li>)}</ul></details>}
     {current.progress.ready && current.status === "READY_TO_SUBMIT" && <div className="mt-6 rounded-xl border border-line bg-white p-5"><h2 className="font-semibold">Puoi inviare la richiesta</h2><p className="mt-2 text-sm text-muted">Inviala sul sito ufficiale.</p><button type="button" disabled={busy || conflict} onClick={() => void save({ kind: "status", status: "USER_REPORTED_SUBMITTED" }, false)} className="mt-4 rounded-lg bg-brand px-4 py-3 font-semibold text-white">Ho inviato la richiesta</button></div>}
-    {current.status === "USER_REPORTED_SUBMITTED" && <div className="mt-6 rounded-xl border border-line bg-white p-5"><p className="text-sm">Hai segnato di averla inviata. Veredoc non può sapere se l’ente l’ha ricevuta.</p><button type="button" disabled={busy || conflict} onClick={() => void save({ kind: "status", status: "COMPLETED" }, false)} className="mt-4 rounded-lg bg-brand px-4 py-3 font-semibold text-white">Segna come conclusa</button></div>}
+    {current.status === "USER_REPORTED_SUBMITTED" && <div className="mt-6 rounded-xl border border-line bg-white p-5"><h2 className="font-semibold">Presentazione dichiarata da te</h2><p className="mt-2 text-sm text-muted">Controlla l’esito presso l’ente. Quando il percorso è terminato, segna la pratica come conclusa.</p>{officialPortal?.url && <a href={officialPortal.url} target="_blank" rel="noopener noreferrer" className="mt-2 mr-4 inline-flex min-h-11 items-center text-sm font-semibold text-brand underline">Apri il servizio ufficiale</a>}<button type="button" disabled={busy || conflict} onClick={() => void save({ kind: "status", status: "COMPLETED" }, false)} className="mt-4 rounded-lg bg-brand px-4 py-3 font-semibold text-white">Segna come conclusa</button></div>}
     <details className="mt-6 rounded-xl border border-line bg-white p-5"><summary className="cursor-pointer font-semibold text-brand">Fonti ufficiali</summary><ul className="mt-3 space-y-2 text-sm">{current.sources.map((source) => <li key={source.url}><a href={source.url} target="_blank" rel="noopener noreferrer" className="text-brand underline">{source.title}</a><span className="block text-xs text-muted">{source.authority}. Controllata il {source.verifiedAt ? new Date(source.verifiedAt).toLocaleDateString("it-IT") : "data non disponibile"}.</span></li>)}</ul></details>
     {current.history && current.history.length > 0 && <details className="mt-6 rounded-xl border border-line bg-white p-5">
       <summary className="cursor-pointer font-semibold text-brand">Attività recenti</summary>
@@ -181,6 +183,9 @@ export default function CaseWizard({ initial, resumeVisit, evidenceEnabled }: { 
         })}
       </ul>
     </details>}
-    <button type="button" disabled={busy} onClick={() => void removeCase()} className="mt-6 min-h-11 text-sm font-semibold text-danger underline disabled:opacity-50">Elimina la pratica</button>
+    <div className="mt-6 flex flex-wrap gap-x-5">
+    <a href={`/api/pratiche/cases/${encodeURIComponent(current.id)}/riepilogo`} className="inline-flex min-h-11 items-center text-sm font-semibold text-brand underline">Scarica riepilogo PDF</a>
+    <button type="button" disabled={busy} onClick={() => void removeCase()} className="min-h-11 text-sm font-semibold text-danger underline disabled:opacity-50">Elimina la pratica</button>
+    </div>
   </div>;
 }

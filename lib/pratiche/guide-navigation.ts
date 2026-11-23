@@ -1,10 +1,12 @@
+import { familyTopicPath } from "./family-navigation.ts";
+
 export const immigrationTopicPath = "/guide/temi/permessi-e-cittadinanza";
 
 export const guideTopics = [
   { id: "immigrazione", title: "Permessi e cittadinanza", description: "Rilascio, rinnovo, ricongiungimento e stato della pratica.", href: immigrationTopicPath },
   { id: "casa", title: "Casa e residenza", description: "Cambio di residenza e certificati anagrafici.", href: "/guide#casa" },
   { id: "utenze", title: "Bollette e utenze", description: "Leggi la bolletta, cambia intestatario o controlla il bonus sociale.", href: "/guide#utenze" },
-  { id: "famiglia", title: "ISEE, famiglia e bonus", description: "DSU, ISEE corrente e contributi per le famiglie.", href: "/guide#famiglia" },
+  { id: "famiglia", title: "ISEE, famiglia e bonus", description: "DSU, ISEE corrente e contributi per le famiglie.", href: familyTopicPath },
 ] as const;
 
 type TopicId = (typeof guideTopics)[number]["id"];

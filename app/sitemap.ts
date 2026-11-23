@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { praticheEnabled } from "@/lib/pratiche/feature";
 import { immigrationTopicPath } from "@/lib/pratiche/guide-navigation";
+import { familyPaths, familyTopicPath } from "@/lib/pratiche/family-navigation";
 import { publicGuides } from "@/lib/pratiche/public-guides";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +17,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const guides = await publicGuides();
     for (const pathname of ["/guide", immigrationTopicPath]) {
       entries.push({ url: new URL(pathname, origin).href });
+    }
+    if (familyPaths.some(({ slug }) => guides.some((guide) => guide.slug === slug))) {
+      entries.push({ url: new URL(familyTopicPath, origin).href });
     }
     for (const { slug, lastModified } of guides) {
       entries.push({
